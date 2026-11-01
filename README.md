@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Zalo AI Challenge 2026 — DataMate
 
 Thư mục làm việc của đội để chuẩn bị xây dựng AI Agent trả lời câu hỏi tiếng Việt trên dữ liệu kinh doanh có cấu trúc.
