@@ -1,0 +1,22 @@
+# Dữ liệu cuộc thi
+/train/
+/public_test/
+
+# Môi trường Python và cache
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Thông tin bí mật
+.env
+.env.*
+!.env.example
+
+# Model và kết quả chạy
+/models/
+/checkpoints/
+/result/
+/outputs/
+/logs/
