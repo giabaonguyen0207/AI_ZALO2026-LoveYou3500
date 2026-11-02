@@ -1,0 +1,11 @@
+{
+  "backend": "transformers",
+  "model_key": "gemma4-12b",
+  "model_dir": "models/gemma4-12b",
+  "mode": "speculative",
+  "assistant_key": "gemma4-12b-assistant",
+  "assistant_dir": "models/gemma4-12b-assistant",
+  "split_root": "train/train",
+  "result_dir": "result/gemma4-12b-speculative",
+  "quantization": "none"
+}

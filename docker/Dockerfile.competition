@@ -1,0 +1,18 @@
+# Supply the OFFICIAL image explicitly after receiving the Docker guideline.
+# Prepare /wheelhouse for its Python/CUDA/architecture before this offline build.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+    HF_HOME=/work/huggingface TORCH_HOME=/work/torch XDG_CACHE_HOME=/work
+COPY wheelhouse /wheelhouse
+COPY pyproject.toml /app/
+COPY src /app/src
+RUN python -m pip install --no-index --find-links=/wheelhouse setuptools wheel \
+    && python -m pip install --no-index --find-links=/wheelhouse --no-build-isolation '.[llm]'
+COPY configs /app/configs
+COPY models /app/models
+COPY predict.sh /app/predict.sh
+RUN chmod +x /app/predict.sh
+ENV DATAMATE_CONFIG=/app/configs/submission.json
+ENTRYPOINT ["/app/predict.sh"]

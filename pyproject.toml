@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datamate-agent"
+version = "0.1.0"
+description = "Offline modular monolith for DataMate: inspect, query, verify, answer"
+requires-python = ">=3.11"
+dependencies = ["openpyxl==3.1.5", "fastapi>=0.115,<1", "uvicorn>=0.34,<1"]
+
+[project.optional-dependencies]
+llm = ["torch>=2.7,<3", "transformers>=5.15,<6", "accelerate>=1.10,<2", "safetensors>=0.8,<1", "huggingface-hub>=1.5,<2", "sentencepiece>=0.2,<1", "jinja2>=3.1,<4", "bitsandbytes>=0.48,<1"]
+train = ["datamate-agent[llm]", "peft>=0.20,<1", "datasets>=4,<6", "bitsandbytes>=0.48,<1"]
+dev = ["pytest>=8,<10", "httpx>=0.28,<1"]
+
+[project.scripts]
+datamate = "datamate.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+datamate = ["web/*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

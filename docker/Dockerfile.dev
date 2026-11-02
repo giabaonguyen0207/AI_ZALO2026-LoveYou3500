@@ -1,0 +1,16 @@
+# Development / smoke-test image only. The organizer base image is still unknown.
+ARG BASE_IMAGE=python:3.13-slim@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb
+FROM ${BASE_IMAGE}
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+    HF_HOME=/work/huggingface TORCH_HOME=/work/torch XDG_CACHE_HOME=/work
+COPY requirements.lock.txt /app/requirements.lock.txt
+RUN python -m pip install --no-cache-dir -r requirements.lock.txt
+COPY pyproject.toml /app/
+COPY src /app/src
+RUN python -m pip install --no-cache-dir --no-deps .
+COPY configs /app/configs
+COPY predict.sh /app/predict.sh
+RUN chmod +x /app/predict.sh
+ENV DATAMATE_CONFIG=/app/configs/submission-demo.json
+ENTRYPOINT ["/app/predict.sh"]

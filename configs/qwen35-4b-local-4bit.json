@@ -1,0 +1,13 @@
+{
+  "backend": "transformers",
+  "model_key": "qwen35-4b",
+  "model_dir": "models/qwen35-4b",
+  "mode": "single",
+  "split_root": "train/train",
+  "result_dir": "result/qwen35-4b-4bit",
+  "quantization": "4bit",
+  "max_context_tokens": 16384,
+  "max_new_tokens": 768,
+  "max_steps": 10,
+  "question_timeout_seconds": 240
+}

@@ -2,6 +2,8 @@
 
 ## Document provenance and verification status
 
+- **Implementation update, November 1, 2026:** the user has now requested and authorized a modular-monolith implementation with selectable Qwen/Gemma models and a local test UI. See [architecture](architecture.md), [model comparison and pinned checkpoint evidence](model-comparison.md), and [actual verification status](verification-2026-11-01.md). The original sections below preserve the October 30 competition summary; implementation choices and observed data are recorded separately and do not establish new official rules.
+
 - Saved on **October 30, 2026**, using the user's supplied competition summary.
 - This file preserves the requirements, examples, and unknowns in that summary. It does not select an architecture, model, framework, development plan, or implementation strategy.
 - The user attributes the summary to the official portal and reviewed screenshots/documentation. Those underlying screenshots and documents have not been supplied in this workspace.

@@ -1,0 +1,12 @@
+.git
+.venv
+.cache
+.pytest_cache
+train
+public_test
+outputs
+result
+checkpoints
+**/__pycache__
+**/*.egg-info
+*.zip

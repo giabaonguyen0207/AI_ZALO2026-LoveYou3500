@@ -1,0 +1,12 @@
+{
+  "backend": "transformers",
+  "model_key": "qwen35-9b",
+  "model_dir": "models/qwen35-9b",
+  "mode": "single",
+  "split_root": "train/train",
+  "result_dir": "result/qwen35-9b",
+  "quantization": "none",
+  "max_steps": 10,
+  "max_context_tokens": 16384,
+  "max_new_tokens": 1024
+}

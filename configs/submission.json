@@ -1,0 +1,13 @@
+{
+  "backend": "transformers",
+  "split_root": "/data",
+  "cache_dir": "/work/datamate",
+  "result_dir": "/result",
+  "model_key": "qwen35-9b",
+  "model_dir": "/app/models/qwen35-9b",
+  "mode": "single",
+  "quantization": "none",
+  "max_steps": 10,
+  "question_timeout_seconds": 90,
+  "wall_time_seconds": 21000
+}

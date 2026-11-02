@@ -20,3 +20,13 @@ __pycache__/
 /result/
 /outputs/
 /logs/
+
+# Local caches, packaging and editable installs
+/.cache/
+/.pytest_cache/
+/*.egg-info/
+/src/*.egg-info/
+/build/
+/dist/
+/wheelhouse/
+*.log

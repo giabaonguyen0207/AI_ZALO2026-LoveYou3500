@@ -1,0 +1,166 @@
+{
+  "checked_on": "2026-11-01",
+  "scope": "Public repository metadata and file LFS hashes, not local weight validation",
+  "models": [
+    {
+      "spec": {
+        "key": "qwen35-4b",
+        "repo_id": "Qwen/Qwen3.5-4B",
+        "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+        "parameters": 4659865088,
+        "revision_date": "2026-03-02T00:52:52Z",
+        "license": "apache-2.0",
+        "assistant_for": null
+      },
+      "metadata_url": "https://huggingface.co/api/models/Qwen/Qwen3.5-4B/revision/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a?blobs=true",
+      "history_url": "https://huggingface.co/api/models/Qwen/Qwen3.5-4B/commits/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+      "pinned_commit": {
+        "id": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+        "date": "2026-03-02T00:52:52.000Z",
+        "title": "Update README.md"
+      },
+      "weight_files": [
+        {
+          "rfilename": "model.safetensors-00001-of-00002.safetensors",
+          "blobId": "d2e1801a99c9c1618c526812e779d9543df84891",
+          "size": 5329398688,
+          "lfs": {
+            "sha256": "26a93f066e1916adb13453dae5a0c707c0fbc71299ed98779571a907b8e74c61",
+            "size": 5329398688,
+            "pointerSize": 135
+          }
+        },
+        {
+          "rfilename": "model.safetensors-00002-of-00002.safetensors",
+          "blobId": "8fbeeec18827d3b20e3df1dc0abf94f7e85bcef1",
+          "size": 3990429408,
+          "lfs": {
+            "sha256": "cb544bd9bfae93dc59b0f22b292f5933573854a7f9b97835c67060d7d910e188",
+            "size": 3990429408,
+            "pointerSize": 135
+          }
+        }
+      ]
+    },
+    {
+      "spec": {
+        "key": "qwen35-9b",
+        "repo_id": "Qwen/Qwen3.5-9B",
+        "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+        "parameters": 9653104368,
+        "revision_date": "2026-03-02T00:51:43Z",
+        "license": "apache-2.0",
+        "assistant_for": null
+      },
+      "metadata_url": "https://huggingface.co/api/models/Qwen/Qwen3.5-9B/revision/c202236235762e1c871ad0ccb60c8ee5ba337b9a?blobs=true",
+      "history_url": "https://huggingface.co/api/models/Qwen/Qwen3.5-9B/commits/c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+      "pinned_commit": {
+        "id": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+        "date": "2026-03-02T00:51:43.000Z",
+        "title": "Update README.md"
+      },
+      "weight_files": [
+        {
+          "rfilename": "model.safetensors-00001-of-00004.safetensors",
+          "blobId": "dfcd6f97b641f0447db5697eca1f4e227c84449c",
+          "size": 5276436216,
+          "lfs": {
+            "sha256": "db6f444b43d318c92f360a13a25561a6a65b10c0631b8ed305a426dbaa6c380e",
+            "size": 5276436216,
+            "pointerSize": 135
+          }
+        },
+        {
+          "rfilename": "model.safetensors-00002-of-00004.safetensors",
+          "blobId": "645b45d883adaee57a4dbbf75577fa634d20c6b5",
+          "size": 5335161512,
+          "lfs": {
+            "sha256": "31c7d7e2dd5d207840b31cc59083c8f4c4718959149e0358c0364052bb9a0330",
+            "size": 5335161512,
+            "pointerSize": 135
+          }
+        },
+        {
+          "rfilename": "model.safetensors-00003-of-00004.safetensors",
+          "blobId": "20f21fdc49bdca8f021badede1ec436d8241f1e2",
+          "size": 5368717440,
+          "lfs": {
+            "sha256": "7ec36ba3a4176a44c3c0876ad80c56a2f70c84bf008d82e9501df642f17dadec",
+            "size": 5368717440,
+            "pointerSize": 135
+          }
+        },
+        {
+          "rfilename": "model.safetensors-00004-of-00004.safetensors",
+          "blobId": "5a0f71d358bf91155d46e610dc32db45989a1a5f",
+          "size": 3325995712,
+          "lfs": {
+            "sha256": "b62b0c4cd7e44edee103ee8f4fe225f246d5e768e07bfd5f25b63a8aa1fdd0c6",
+            "size": 3325995712,
+            "pointerSize": 135
+          }
+        }
+      ]
+    },
+    {
+      "spec": {
+        "key": "gemma4-12b",
+        "repo_id": "google/gemma-4-12B-it",
+        "revision": "707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7",
+        "parameters": 11959730224,
+        "revision_date": "2026-07-20T16:42:08Z",
+        "license": "apache-2.0",
+        "assistant_for": null
+      },
+      "metadata_url": "https://huggingface.co/api/models/google/gemma-4-12B-it/revision/707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7?blobs=true",
+      "history_url": "https://huggingface.co/api/models/google/gemma-4-12B-it/commits/707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7",
+      "pinned_commit": {
+        "id": "707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7",
+        "date": "2026-07-20T16:42:08.000Z",
+        "title": "Add response_template to tokenizer_config.json (#43)"
+      },
+      "weight_files": [
+        {
+          "rfilename": "model.safetensors",
+          "blobId": "85441e32a8ab9f7cf6b2ed9b2f2a70e9b59dbb0b",
+          "size": 23919549408,
+          "lfs": {
+            "sha256": "5a84cb313260ac447237b890387116dfa8682e49a6b44bc585ae8353abbff18d",
+            "size": 23919549408,
+            "pointerSize": 136
+          }
+        }
+      ]
+    },
+    {
+      "spec": {
+        "key": "gemma4-12b-assistant",
+        "repo_id": "google/gemma-4-12B-it-assistant",
+        "revision": "46d4c6f13f0ac0ad827b915669b8df9b81c64c51",
+        "parameters": 422856964,
+        "revision_date": "2026-08-20T21:49:20Z",
+        "license": "apache-2.0",
+        "assistant_for": "gemma4-12b"
+      },
+      "metadata_url": "https://huggingface.co/api/models/google/gemma-4-12B-it-assistant/revision/46d4c6f13f0ac0ad827b915669b8df9b81c64c51?blobs=true",
+      "history_url": "https://huggingface.co/api/models/google/gemma-4-12B-it-assistant/commits/46d4c6f13f0ac0ad827b915669b8df9b81c64c51",
+      "pinned_commit": {
+        "id": "46d4c6f13f0ac0ad827b915669b8df9b81c64c51",
+        "date": "2026-08-20T21:49:20.000Z",
+        "title": "Update README.md"
+      },
+      "weight_files": [
+        {
+          "rfilename": "model.safetensors",
+          "blobId": "dcecf2bfdf2086d661e44134663920bdaacec1e7",
+          "size": 845719296,
+          "lfs": {
+            "sha256": "3279c173daddd7186e79d652ad94022415736d3a1370625696c898429b06d6df",
+            "size": 845719296,
+            "pointerSize": 134
+          }
+        }
+      ]
+    }
+  ]
+}

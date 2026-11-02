@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DataMate — Agent Lab</title>
+  <meta name="description" content="Phòng thử nghiệm AI agent cục bộ cho Zalo AI Challenge DataMate.">
+  <link rel="stylesheet" href="/assets/style.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="/" aria-label="DataMate trang chủ"><span class="brand-mark">d<span>m</span></span><span>DataMate<small>AGENT LAB</small></span></a>
+    <button class="new-chat" id="new-chat"><span>＋</span> Phiên thử mới <kbd>Ctrl K</kbd></button>
+    <div class="nav-label">WORKSPACE</div>
+    <button class="nav-item active" id="conversation-tab"><span>◫</span> Thử nghiệm agent <span class="nav-dot"></span></button>
+    <button class="nav-item" id="schema-tab"><span>▦</span> Khám phá dữ liệu</button>
+    <div class="history-label"><span>GẦN ĐÂY</span><button id="clear-history" title="Xóa lịch sử trên trình duyệt" aria-label="Xóa lịch sử">×</button></div>
+    <div class="history" id="history"><p class="muted">Các câu thử sẽ xuất hiện ở đây.</p></div>
+    <div class="sidebar-footer"><span class="connection-dot"></span><div>Chạy trên máy của bạn<small id="gpu-label">Đang đọc cấu hình…</small></div><span class="key-icon">⌘</span></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar"><div><button class="menu-toggle" id="toggle-menu" aria-label="Mở menu">☰</button><span class="breadcrumb">DataMate <span>/</span> <strong id="page-title">Thử nghiệm agent</strong></span></div><div class="topbar-actions"><button class="trace-toggle" id="toggle-inspector">Dấu vết ◇</button><span class="offline-badge"><span></span> Offline inference</span></div></header>
+
+    <div class="workspace-bar">
+      <label class="control"><span>MODEL & CHẾ ĐỘ</span><select id="preset" aria-label="Chọn model và chế độ"><option value="demo">Demo · không tải LLM</option></select></label>
+      <div class="control-separator"></div>
+      <label class="control compact"><span>SPLIT</span><select id="split" aria-label="Chọn split"><option value="train">Train</option></select></label>
+      <label class="control compact"><span>DOANH NGHIỆP</span><select id="business" aria-label="Chọn doanh nghiệp"></select></label>
+      <label class="control date-control"><span>AS OF DATE</span><input id="as-of" type="date" value="2026-06-15" aria-label="Ngày tham chiếu của câu hỏi"></label>
+    </div>
+
+    <section class="chat-view" id="chat-view">
+      <div class="welcome" id="welcome">
+        <div class="eyebrow"><span></span> ZALO AI CHALLENGE · DATAMATE</div>
+        <h1>Đặt câu hỏi.<br><span>Để dữ liệu trả lời.</span></h1>
+        <p>Thử agent trên dữ liệu kinh doanh. Theo dõi truy vấn,<br class="desktop-break"> kiểm tra bằng chứng và xem đáp án có cấu trúc.</p>
+        <div class="example-grid">
+          <button class="example" data-question="Tổng doanh thu trong tháng này là bao nhiêu?"><span class="example-icon">↗</span><strong>Nhìn lại doanh thu</strong><span>Tổng doanh thu tháng này là bao nhiêu?</span><i>↗</i></button>
+          <button class="example" data-question="Liệt kê 5 mặt hàng bán chạy nhất trong tuần trước."><span class="example-icon">▤</span><strong>Khám phá mặt hàng</strong><span>Top 5 bán chạy trong tuần trước</span><i>↗</i></button>
+          <button class="example" data-question="Tính đến hôm nay, tổng tiền khách còn nợ là bao nhiêu?"><span class="example-icon">◎</span><strong>Kiểm tra công nợ</strong><span>Khách đang còn nợ bao nhiêu?</span><i>↗</i></button>
+        </div>
+        <div class="flow"><span>Đọc schema</span><i>→</i><span>Thực thi SQL</span><i>→</i><span>Kiểm tra</span><i>→</i><span>JSON đáp án</span></div>
+      </div>
+      <div class="messages" id="messages" aria-live="polite"></div>
+      <div class="composer-area"><div class="notice" id="model-notice"><span class="notice-dot"></span><span>Chế độ demo kiểm tra luồng phần mềm và luôn trả abstain. Chọn model để inference thật.</span></div>
+        <form id="chat-form" class="composer"><textarea id="question" rows="2" maxlength="4000" placeholder="Hỏi về dữ liệu của doanh nghiệp…" aria-label="Nội dung câu hỏi" required></textarea><div class="composer-bottom"><span><span class="context-icon">▱</span> Rulebook theo split <span class="composer-divider">·</span> <span id="model-context">Demo</span></span><button id="send" type="submit" aria-label="Chạy agent">↑</button></div></form>
+        <div class="composer-caption"><span>Enter để chạy · Shift + Enter để xuống dòng</span><span id="status-text">Sẵn sàng</span></div>
+      </div>
+    </section>
+
+    <section class="schema-view hidden" id="schema-view"><div class="section-heading"><div><span class="eyebrow">DATA EXPLORER</span><h2>Hiểu dữ liệu trước khi hỏi.</h2><p>Schema đọc trực tiếp từ file; giá trị gốc được giữ nguyên.</p></div><button class="outline-button" id="load-schema">Đọc schema ↻</button></div><div id="schema-content" class="schema-content"><div class="empty-state">Chọn doanh nghiệp rồi bấm “Đọc schema”.</div></div></section>
+    <div class="toast hidden" id="toast" role="alert"></div>
+  </main>
+
+  <aside class="inspector"><div class="inspector-heading"><span>PHIÊN HIỆN TẠI</span><span>⌁</span></div><div class="run-state"><span class="run-orb">◇</span><strong id="run-title">Sẵn sàng thử nghiệm</strong><p id="run-description">Một câu hỏi, một lần chạy.<br>Mọi bước đều có thể kiểm tra.</p></div><dl class="metrics"><div><dt>Thời gian câu hỏi</dt><dd id="metric-time">—</dd></div><div><dt>Lượt gọi model</dt><dd id="metric-calls">—</dd></div><div><dt>Định dạng đáp án</dt><dd id="metric-type">—</dd></div><div><dt>Tham số inference</dt><dd id="metric-params">—</dd></div></dl><div class="trace-heading">DẤU VẾT THỰC THI <span id="trace-count">0</span></div><div id="trace" class="trace"><div class="trace-empty">Schema, SQL và kết quả kiểm tra sẽ xuất hiện sau mỗi lượt chạy.</div></div><button class="outline-button export-button" id="export" disabled>↓ Tải kết quả JSON</button><div class="inspector-footnote">Đáp án LLM cần được đánh giá trên holdout train trước khi dùng để nộp thi.</div></aside>
+</div>
+</body>
+</html>

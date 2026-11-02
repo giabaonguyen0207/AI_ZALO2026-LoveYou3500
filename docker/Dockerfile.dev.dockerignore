@@ -1,0 +1,14 @@
+.git
+.venv
+.cache
+.pytest_cache
+train
+public_test
+models
+outputs
+result
+checkpoints
+wheelhouse
+**/__pycache__
+**/*.egg-info
+*.zip

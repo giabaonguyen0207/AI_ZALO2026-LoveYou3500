@@ -1,0 +1,9 @@
+{
+  "backend": "demo",
+  "split_root": "/data",
+  "cache_dir": "/work/datamate",
+  "result_dir": "/result",
+  "model_key": "qwen35-9b",
+  "mode": "single",
+  "wall_time_seconds": 21000
+}
