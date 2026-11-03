@@ -30,7 +30,8 @@ WORK = Path("/content/datamate-inference")
 SAVE = BASE / "runs/inference-01"
 MODEL_KEY = "qwen35-4b"  # "qwen35-9b" or "gemma4-12b"
 QUANTIZATION = "4bit"    # "none" only when GPU/RAM is sufficient
-MODEL_DIR = BASE / "models" / MODEL_KEY
+MODEL_SOURCE_DIR = BASE / "models" / MODEL_KEY
+MODEL_DIR = MODEL_SOURCE_DIR
 
 WORK.mkdir(parents=True, exist_ok=True)
 SAVE.mkdir(parents=True, exist_ok=True)
@@ -77,34 +78,9 @@ subprocess.run(["nvidia-smi","--query-gpu=name,memory.total,driver_version","--f
 assert torch.cuda.is_available(), "Select a CUDA GPU runtime first"
 print("PyTorch:", torch.__version__, "CUDA:", torch.version.cuda)
 ''')
-md("## 3. Chuẩn bị và load model\nLượt đầu tải trọng số vào Drive và xác minh manifest; có thể lâu. Nếu đổi model, chạy lại các ô theo thứ tự. Tải xong model vẫn phải fit GPU khi load/inference.")
-code('''if "WORK" not in globals():
-    raise RuntimeError("Chạy lần lượt ô 1 và ô 2 trước khi load model.")
-from datamate.config import Settings
-from datamate.application import create_agent
-from datamate.models.artifacts import verify_artifact
-import gc, time
+md("## 3. Chuẩn bị và load model\nLượt đầu chuẩn bị trên Drive, chép sang /content/models rồi kiểm tra SHA-256 local trước khi load. Các lượt sau dùng lại cache cùng runtime. Nếu đổi model, chạy lại các ô theo thứ tự. Tải xong model vẫn phải fit GPU khi load/inference.")
+code((Path(__file__).resolve().parent / 'colab_load_model.py').read_text(encoding='utf-8'))
 
-# Online preparation runs in a fresh process; actual inference uses local files.
-prepare_env = {**os.environ, "HF_HUB_OFFLINE":"0", "TRANSFORMERS_OFFLINE":"0"}
-if not (MODEL_DIR/"artifact_manifest.json").exists():
-    subprocess.run([sys.executable,"-m","datamate","stage-model","--model",MODEL_KEY,
-                    "--output",str(MODEL_DIR)],env=prepare_env,check=True)
-else:
-    verify_artifact(MODEL_DIR,MODEL_KEY)
-if "agent" in globals():
-    del agent
-    gc.collect()
-    torch.cuda.empty_cache()
-settings = Settings(model_key=MODEL_KEY,model_dir=str(MODEL_DIR),
-                    quantization=QUANTIZATION,split_root=str(TRAIN_ROOT),
-                    cache_dir=str(WORK/".cache/datamate"),result_dir=str(SAVE),
-                    max_context_tokens=16384,max_new_tokens=768,
-                    max_steps=10,question_timeout_seconds=240)
-started = time.monotonic()
-agent = create_agent(settings)
-print("Loaded:", MODEL_KEY, "seconds:", round(time.monotonic()-started,2))
-''')
 md("## 4. Đặt câu hỏi, xem SQL\nMỗi lần bấm chạy ô này chỉ hỏi một câu. Đáp án chuẩn trong answers.jsonl không được đưa cho agent. Đúng một câu thử không phải benchmark accuracy.")
 code('''from datamate.domain import Question, json_text
 from datetime import datetime, timezone

@@ -20,25 +20,39 @@ def authorize(action, arg1, arg2, database, trigger):
 
 
 class SQLExecutor:
-    def __init__(self, database: Path, timeout_seconds: float = 12, max_rows: int = 150):
+    def __init__(self, database: Path, timeout_seconds: float = 12, max_rows: int = 150, deadline: float | None = None):
         self.database = database
         self.timeout_seconds = timeout_seconds
         self.max_rows = max_rows
+        self.deadline = deadline
 
     def execute(self, sql: str, parameters: list | None = None, remaining_seconds: float | None = None) -> dict:
         if not isinstance(sql, str) or not sql.strip() or len(sql) > 50000:
             raise DataMateError("SQL rỗng hoặc quá dài")
         started = time.monotonic()
+        if self.deadline is not None:
+            remaining_seconds = min(remaining_seconds, self.deadline-started) if remaining_seconds is not None else self.deadline-started
         budget = min(self.timeout_seconds, remaining_seconds) if remaining_seconds is not None else self.timeout_seconds
         if budget <= 0:
             raise DataMateError("Đã hết thời gian truy vấn")
         connection = sqlite3.connect(self.database.resolve().as_uri() + "?mode=ro", uri=True)
         try:
             connection.execute("PRAGMA query_only=ON")
+            if hasattr(connection, "setconfig") and hasattr(sqlite3, "SQLITE_DBCONFIG_DQS_DML"):
+                connection.setconfig(sqlite3.SQLITE_DBCONFIG_DQS_DML, False)
             connection.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, 2_000_000)
             connection.setlimit(sqlite3.SQLITE_LIMIT_SQL_LENGTH, 50000)
             register_functions(connection)
-            connection.set_authorizer(authorize)
+            references, functions, direct_tables = set(), set(), set()
+            def observed_authorize(action, arg1, arg2, database, trigger):
+                if action == sqlite3.SQLITE_READ:
+                    references.add((arg1,arg2))
+                    if trigger is None:
+                        direct_tables.add(arg1)
+                elif action == sqlite3.SQLITE_FUNCTION:
+                    functions.add(arg2)
+                return authorize(action,arg1,arg2,database,trigger)
+            connection.set_authorizer(observed_authorize)
             connection.set_progress_handler(lambda: int(time.monotonic() - started > budget), 1000)
             cursor = connection.execute(sql, parameters or [])
             if cursor.description is None:
@@ -48,7 +62,9 @@ class SQLExecutor:
             truncated = len(values) > self.max_rows
             rows = [list(row) for row in values[:self.max_rows]]
             result = {"columns": columns, "rows": rows, "truncated": truncated,
-                      "returned_rows": len(rows), "elapsed_seconds": round(time.monotonic() - started, 4)}
+                      "returned_rows": len(rows), "elapsed_seconds": round(time.monotonic() - started, 4),
+                      "references": [{"table":t,"column":c} for t,c in sorted(references)], "functions":sorted(functions),
+                      'direct_tables':sorted(direct_tables)}
             if len(json_text(result)) > 40000:
                 raise DataMateError("Kết quả quá lớn; chọn ít cột hoặc tổng hợp trong SQL")
             return result

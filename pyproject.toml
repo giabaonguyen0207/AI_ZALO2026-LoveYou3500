@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "datamate-agent"
-version = "0.1.0"
+version = "0.2.0"
 description = "Offline modular monolith for DataMate: inspect, query, verify, answer"
 requires-python = ">=3.11"
 dependencies = ["openpyxl==3.1.5", "fastapi>=0.115,<1", "uvicorn>=0.34,<1"]
