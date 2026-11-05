@@ -6,7 +6,7 @@
 
 **Cập nhật inference 03/11/2026:** pipeline v2 đã chạy lại cùng 72 câu development: **56 đúng, 1 sai, 15 bỏ qua; PA 76,39%**, khoảng 18 phút 15 giây riêng batch. Đây là mẫu đã dùng chẩn đoán, chưa đại diện hiệu năng private test. Đọc [phân tích lần 2, rules viết sẵn và lý do thiếu reasoning trong log](docs/inference-review-72-v2-2026-11-03.md), hoặc [những gì đã sửa và cách chạy Colab](docs/pipeline-v2-2026-11-03.md).
 
-**Đã chuẩn bị lượt 3:** 100 câu ngẫu nhiên đều từ toàn bộ 3.000 câu train, seed `20261103`, không cân đối theo type/ngôn ngữ/doanh nghiệp và không lọc câu cũ/holdout. Notebook mặc định chạy `random100-round3-01`, có log từng bước. Xem [danh sách và cách chạy](docs/inference-round3-random100.md). Chưa có kết quả LLM của lượt này.
+**Kết quả lượt 3 nhận ngày 04/11/2026.** Chấm lại 100 câu ngẫu nhiên từ toàn bộ train cho **49 đúng, 13 sai, 38 bỏ qua, PA 36%**. Hai lượt 2 và 3 chỉ trùng một câu. Xem [phân tích và kiểm chứng lỗi](docs/inference-review-100-v3-2026-11-04.md) và [cách lấy mẫu](docs/inference-round3-random100.md).
 
 **Kiểm tra triển khai ban đầu 01/11/2026:** đã kiểm thử phần mềm, đọc được 30 doanh nghiệp train và kiểm tra tokenizer/template. Cập nhật sau khi người dùng gặp lỗi load Qwen 9B trên RTX 4060 8GB: đã thêm **Qwen 3.5 4B · Local 4bit** để thử agent trên laptop. Xem [hướng dẫn chuyển sang 4B](docs/huong-dan-chay-tung-buoc.md). Chưa có benchmark so sánh model hoặc fine-tune. Demo luôn trả `abstain`.
 
