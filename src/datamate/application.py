@@ -10,6 +10,7 @@ from .agent.runner import Agent
 from .config import Settings
 from .data.split import DatasetSplit, ensure_outside_dataset, read_jsonl
 from .domain import Answer, DataMateError, Question, RunResult, json_text
+from .debug_log import write_debug_log
 from .models.backends import build_backend
 from .models.registry import inventory
 from .models.artifacts import sha256
@@ -47,6 +48,8 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
                 "questions_sha256": hashlib.sha256((split.root / "questions.jsonl").read_bytes()).hexdigest(),
                 "selected_ids_sha256": hashlib.sha256(json_text([q.id for q in questions]).encode()).hexdigest(),
                 "inventory": inventory(settings.model_key, settings.assistant_key)}
+    package_root=Path(__file__).parent
+    identity['source_hashes']={p.relative_to(package_root).as_posix():sha256(p) for p in sorted(package_root.rglob('*.py'))}
     input_files = [split.root / "calendar.csv"]
     for business in sorted({q.business_id for q in questions}):
         input_files.extend(sorted(p for p in split.business_path(business).rglob("*") if p.is_file()))
@@ -88,6 +91,7 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
             run = agent.run(question, remaining)
             name = hashlib.sha256(question.id.encode()).hexdigest()[:24] + ".json"
             payload = {"id": question.id, "business_id": question.business_id,
+                       **question.prompt_dict(),
                        "rulebook_sha256": split.rulebook_hash, **run.to_dict(question.id)}
             temporary = logs / (name + ".tmp")
             temporary.write_text(json_text(payload, indent=2), encoding="utf-8")
@@ -95,6 +99,7 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
             handle.write(json_text(run.answer.to_dict(question.id)) + "\n")
             handle.flush()
             os.fsync(handle.fileno())
+            write_debug_log((logs / name).with_suffix('.md'), payload)
             written += 1
     summary = {"backend": settings.backend, "mode": settings.mode, "model": settings.model_key,
                "selected_questions": len(questions), "previously_completed": len(completed), "written": written,

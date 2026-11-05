@@ -21,6 +21,7 @@ class Settings:
     assistant_dir: str | None = None
     quantization: str = "none"
     max_steps: int = 10
+    max_repeated_actions: int = 2
     max_new_tokens: int = 1024
     max_context_tokens: int = 16384
     question_timeout_seconds: float = 90
@@ -42,6 +43,8 @@ class Settings:
             raise DataMateError("Chỉ khai báo assistant cho chế độ speculative")
         if self.max_steps < 1 or self.max_result_rows < 1 or self.max_new_tokens < 1:
             raise DataMateError("Ngân sách bước/token/dòng phải dương")
+        if type(self.max_repeated_actions) is not int or self.max_repeated_actions < 2:
+            raise DataMateError("max_repeated_actions tối thiểu 2")
         if self.max_context_tokens < 2048:
             raise DataMateError("max_context_tokens tối thiểu 2048")
         if self.question_timeout_seconds <= 0 or self.sql_timeout_seconds <= 0:

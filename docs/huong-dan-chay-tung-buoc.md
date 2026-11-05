@@ -344,6 +344,8 @@ Bạn có thể đi thẳng từ A sang D nếu muốn dùng GPU Colab. Không c
 
 **Nếu chỉ muốn xem agent hỏi–đáp trên Colab:** làm D1–D2 để chuẩn bị hai ZIP, rồi upload **`notebooks/DataMate_Colab_Inference.ipynb`** thay cho notebook LoRA ở D3. Chọn GPU và chạy bốn ô lần lượt. Ô cuối cho sửa `BUSINESS_ID`, `AS_OF_DATE`, `QUESTION` rồi chạy lại từng câu, có trace SQL và file JSON trên Drive. Notebook inference không có bước training/thu hàng nghìn trajectory; mặc định `qwen35-4b`, có thể đổi `MODEL_KEY` sang `qwen35-9b` hoặc `gemma4-12b` khi đủ tài nguyên. Bước tiếp theo bên dưới dành cho fine-tune.
 
+**Cập nhật ô load inference 03/11/2026:** bản notebook đang dùng giữ lựa chọn model của bạn. `MODEL_SOURCE_DIR` là bản model trên Drive; ô load tự chép vào `/content/models` một lần mỗi runtime rồi kiểm tra SHA-256 và nạp từ ổ tạm. Chạy lại ô có thể dùng lại cache, nhưng vẫn kiểm tra toàn bộ hash trước khi nạp. Đã load thành công thì chỉ chạy ô hỏi/batch. Dùng cả notebook mới và source ZIP mới; không cần upload lại train hoặc model. Xem [cách chạy và xử lý cache](pipeline-v2-2026-11-03.md#chạy-lại-colab-bằng-một-phiên-gpu).
+
 ### D1. Chuẩn bị hai file ZIP trên ổ E:
 
 Trong PowerShell tại thư mục dự án, tạo lại gói mã nguồn:

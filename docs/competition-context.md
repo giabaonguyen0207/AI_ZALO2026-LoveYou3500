@@ -2,6 +2,16 @@
 
 ## Document provenance and verification status
 
+- **Third inference result received November 4, 2026.** The user supplied `outputs/diagnosis-2026-11-03/gemma4-12b-stress100-baseline-v3/`. All 100 selected IDs match the prior random draw. Re-scoring with local training labels gives 49 correct, 13 wrong and 38 abstentions, with PA 0.36. CPU probes reproduce errors in time periods, cancellation scope, SQL projection and schema binding. The second and third runs share only one question, so their PA values are measurements on different samples. See [third-run review](inference-review-100-v3-2026-11-04.md).
+
+- **Third-run sample, November 3, 2026:** the user requested 100 random questions without selection criteria. Prepared a uniform sample without replacement from all 3,000 training questions, seed 20261103, with no answer-type/language/business quotas, known-case insertion, old-question exclusion or holdout filtering. Files and the notebook plan match; no LLM inference has been run. The draw includes 18 questions from formerly reserved holdout businesses, so this run does not preserve those questions as unseen development evidence. Existing training partitions were not changed. See [third-run instructions](inference-round3-random100.md).
+
+- **Logging clarification, November 3, 2026:** the user clarified that debugging requires the LLM's actual output, generated SQL, tool results and errors at each step. Existing JSON traces already contain these; readable Markdown exports were added for the received run and future batch runs, with LLM SQL distinguished from metric-generated SQL. See [step log guide](debug-step-logs.md). This change does not enable thinking or alter business rules.
+
+- **Received inference result, November 3, 2026:** the user supplied the second 72-question development run for pipeline v2. Re-scoring confirms 56 correct, 1 wrong and 15 abstentions (PA 0.76389) on the same diagnostic sample. Source hashes, data fingerprint and logs match; CPU probes identify brittle question/period contracts and confirm that thinking output is explicitly disabled. See [second-run review and limitations](inference-review-72-v2-2026-11-03.md). This is a measured development result, not an estimate of private-test performance or official-rule verification.
+
+- **Implementation update, November 3, 2026:** the user supplied a completed 72-question development diagnostic and authorized fixes to the protocol, data preparation and verification tools. See [analysis of the received run](inference-review-72-2026-11-03.md) and [pipeline v2 implementation/verification status](pipeline-v2-2026-11-03.md). These observations use the actual training rulebook and do not independently verify official competition-wide requirements.
+
 - **Implementation update, November 1, 2026:** the user has now requested and authorized a modular-monolith implementation with selectable Qwen/Gemma models and a local test UI. See [architecture](architecture.md), [model comparison and pinned checkpoint evidence](model-comparison.md), and [actual verification status](verification-2026-11-01.md). The original sections below preserve the October 30 competition summary; implementation choices and observed data are recorded separately and do not establish new official rules.
 
 - Saved on **October 30, 2026**, using the user's supplied competition summary.

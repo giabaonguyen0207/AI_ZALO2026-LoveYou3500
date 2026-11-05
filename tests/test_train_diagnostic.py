@@ -170,8 +170,7 @@ def test_entire_notebook_cell_executes_once_and_exports_all_records(split_root, 
     namespace = {"__name__": "__main__", "agent": agent, "WORK": work, "SAVE": tmp_path / "saved"}
     # Fixture has one question per business; only the public configuration is
     # changed for this tiny end-to-end execution, with real Agent/SQL/scoring.
-    source = path.read_text(encoding="utf-8").replace('SAMPLE_SIZE = 72', 'SAMPLE_SIZE = 2').replace(
-        'SAMPLING_MODE = "language_stress_3"', 'SAMPLING_MODE = "balanced"')
+    source = path.read_text(encoding="utf-8").replace('SAMPLE_SIZE = 100', 'SAMPLE_SIZE = 2')
     exec(compile(source, str(path), "exec"), namespace)
     assert agent.backend is backend
     assert namespace["diagnostic_summary"]["status"] == "complete"
@@ -180,6 +179,32 @@ def test_entire_notebook_cell_executes_once_and_exports_all_records(split_root, 
         assert archive.testzip() is None
         assert {"summary.json", "review.csv", "review.jsonl", "submission.jsonl", "runtime.json"} <= set(archive.namelist())
         assert len(archive.read("submission.jsonl").splitlines()) == 2
+
+
+def test_random_plan_is_reference_blind_and_does_not_filter_or_balance(monkeypatch):
+    from tools import diagnose_train
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError('Random sampling must not inspect strata or holdout')
+
+    monkeypatch.setattr(diagnose_train, 'business_holdout', forbidden)
+    monkeypatch.setattr(diagnose_train, 'question_profile', forbidden)
+    # Fewer selected questions than businesses is valid; no per-business
+    # quota or forced example may change the draw.
+    questions = [Question(f'q_{i:03}', f'shop_{i % 30}', 'original text', '2026-06-15') for i in range(200)]
+    plan, population, reserved, known = diagnostic_plan(
+        questions, {}, seed=20261103, sample_size=10, sampling_mode='random',
+        probe=(questions[0].business_id, questions[0].as_of_date, questions[0].question))
+    assert len(plan) == len({q.id for q in plan}) == 10
+    assert {q.id for q in plan} <= {q.id for q in questions}
+    assert population == sorted({q.business_id for q in questions})
+    assert reserved == [] and known is None
+    # Changing all language/type/business attributes cannot change the IDs.
+    changed = [Question(q.id, 'one_store', 'different text', q.as_of_date) for q in reversed(questions)]
+    again = diagnostic_plan(changed, {}, seed=20261103, sample_size=10, sampling_mode='random')[0]
+    assert [q.id for q in plan] == [q.id for q in again]
+    with pytest.raises(DataMateError, match='sample_size'):
+        diagnostic_plan(questions, {}, sample_size=201, sampling_mode='random')
 
 
 def test_language_profiles_and_72_plan_require_three_per_business():

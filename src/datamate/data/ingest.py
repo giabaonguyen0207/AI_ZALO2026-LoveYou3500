@@ -9,7 +9,9 @@ import sqlite3
 import threading
 import unicodedata
 import uuid
-from dataclasses import dataclass
+import zipfile
+import xml.etree.ElementTree as ET
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 
@@ -71,17 +73,34 @@ def header_index(rows: list[tuple]) -> int:
     return max(range(len(rows)), key=lambda i: scores[i])
 
 
+def attach_excel_epochs(tables, files):
+    epochs={}
+    for path in files:
+        if path.suffix.lower()!='.xlsx':
+            continue
+        with zipfile.ZipFile(path) as archive:
+            root=ET.fromstring(archive.read('xl/workbook.xml'))
+        props=root.find('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}workbookPr')
+        epoch='1904-01-01T00:00:00' if props is not None and props.get('date1904','0') in {'1','true'} else '1899-12-30T00:00:00'
+        epochs.setdefault(path.name,set()).add(epoch)
+    for table in tables:
+        if table['file'] in epochs and len(epochs[table['file']])==1:
+            table['excel_epoch']=next(iter(epochs[table['file']]))
+
+
 @dataclass
 class Catalog:
     database: Path
     tables: list[dict]
     warnings: list[str]
     fingerprint: str
+    semantic: dict = field(default_factory=dict)
 
     def summary(self) -> dict:
-        return {"tables": self.tables, "warnings": self.warnings,
+        return {"tables": self.tables, "warnings": self.warnings, "semantic": self.semantic,
                 "helpers": ["num(x)", "num_en(x)", "num_vi(x)", "iso_date(x)",
-                            "iso_date_year(x, year)", "norm(x)", "round_half_up(x, places)"]}
+                            "iso_date_year(x, year)", "norm(x)", "round_half_up(x, places)",
+                            "status_class(x)", "search_key(x)", "parse_number(x)"]}
 
 
 class Ingestor:
@@ -114,6 +133,9 @@ class Ingestor:
             if db_path.exists() and meta_path.exists():
                 meta = json.loads(meta_path.read_text(encoding="utf-8"))
                 result = Catalog(db_path, meta["tables"], meta["warnings"], fingerprint)
+                attach_excel_epochs(result.tables,files)
+                from .normalization import prepare_catalog
+                result = prepare_catalog(result, self.split.rulebook, self.split.readme(business_id), self.cache_dir)
                 self._catalogs[business_id] = result
                 return result
             tables, warnings = [], []
@@ -140,6 +162,9 @@ class Ingestor:
             temp_meta.write_text(json_text({"tables": tables, "warnings": warnings}, indent=2), encoding="utf-8")
             temp_meta.replace(meta_path)
             result = Catalog(db_path, tables, warnings, fingerprint)
+            attach_excel_epochs(result.tables,files)
+            from .normalization import prepare_catalog
+            result = prepare_catalog(result, self.split.rulebook, self.split.readme(business_id), self.cache_dir)
             self._catalogs[business_id] = result
             return result
 

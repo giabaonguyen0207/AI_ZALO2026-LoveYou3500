@@ -1,8 +1,8 @@
 """Copy this entire file into ONE cell below the loaded agent, then run it.
 
 Diagnostic inference only. Reuses the current model; does not train or change
-prompts/tools/decoding. ID/type metadata select a balanced sample; reference
-answers are never supplied to the agent and are used for scoring afterwards.
+prompts/tools/decoding. The default draws uniformly from all training questions.
+Reference labels never select that sample or enter the agent; scoring is later.
 """
 from __future__ import annotations
 
@@ -24,20 +24,21 @@ import zipfile
 
 from datamate.data.split import ensure_outside_dataset, read_jsonl
 from datamate.domain import DataMateError, json_text
+from datamate.debug_log import write_debug_log
 from datamate.evaluation.scoring import score
 from datamate.models.artifacts import sha256
 from datamate.training.dataset import business_holdout, require_approved_source
 
-DIAGNOSTIC_VERSION = 2
+DIAGNOSTIC_VERSION = 4
 
 # CẤU HÌNH LƯỢT CHẠY: chỉ cần execute một lần sau ô load model.
-SAMPLE_SIZE = 72
-SAMPLING_MODE = "language_stress_3"
+SAMPLE_SIZE = 100
+SAMPLING_MODE = "random"
+SAMPLING_SEED = 20261103      # Chỉ để lặp lại đúng mẫu; không đổi seed của model.
 MAX_RUN_MINUTES = 90           # Mục tiêu khoảng 15 Unit ở mức 10 Unit/giờ; trần mềm.
 AUTO_DISCONNECT = False        # True: thử đồng bộ Drive và ngắt Colab sau khi xuất ZIP.
-RUN_NAME_SUFFIX = "stress72-baseline-01"  # Đổi tên nếu thay model/config/code.
-KNOWN_CASE = ("biz_101", "2026-02-22", "Hôm nay cửa hàng bán được bao nhiêu tiền?")
-# KNOWN_CASE chỉ chọn một câu lỗi đã biết cho chẩn đoán, không quyết định đáp án.
+RUN_NAME_SUFFIX = "random100-round3-01"  # Đổi tên nếu thay model/config/code.
+KNOWN_CASE = None             # Không ép đưa câu lỗi cũ vào mẫu ngẫu nhiên.
 
 
 def question_profile(text):
@@ -115,6 +116,15 @@ def language_stress_plan(questions, reference_types, seed, sample_size, probe):
 
 
 def diagnostic_plan(questions, reference_types, seed=42, sample_size=120, probe=None, sampling_mode="balanced"):
+    if sampling_mode == "random":
+        if type(sample_size) is not int or not 1 <= sample_size <= len(questions):
+            raise DataMateError("sample_size phải là số nguyên từ 1 đến tổng số câu train")
+        pool = sorted(questions, key=lambda q: q.id)
+        if len({q.id for q in pool}) != len(pool):
+            raise DataMateError("Không chọn mẫu từ danh sách trùng question ID")
+        # No reference types, text profiles, business quotas, forced cases,
+        # previous-run exclusions or holdout filtering affect this draw.
+        return random.Random(seed).sample(pool, sample_size), sorted({q.business_id for q in pool}), [], None
     if sampling_mode == "language_stress_3":
         return language_stress_plan(questions, reference_types, seed, sample_size, probe)
     if sampling_mode != "balanced":
@@ -162,7 +172,10 @@ def reference_type_index(path):
 
 
 def runtime_snapshot(backend):
+    import datamate
     result = {"python": sys.version, "backend": type(backend).__name__, "packages": {}}
+    result['datamate_code_version']=datamate.__version__
+    result['effective_generation']={'do_sample':False,'num_beams':1,'protocol_version':getattr(backend,'protocol_version',None)}
     for package in ("torch", "transformers", "accelerate", "bitsandbytes", "datamate-agent"):
         try:
             result["packages"][package] = importlib.metadata.version(package)
@@ -193,13 +206,10 @@ def runtime_snapshot(backend):
 
 
 def source_hashes():
-    hashes = {}
-    for name in ("agent.prompts", "agent.runner", "models.backends", "config", "data.ingest",
-                 "data.sql", "data.transforms", "evaluation.scoring"):
-        module = sys.modules.get("datamate." + name)
-        if module and getattr(module, "__file__", None):
-            hashes[name] = sha256(Path(module.__file__))
-    return hashes
+    import datamate
+    root=Path(datamate.__file__).parent
+    return {str(p.relative_to(root).with_suffix('')).replace('\\','.').replace('/','.'):sha256(p)
+            for p in sorted(root.rglob('*.py'))}
 
 
 class TimedBackend:
@@ -221,6 +231,9 @@ class TimedBackend:
             raise
         finally:
             event["seconds"] = round(time.monotonic() - started, 4)
+            generation=getattr(self.delegate,'last_generation',None)
+            if generation:
+                event['generation']=generation
             self.calls.append(event)
 
 
@@ -235,6 +248,9 @@ def diagnostic_flags(record, reference):
         action, observation = event.get("action", {}), event.get("observation", {})
         error = observation.get("error") or event.get("error", "")
         if error:
+            kind=observation.get('error_kind') or event.get('error_kind')
+            if kind:
+                flags.add(kind)
             if "Context vượt" in error:
                 flags.add("context_limit")
             elif action.get("action") == "sql":
@@ -245,6 +261,8 @@ def diagnostic_flags(record, reference):
                 flags.add("runtime_or_tool_error")
         if observation.get("truncated"):
             flags.add("truncated_sql_result")
+        if event.get('loop_stopped'):
+            flags.add('repeated_action_stopped')
     if predicted["type"] == "abstain":
         flags.add("abstain")
         if "ngân sách" in predicted.get("reason", "").lower():
@@ -263,6 +281,10 @@ def write_report(destination, plan, manifest, target, runtime, batch_seconds):
     references = {r["id"]: r for r in read_jsonl(Path(manifest["settings"]["split_root"]) / "answers.jsonl")}
     records = [json.loads((destination / "logs" / (q.id + ".json")).read_text(encoding="utf-8"))
                for q in plan if (destination / "logs" / (q.id + ".json")).is_file()]
+    for record in records:
+        readable = destination / 'logs' / (record['id'] + '.md')
+        if not readable.is_file():
+            write_debug_log(readable, record)
     ids = {row["id"] for row in records}
     metrics = score([r["submission"] for r in records], list(references.values()), ids)
     outcomes = {row["id"]: row["result"] for row in metrics.pop("details")}
@@ -352,13 +374,20 @@ def run_diagnostic(agent, output_dir, sources, limit=None, wall_budget_seconds=1
         raise DataMateError("limit và wall_budget_seconds phải dương")
     if getattr(agent.backend, "counts_as_model", True) is False:
         raise DataMateError("Chẩn đoán này cần model thật; không chạy Demo")
+    if getattr(agent,'pipeline_version',0)<2:
+        raise DataMateError('Agent trong RAM là bản cũ. Thay source ZIP và khởi động lại kernel, rồi load agent trước batch v2')
+    if type(agent.backend).__name__=='TransformersBackend' and getattr(agent.backend,'protocol_version',0)<2:
+        raise DataMateError('Backend trong RAM là bản cũ; khởi động lại kernel sau khi cập nhật source')
     original = agent.backend
     if getattr(original, "settings", agent.settings).to_dict() != agent.settings.to_dict():
         raise DataMateError("Config agent và backend không khớp; load lại model trước")
     split = agent.split
     approved = require_approved_source(split.root, sources)
-    reference_types = reference_type_index(split.root / "answers.jsonl")
+    reference_types = {} if sampling_mode == "random" else reference_type_index(split.root / "answers.jsonl")
     plan, development, holdout, known = diagnostic_plan(split.questions(), reference_types, seed, sample_size, probe, sampling_mode)
+    if sampling_mode == "random":
+        # Read ID/type metadata for reporting only AFTER the sample is fixed.
+        reference_types = reference_type_index(split.root / "answers.jsonl")
     settings = {**agent.settings.to_dict(), "split_root": str(split.root.resolve())}
     model_manifest = Path(settings["model_dir"]) / "artifact_manifest.json"
     if not model_manifest.is_file():
@@ -366,7 +395,10 @@ def run_diagnostic(agent, output_dir, sources, limit=None, wall_budget_seconds=1
     identity = {"diagnostic_version": DIAGNOSTIC_VERSION, "settings": settings,
                 "source_fingerprint": approved["fingerprint"], "source_hashes": source_hashes(),
                 "model_manifest_sha256": sha256(model_manifest), "seed": seed,
-                "development_businesses": development, "reserved_holdout_businesses": holdout,
+                "development_businesses": development if sampling_mode != "random" else None,
+                "reserved_holdout_businesses": holdout,
+                "sampling_population_businesses": development,
+                "sampling_scope": "all_training_questions" if sampling_mode == "random" else "development_businesses",
                 "sampling": sampling_mode,
                 "planned_type_counts": dict(Counter(reference_types[q.id] for q in plan)),
                 "planned_language_counts": {key: sum(question_profile(q.question)[key] for q in plan)
@@ -391,7 +423,11 @@ def run_diagnostic(agent, output_dir, sources, limit=None, wall_budget_seconds=1
     print("Model:", settings["model_key"], "quantization:", settings["quantization"], flush=True)
     print("GPU/devices:", json_text({k: v for k, v in runtime.items() if k != "chat_template"}), flush=True)
     target = len(plan) if limit is None else min(limit, len(plan))
-    print(f"Plan: {len(plan)} câu; lượt này chạy đến câu {target}; giữ riêng {len(holdout)} doanh nghiệp holdout.", flush=True)
+    print(f"Plan: {len(plan)} câu; lượt này chạy đến câu {target}.", flush=True)
+    if sampling_mode == 'random':
+        print(f"Ngẫu nhiên đều từ toàn bộ train; seed={seed}. Không cân đối type/doanh nghiệp/ngôn ngữ, không lọc holdout hoặc câu cũ.", flush=True)
+    else:
+        print(f"Giữ riêng {len(holdout)} doanh nghiệp holdout.", flush=True)
     print("Loại đáp án:", json_text(identity["planned_type_counts"]), flush=True)
     print("Nhóm câu hỏi (có thể chồng lấp):", json_text(identity["planned_language_counts"]), flush=True)
     print("Giữ nguyên prompt, SQL tools, decoding và ngân sách của agent hiện tại.", flush=True)
@@ -413,6 +449,7 @@ def run_diagnostic(agent, output_dir, sources, limit=None, wall_budget_seconds=1
             record = {"id": question.id, "business_id": question.business_id, **question.prompt_dict(),
                       **result.to_dict(question.id), "generation_calls": list(timer.calls)}
             save_json(path, record)
+            write_debug_log(path.with_suffix('.md'), record)
             print(f"  -> {result.answer.type} | {result.elapsed_seconds:.1f}s | {result.model_calls} model calls", flush=True)
     finally:
         agent.backend = original
@@ -432,7 +469,7 @@ if __name__ == "__main__":
         agent, Path(SAVE) / "diagnostics" / RUN_NAME,
         sources=Path(WORK) / "configs/training_sources.json",
         sample_size=SAMPLE_SIZE, wall_budget_seconds=MAX_RUN_MINUTES * 60, probe=KNOWN_CASE,
-        sampling_mode=SAMPLING_MODE,
+        sampling_mode=SAMPLING_MODE, seed=SAMPLING_SEED,
     )
     if AUTO_DISCONNECT:
         disconnect_colab_after_report(diagnostic_bundle)

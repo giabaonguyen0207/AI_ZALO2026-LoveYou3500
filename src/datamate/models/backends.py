@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import threading
 import time
 from pathlib import Path
@@ -40,8 +41,10 @@ def load_target(loader, model_dir, **kwargs):
 
 
 class TransformersBackend:
+    protocol_version = 2
     def __init__(self, settings: Settings):
         self.settings = settings
+        self.last_generation = None
         self.lock = threading.Lock()
         configure_offline(Path(settings.cache_dir).parent)
         self.inventory = inventory(settings.model_key, settings.assistant_key)
@@ -95,9 +98,20 @@ class TransformersBackend:
                        "max_time": max(0.1, remaining_seconds), "use_cache": True}
             if self.assistant is not None:
                 options["assistant_model"] = self.assistant
+            started = time.monotonic()
             with self.torch.inference_mode():
                 output = self.model.generate(**inputs, **options)
-            return self.tokenizer.decode(output[0, length:], skip_special_tokens=True)
+            tokens = output[0, length:]
+            raw = self.tokenizer.decode(tokens, skip_special_tokens=False)
+            eos = self.model.generation_config.eos_token_id
+            eos = eos if isinstance(eos, list) else [eos]
+            last = int(tokens[-1]) if len(tokens) else None
+            self.last_generation = {"input_tokens": int(length), "output_tokens": len(tokens),
+                "seconds": round(time.monotonic()-started, 4), "effective_do_sample": False,
+                "stop_reason": "eos" if last in eos else "max_new_tokens" if len(tokens)>=self.settings.max_new_tokens else "time_or_other",
+                "last_token_id": last, "output_sha256": hashlib.sha256(raw.encode()).hexdigest(),
+                "prompt_tail": self.tokenizer.decode(inputs["input_ids"][0,-48:], skip_special_tokens=False)}
+            return raw
 
 
 def build_backend(settings: Settings) -> ChatBackend:

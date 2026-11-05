@@ -4,6 +4,10 @@
 
 **Mới bắt đầu? Đọc [Hướng dẫn chạy từng bước](docs/huong-dan-chay-tung-buoc.md).** Làm phần A để mở web ngay; phần B cài Qwen trên laptop; phần D hướng dẫn Colab từ lúc chuẩn bị ZIP đến lấy model đã train về. Mỗi bước có lệnh, kết quả mong đợi và cách xử lý lỗi. Các mục bên dưới là tài liệu tham chiếu ngắn.
 
+**Cập nhật inference 03/11/2026:** pipeline v2 đã chạy lại cùng 72 câu development: **56 đúng, 1 sai, 15 bỏ qua; PA 76,39%**, khoảng 18 phút 15 giây riêng batch. Đây là mẫu đã dùng chẩn đoán, chưa đại diện hiệu năng private test. Đọc [phân tích lần 2, rules viết sẵn và lý do thiếu reasoning trong log](docs/inference-review-72-v2-2026-11-03.md), hoặc [những gì đã sửa và cách chạy Colab](docs/pipeline-v2-2026-11-03.md).
+
+**Kết quả lượt 3 nhận ngày 04/11/2026.** Chấm lại 100 câu ngẫu nhiên từ toàn bộ train cho **49 đúng, 13 sai, 38 bỏ qua, PA 36%**. Hai lượt 2 và 3 chỉ trùng một câu. Xem [phân tích và kiểm chứng lỗi](docs/inference-review-100-v3-2026-11-04.md) và [cách lấy mẫu](docs/inference-round3-random100.md).
+
 **Kiểm tra triển khai ban đầu 01/11/2026:** đã kiểm thử phần mềm, đọc được 30 doanh nghiệp train và kiểm tra tokenizer/template. Cập nhật sau khi người dùng gặp lỗi load Qwen 9B trên RTX 4060 8GB: đã thêm **Qwen 3.5 4B · Local 4bit** để thử agent trên laptop. Xem [hướng dẫn chuyển sang 4B](docs/huong-dan-chay-tung-buoc.md). Chưa có benchmark so sánh model hoặc fine-tune. Demo luôn trả `abstain`.
 
 ## Bắt đầu trên Windows, ổ E:
@@ -64,6 +68,8 @@ Lệnh tải đúng full revision đã pin, đếm tensor và seal SHA256 từng
 ```
 
 `--resume` chỉ tiếp tục khi cấu hình, tập câu hỏi, hash nguồn và model manifest vẫn khớp. `submission.jsonl` được flush từng câu; `logs/` chứa ID, đáp án cuối, thời gian và trace. Chưa có trọng số thì chương trình báo cần `stage-model`; không tự chuyển sang trả lời giả.
+
+**Debug từng bước:** mỗi JSON log có thêm bản `.md` dễ đọc: đầu ra nguyên văn của LLM, SQL và parameters, kết quả/lỗi công cụ, đáp án cuối. SQL do LLM sinh và SQL do metric tạo được ghi riêng. Đã xuất sẵn 72 log của lượt 2; xem [cách mở log và xuất lại lượt cũ](docs/debug-step-logs.md).
 
 ## Chọn model và assistant
 
