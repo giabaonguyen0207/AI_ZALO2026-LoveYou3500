@@ -108,12 +108,13 @@ class Ingestor:
         self.split = split
         self.cache_dir = ensure_outside_dataset(cache_dir, split.root)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._catalogs: dict[str, Catalog] = {}
+        self._catalogs: dict[tuple[str,bool], Catalog] = {}
 
-    def catalog(self, business_id: str) -> Catalog:
+    def catalog(self, business_id: str, normalize: bool = True) -> Catalog:
         with _build_lock:
-            if business_id in self._catalogs:
-                return self._catalogs[business_id]
+            cache_key = (business_id, normalize)
+            if cache_key in self._catalogs:
+                return self._catalogs[cache_key]
             directory = self.split.business_path(business_id)
             files = sorted(p for p in directory.rglob("*") if p.is_file() and p.suffix.lower() in {".csv", ".xlsx", ".sqlite", ".db"})
             if not files:
@@ -135,8 +136,9 @@ class Ingestor:
                 result = Catalog(db_path, meta["tables"], meta["warnings"], fingerprint)
                 attach_excel_epochs(result.tables,files)
                 from .normalization import prepare_catalog
-                result = prepare_catalog(result, self.split.rulebook, self.split.readme(business_id), self.cache_dir)
-                self._catalogs[business_id] = result
+                if normalize:
+                    result = prepare_catalog(result, self.split.rulebook, self.split.readme(business_id), self.cache_dir)
+                self._catalogs[cache_key] = result
                 return result
             tables, warnings = [], []
             staging = db_path.with_name(f"{fingerprint}.{uuid.uuid4().hex}.tmp")
@@ -164,8 +166,9 @@ class Ingestor:
             result = Catalog(db_path, tables, warnings, fingerprint)
             attach_excel_epochs(result.tables,files)
             from .normalization import prepare_catalog
-            result = prepare_catalog(result, self.split.rulebook, self.split.readme(business_id), self.cache_dir)
-            self._catalogs[business_id] = result
+            if normalize:
+                result = prepare_catalog(result, self.split.rulebook, self.split.readme(business_id), self.cache_dir)
+            self._catalogs[cache_key] = result
             return result
 
     def _table(self, connection, name, headers, rows, path, sheet, tables, warnings, header_row=1):

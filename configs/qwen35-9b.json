@@ -2,11 +2,18 @@
   "backend": "transformers",
   "model_key": "qwen35-9b",
   "model_dir": "models/qwen35-9b",
-  "mode": "single",
+  "mode": "self_review",
   "split_root": "train/train",
   "result_dir": "result/qwen35-9b",
   "quantization": "none",
-  "max_steps": 10,
+  "max_steps": 6,
   "max_context_tokens": 16384,
-  "max_new_tokens": 1024
+  "max_new_tokens": 768,
+  "question_timeout_seconds": 90,
+  "schema_mode": "code_first",
+  "adaptive_preparation": false,
+  "require_plan": true,
+  "auto_execute_plan": true,
+  "schema_repair_timeout_seconds": 20,
+  "schema_repair_max_new_tokens": 512
 }

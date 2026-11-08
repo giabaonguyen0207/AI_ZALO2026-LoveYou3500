@@ -12,7 +12,19 @@ from datamate.config import Settings
 from datamate.data.split import DatasetSplit
 from datamate.domain import DataMateError, Question
 from datamate.training.dataset import business_holdout, source_manifest
-from tools.diagnose_train import diagnostic_flags, diagnostic_plan, disconnect_colab_after_report, question_profile, run_diagnostic
+from tools.diagnose_train import diagnostic_flags, diagnostic_plan, disconnect_colab_after_report, question_profile, run_diagnostic, runtime_snapshot
+
+
+def test_runtime_snapshot_separates_checkpoint_and_effective_stop_ids():
+    tokens={'checkpoint_eos_token_ids':[1],'effective_eos_token_ids':[1,2],
+            'effective_pad_token_id':0,'tokenizer_eos_token_id':2}
+    backend=types.SimpleNamespace(generation_tokens=tokens,protocol_version=3,
+        tokenizer=types.SimpleNamespace(eos_token_id=2,pad_token_id=0,chat_template='template'))
+    snapshot=runtime_snapshot(backend)
+    assert snapshot['generation_tokens']['effective_eos_token_ids']==[1,2]
+    assert snapshot['tokenizer_eos_token_id']==2 and snapshot['tokenizer_pad_token_id']==0
+    tokens['effective_eos_token_ids'].append(3)
+    assert snapshot['generation_tokens']['effective_eos_token_ids']==[1,2]
 
 
 def setup_agent(split_root, tmp_path, backend):
@@ -24,7 +36,9 @@ def setup_agent(split_root, tmp_path, backend):
         **source_manifest(split_root), "role": "competition_training"
     }]}), encoding="utf-8")
     settings = Settings(split_root=str(split_root), cache_dir=str(tmp_path / "cache"),
-                        result_dir=str(tmp_path / "result"), model_dir=str(model))
+                        result_dir=str(tmp_path / "result"), model_dir=str(model),
+                        adaptive_preparation=False,schema_mode='code_only',require_plan=False,auto_execute_plan=False)
+    # This fixture tests diagnostic accounting/resume; agent planning has separate end-to-end tests.
     return Agent(settings, backend), sources
 
 
@@ -106,6 +120,14 @@ def test_observable_flags_do_not_claim_semantic_sql_validation():
     ]}
     assert diagnostic_flags(row, {"type": "number"}) == [
         "action_parse_error", "false_unanswerable", "sql_error", "type_mismatch"]
+
+
+def test_loop_stop_is_not_reported_as_exhausted_step_or_time_budget():
+    record={'submission':{'type':'abstain','reason':'Lặp cùng action; dừng để tiết kiệm ngân sách'},
+            'trace':[{'loop_stopped':True}]}
+    assert diagnostic_flags(record,{'type':'number'})==['abstain','repeated_action_stopped']
+    record['submission']['reason']='Hết ngân sách bước hoặc thời gian'
+    assert 'step_or_time_budget' in diagnostic_flags(record,{'type':'number'})
 
 
 def test_120_sample_balances_types_and_covers_all_development_businesses():

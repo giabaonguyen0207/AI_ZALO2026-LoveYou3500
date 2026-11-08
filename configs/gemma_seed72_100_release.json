@@ -1,0 +1,10 @@
+{
+  "dataset_name": "seed72_100_gemma_v1",
+  "target_model_key": "gemma4-12b",
+  "archive_filename": "seed72_100_gemma_v1.zip",
+  "archive_sha256": "e51f869e5640dab3d933797c8d27e54daa9bd42b7ac3717ad61002b453065505",
+  "dataset_manifest_sha256": "d017af911fa636a35f98999d8f58f8e26eb31cdde39ba1af1980669e44a49012",
+  "source_fingerprint": "5d598c5d603020c8077df7802cc6fb06b364af9914eb88425bd7664c639978ea",
+  "train_examples": 136,
+  "target_pipeline_version": 4
+}

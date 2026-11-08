@@ -1,0 +1,19 @@
+{
+  "backend": "transformers",
+  "model_key": "qwen35-upscaled14b-v2",
+  "model_dir": "models/qwen35-upscaled14b-v2",
+  "mode": "single",
+  "split_root": "train/train",
+  "result_dir": "result/qwen35-upscaled14b-v2-fast-v5",
+  "quantization": "none",
+  "max_steps": 6,
+  "max_context_tokens": 16384,
+  "max_new_tokens": 768,
+  "question_timeout_seconds": 90,
+  "schema_mode": "code_first",
+  "adaptive_preparation": false,
+  "require_plan": true,
+  "auto_execute_plan": true,
+  "schema_repair_timeout_seconds": 20,
+  "schema_repair_max_new_tokens": 512
+}

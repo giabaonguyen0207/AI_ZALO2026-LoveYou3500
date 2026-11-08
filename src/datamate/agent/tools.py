@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import time
 from datetime import date
 
 from ..data.profiling import inspect_column, quote
-from ..data.rules import read_policy, resolve_period
+from ..data.rules import read_policy, resolve_period, RulePolicy
 from ..data.sql import SQLExecutor
 from ..data.transforms import search_key
 from ..domain import DataMateError
@@ -24,6 +25,8 @@ def request_needs(text):
         result.append("debt")
     if "huy" in q and any(x in q for x in ("vi giao", "ly do", "nguyen nhan")):
         result.append("cancellation_reason")
+    if re.search(r'\b(?:khach|kh)\s+(?:nu|nam)\b',q) or 'gioi tinh' in q:result.append('gender')
+    if 'tra hang vi' in q or any(x in q for x in ('ly do tra','nguyen nhan tra')):result.append('return_reason')
     if any(x in q for x in ("zalo", "tai quay", "kenh ban", "qua san")):
         result.append("channel")
     if any(x in q for x in ('tien mat','chuyen khoan','hinh thuc thanh toan','cod')):
@@ -35,7 +38,7 @@ class BusinessTools:
     def __init__(self, catalog, rulebook, as_of_date, sql_timeout=12, max_rows=150, deadline=None):
         self.catalog, self.semantic = catalog, catalog.semantic
         self.rulebook, self.as_of_date = rulebook, as_of_date
-        self.policy = read_policy(rulebook)
+        self.policy = RulePolicy(**catalog.semantic['policy']) if catalog.semantic else read_policy(rulebook)
         self.executor = SQLExecutor(catalog.database,sql_timeout,max_rows,deadline)
 
     def profile(self, table, column=None, offset=0, limit=50):
@@ -74,24 +77,31 @@ class BusinessTools:
             raise DataMateError("lookup limit trong 1..30")
         prefix = "product" if entity=="product" else "customer"
         name, key, identifier = prefix+"_name",prefix+"_key",prefix+"_id"
+        dimension='dm_products' if entity=='product' else 'dm_customers'
+        coded=entity=='product' or any('customer_id' in b['roles'] for b in self.semantic['bindings'] if b['kind'] in {'sales','orders'})
+        dimension_key=f'COALESCE(CAST({identifier} AS TEXT),norm({name}))' if coded else f'norm({name})'
+        relation=f'(SELECT {key},{identifier},{name} FROM dm_sales_all UNION SELECT {dimension_key} AS {key},{identifier},{name} FROM {dimension} WHERE {name} IS NOT NULL)'
+        if entity=='customer':relation=relation[:-1]+f' UNION SELECT {key},{identifier},{name} FROM dm_orders_all WHERE {name} IS NOT NULL)'
         # Entity lists can exceed SQL result limits; inspect a bounded candidate
         # set in SQL instead of inferring from an arbitrarily truncated preview.
         folded = search_key(text)
-        exact = self.executor.execute(f"SELECT {quote(key)},{quote(identifier)},{quote(name)} FROM dm_sales_all WHERE {quote(key)} IS NOT NULL AND (search_key({quote(name)})=? OR CAST({quote(identifier)} AS TEXT)=?) GROUP BY 1,2,3",[folded,text])
+        exact = self.executor.execute(f"SELECT {quote(key)},{quote(identifier)},{quote(name)} FROM {relation} WHERE {quote(key)} IS NOT NULL AND (search_key({quote(name)})=? OR CAST({quote(identifier)} AS TEXT)=?) GROUP BY 1,2,3",[folded,text])
         if exact["rows"]:
             found = exact
         else:
             tokens = folded.split()
             predicates = " AND ".join(f"search_key({quote(name)}) LIKE ? ESCAPE '\\'" for _ in tokens)
             escaped = ["%"+t.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%" for t in tokens]
-            found = self.executor.execute(f"SELECT {quote(key)},{quote(identifier)},{quote(name)} FROM dm_sales_all WHERE {quote(key)} IS NOT NULL AND ({predicates}) GROUP BY 1,2,3 ORDER BY 1 LIMIT ?",[*escaped,limit+1])
+            found = self.executor.execute(f"SELECT {quote(key)},{quote(identifier)},{quote(name)} FROM {relation} WHERE {quote(key)} IS NOT NULL AND ({predicates}) GROUP BY 1,2,3 ORDER BY 1 LIMIT ?",[*escaped,limit+1])
         candidates = [{"key":k,"id":identifier,"name":n} for k,identifier,n in found["rows"][:limit]]
         return {"entity":entity,"query":text,"candidates":candidates,
                 "ambiguous":len({c['key'] for c in candidates})!=1, "truncated":found["truncated"] or len(found["rows"])>limit,
                 "output_names_keep_diacritics":True}
 
-    def check(self, question, period=None):
-        needs = request_needs(question)
+    def check(self, question, period=None, plan=None):
+        needs = list(dict.fromkeys(request_needs(question)+list(plan.get('requirements',[]) if plan else [])))
+        if plan and plan['measure'] in {'debt','inventory'}:
+            needs.append(plan['measure'])
         caps, missing, unsupported = dict(self.semantic["capabilities"]),[],[]
         caps['payment_method']=any('payment_method' in b['roles'] for b in self.semantic['bindings'] if b['kind'] in {'sales','orders'})
         uncertain_schema=any(b['ambiguous'] or b['kind']=='other' and not b['roles'] for b in self.semantic['bindings'])
@@ -99,11 +109,20 @@ class BusinessTools:
                'cancellation_reason':('ly do','nguyen nhan','reason','cause','ghi chu'),
                'channel':('kenh','channel','source','nguon'),'payment_method':('thanh toan','payment','paid','pttt')}
         for need in needs:
+            if need in {'gender','return_reason','prescription','product_group','customer_group'} and not caps.get(need):
+                # All columns have been surveyed; a nonempty unbound candidate
+                # is unsupported mapping, rather than proof of absent data.
+                words={'gender':('gioi tinh','gender','nam nu','namnu'),'return_reason':('ly do','nguyen nhan','reason'),
+                       'prescription':('ke don','theo don'),'product_group':('nhom hang','danh muc'),
+                       'customer_group':('nhom khach','loai khach')}
+                potential=any(any(word in (search_key(column) or '') for word in words[need]) and profile['nonempty']>0
+                    for profiles in self.semantic['profiles'].values() for column,profile in profiles.items())
+                (unsupported if potential else missing).append(need)
             if need in {"customer_identity","cancellation_reason","channel",'payment_method'} and not caps.get(need):
                 unexplained=any(any(token in (search_key(c) or '') for token in hints[need]) and self.semantic['profiles'][b['table']][c]['nonempty']>0
                                 for b in self.semantic['bindings'] if b['kind'] in {'orders','sales','other'} for c in b.get('unmapped',[]))
                 (unsupported if uncertain_schema or unexplained else missing).append(need)
-            elif need == "inventory" and not caps["inventory_snapshot"]:
+            elif need == "inventory" and not (caps["inventory_snapshot"] or caps.get('stock_ledger')):
                 # Some datasets have lot ledgers even without a stock snapshot.
                 # An unimplemented reconstruction is not proof of missing data.
                 has_inputs = any("purchase_id" in b["roles"] or "purchase_date" in b["roles"] for b in self.semantic["bindings"])
@@ -112,7 +131,11 @@ class BusinessTools:
                 monetary_sources = any(b["kind"]=="other" and any(x in b["roles"] for x in ("paid","order_total","payment_amount")) for b in self.semantic["bindings"])
                 (unsupported if monetary_sources or uncertain_schema else missing).append("debt_balance_or_payments")
         coverage = self.semantic["coverage"]
-        if period and coverage["start"]:
+        if plan and plan.get('date') and plan['measure']=='debt' and coverage['start']:
+            cutoff=coverage['declared_end'] or coverage['end']
+            if plan['date']<coverage['start'] or plan['date']>cutoff:
+                missing.append('cutoff_outside_dataset')
+        if period and coverage["start"] and 'inventory' not in needs:
             resolved = resolve_period(period,self.as_of_date,self.policy)
             date_errors=self.executor.execute('SELECT (SELECT COUNT(*) FROM dm_sales_all WHERE order_date IS NULL)+(SELECT COUNT(*) FROM dm_orders_all WHERE order_date IS NULL)')['rows'][0][0]>0
             if (resolved["end"]<coverage["start"] or resolved["start"]>(coverage["declared_end"] or coverage["end"])) and not date_errors:
@@ -122,13 +145,16 @@ class BusinessTools:
                 "evidence_scope":"all_source_schemas_and_full_column_profiles",
                 "source_bindings":[{"table":b["table"],"kind":b["kind"],"roles":b["roles"]} for b in self.semantic["bindings"]]}
 
-    def verify_fact_sql(self,result,question):
+    def verify_fact_sql(self,result,question,plan=None):
         """Open-ended SQL remains available, with normalized/provenance guards."""
-        direct=set(result.get('direct_tables',[]))
+        direct=set(result.get('logical_tables',result.get('direct_tables',[])))
         bindings={b['table']:b for b in self.semantic['bindings']}
         bindings.update({b['clean_table']:b for b in self.semantic['bindings']})
         if not direct:
             raise DataMateError('SQL kết luận phải đọc dữ liệu, không dùng SELECT hằng số làm bằng chứng nghiệp vụ')
+        caps = self.semantic['capabilities']
+        if direct & {'dm_sales','dm_sales_all'} and not caps.get('sales') or direct & {'dm_orders','dm_orders_all'} and not caps.get('order_identity'):
+            raise DataMateError('Nguồn giao dịch chưa ánh xạ; bảng facts rỗng không chứng minh đáp án bằng 0')
         for table in direct:
             binding=bindings.get(table)
             if binding and binding['kind'] in {'sales','orders'}:
@@ -137,13 +163,22 @@ class BusinessTools:
                 used={r['column'] for r in result.get('references',[]) if r['table']==table}
                 if any(binding['roles'].get(role) in used for role in ('quantity','price','cost','line_amount','balance','payment_amount')):
                     raise DataMateError('SQL đang tính số từ raw dimension; dùng clean_table đã parse và kiểm tra profile')
+        if plan and plan['population']=='debt' and plan.get('date',self.as_of_date)!=self.semantic['coverage']['declared_end']:
+            if any(r['table']=='dm_orders_all' and r['column'] in {'paid','balance'} for r in result.get('references',[])):
+                raise DataMateError('paid/balance là snapshot cuối dữ liệu; nợ quá khứ cần dm_payments đến ngày chốt, không lấy snapshot tương lai')
         all_tables=direct & {'dm_sales_all','dm_orders_all'}
         q=search_key(question) or ''
-        if all_tables and not any(x in q for x in ('don huy','don bi huy','don tra','huy la','ti le don huy')):
+        if all_tables and not (plan and plan['population'] in {'all','debt','custom'}) and not ('huy' in q or 'tra hang' in q):
             raise DataMateError('Bảng *_all gồm cả hủy/trả; đại lượng bán hàng dùng dm_sales/dm_orders')
         for name in direct & {'dm_sales','dm_orders','dm_sales_all','dm_orders_all'}:
             base=name if name.endswith('_all') else name+'_all'
-            bad=self.executor.execute(f"SELECT COUNT(*) FROM {base} WHERE status='unknown' OR order_date IS NULL")['rows'][0][0]
+            periods = plan.get('resolved_periods',[]) if plan else []
+            where,params = "status='unknown' OR order_date IS NULL",[]
+            if periods:
+                span=' OR '.join('order_date BETWEEN ? AND ?' for _ in periods)
+                params=[v for p in periods for v in (p['start'],p['end'])]
+                where=f'order_date IS NULL OR (({span}) AND status=\'unknown\')'
+            bad=self.executor.execute(f"SELECT COUNT(*) FROM {base} WHERE {where}",params)['rows'][0][0]
             if bad:
                 raise DataMateError('SQL tự do có nguồn chưa giải được ngày/trạng thái; dùng profile hoặc metric theo phạm vi, không cộng thiếu dòng')
         return True
@@ -151,9 +186,13 @@ class BusinessTools:
     def _period(self, spec):
         return resolve_period(spec,self.as_of_date,self.policy)
 
-    def _quality(self, table, period, required, customer_identity=False):
-        if self.policy.sales_statuses is None or not self.policy.line_revenue:
+    def _quality(self, table, period, required, customer_identity=False, statuses=None):
+        if statuses != 'all' and (self.policy.sales_statuses is None or 'line_amount' in required and not self.policy.line_revenue):
             raise DataMateError("Luật split chưa được adapter xác nhận; không tự áp luật train. Đọc policy.unknown và dùng SQL có bằng chứng hoặc abstain")
+        if statuses != 'all' and self.semantic.get('interpretation') and set(self.policy.unknown) & {'exclude_whole_returned_order','deduplicate_order_rows','fill_order_fields'}:
+            raise DataMateError('Chính sách xử lý trả hàng/dòng trùng/ô nhóm còn chưa rõ; không cộng tổng một phần')
+        if not self.semantic['capabilities'].get('order_identity' if table=='dm_orders' else 'sales'):
+            raise DataMateError('Nguồn chưa ánh xạ được giao dịch; không dùng facts rỗng làm bằng chứng bằng 0')
         coverage = self.semantic["coverage"]
         if not coverage["start"]:
             raise DataMateError("Không có khoảng ngày đã chuẩn hóa để kiểm chứng")
@@ -161,7 +200,7 @@ class BusinessTools:
             raise DataMateError("Có dòng chưa giải được ngày; không kết luận kỳ ngoài dữ liệu hoặc trả tổng một phần")
         if period["end"]<coverage["start"] or period["start"]>(coverage["declared_end"] or coverage["end"]):
             return {"availability":"missing","missing":["period_outside_dataset"],"coverage":coverage,"period":period}
-        allowed = ",".join("'"+s+"'" for s in self.policy.sales_statuses)
+        allowed = ",".join("'"+s+"'" for s in (['completed','shipping','cancelled','returned'] if statuses=='all' else self.policy.sales_statuses))
         bad_columns = " OR ".join(quote(c)+" IS NULL" for c in required) or "0"
         conflicts="_dm_issues LIKE '%conflicting_order:order_date%' OR _dm_issues LIKE '%conflicting_order:status%'"
         if customer_identity:
@@ -176,6 +215,11 @@ class BusinessTools:
             key = value["key"]
             column = entity+"_key"
             exists = self.executor.execute(f"SELECT COUNT(*) FROM dm_sales_all WHERE {quote(column)}=?",[key])["rows"][0][0]
+            if not exists and entity=='product':
+                exists=self.executor.execute('SELECT COUNT(*) FROM dm_products WHERE CAST(product_id AS TEXT)=? OR norm(product_name)=?',[key,key])['rows'][0][0]
+            if not exists and entity=='customer':
+                exists=self.executor.execute('SELECT COUNT(*) FROM dm_customers WHERE CAST(customer_id AS TEXT)=? OR norm(customer_name)=?',[key,key])['rows'][0][0]
+                exists+=self.executor.execute('SELECT COUNT(*) FROM dm_orders_all WHERE customer_key=?',[key])['rows'][0][0]
             if not exists:
                 raise DataMateError("Entity key không tồn tại")
             return key
@@ -341,6 +385,8 @@ class BusinessTools:
                 "verified":True,"sql":sql,"parameters":params,"basis":"typed_facts_current_split_policy"}
 
     def _inventory(self,action):
+        if self.semantic['capabilities'].get('stock_ledger') and not self.semantic['capabilities']['inventory_snapshot']:
+            return self._ledger_inventory(action)
         if not self.semantic['capabilities']['inventory_snapshot']:
             inputs=any('purchase_id' in b['roles'] or 'purchase_date' in b['roles'] for b in self.semantic['bindings'])
             if inputs:
@@ -376,6 +422,36 @@ class BusinessTools:
             sql=f"SELECT quantity FROM dm_inventory WHERE {entity_where} AND snapshot_date=?"
             params=[entity_value,day];kind='number'
         return {**self.executor.execute(sql,params),'availability':'available','answer_type':kind,'metric':action['name'],'verified':True,'sql':sql,'parameters':params}
+
+    def _ledger_inventory(self,action):
+        text=action.get('product');day=action.get('date',self.as_of_date)
+        if not isinstance(text,str) or not text.strip():raise DataMateError('inventory cần tên/mã sản phẩm')
+        date.fromisoformat(day)
+        cutoff=self.semantic['coverage']['declared_end']
+        if cutoff and day>cutoff:return {'availability':'missing','missing':['stock_date_outside_dataset']}
+        matches=self.executor.execute('SELECT DISTINCT product_id,product_name FROM dm_stock_ledger WHERE search_key(product_name)=? OR CAST(product_id AS TEXT)=?',
+                                      [search_key(text),text])['rows']
+        if len(matches)!=1:raise DataMateError('Thẻ kho không có đúng một đối tượng; đọc schema/lookup')
+        pid,pname=matches[0];column='product_id' if pid is not None else 'product_name';key=pid if pid is not None else pname
+        if self.executor.execute(f'SELECT COUNT(*) FROM dm_stock_ledger WHERE {column}=? AND (occurred_at IS NULL OR quantity IS NULL OR _dm_issues!=?)',[key,'[]'])['rows'][0][0]:
+            raise DataMateError('Thẻ kho có ngày/giờ, số lượng hoặc parse chưa rõ; không chọn trạng thái một phần')
+        locations=self.executor.execute(f'SELECT DISTINCT location_id FROM dm_stock_ledger WHERE {column}=?',[key])['rows']
+        if len(locations)>1:raise DataMateError('Thẻ kho có nhiều kho/chi nhánh; cần kế hoạch tổng hợp trạng thái cuối theo từng kho')
+        conflict=self.executor.execute(f'SELECT COUNT(DISTINCT _dm_source_table),COUNT(DISTINCT quantity) FROM dm_stock_ledger WHERE {column}=? AND occurred_at=(SELECT MAX(occurred_at) FROM dm_stock_ledger WHERE {column}=? AND occurred_at<?)',[key,key,day+'T24:00:00'])['rows'][0]
+        if conflict[0]>1 and conflict[1]>1:raise DataMateError('Nhiều nguồn thẻ kho mâu thuẫn tại thời điểm cuối; không chọn theo thứ tự file')
+        sql=f'SELECT quantity FROM dm_stock_ledger WHERE {column}=? AND occurred_at<? ORDER BY occurred_at DESC,_dm_row DESC LIMIT 1'
+        params=[key,day+'T24:00:00'];result=self.executor.execute(sql,params)
+        if not result['rows']:return {'availability':'missing','missing':['stock_before_first_observation']}
+        if result['rows'][0][0]<0:raise DataMateError('Thẻ kho tồn âm, cần kiểm tra nguồn')
+        kind='number'
+        if action['name']=='inventory_units':
+            factors=self.executor.execute('SELECT DISTINCT factor FROM dm_conversions WHERE (product_id=? OR search_key(product_name)=?) AND search_key(large_unit)=?',
+                [pid,search_key(pname),search_key(action.get('large_unit'))])['rows']
+            if len(factors)!=1 or not factors[0][0] or factors[0][0]<0:raise DataMateError('Hệ số đơn vị lớn chưa duy nhất')
+            factor=factors[0][0];sql='SELECT CAST(quantity/? AS INTEGER) AS whole,quantity-CAST(quantity/? AS INTEGER)*? AS remainder FROM ('+sql+')'
+            params=[factor,factor,factor,*params];result=self.executor.execute(sql,params);kind='list'
+        return {**result,'availability':'available','answer_type':kind,'metric':action['name'],'verified':True,
+                'verification_scope':'last_stock_ledger_observation_at_cutoff','sql':sql,'parameters':params}
 
     def _debt(self,action):
         if not self.policy.debt_supported:

@@ -5,9 +5,17 @@
   "result_dir": "/result",
   "model_key": "qwen35-9b",
   "model_dir": "/app/models/qwen35-9b",
-  "mode": "single",
+  "mode": "self_review",
   "quantization": "none",
-  "max_steps": 10,
+  "max_steps": 6,
+  "max_new_tokens": 768,
+  "schema_mode": "code_first",
+  "adaptive_preparation": false,
+  "require_plan": true,
+  "auto_execute_plan": true,
+  "schema_repair_timeout_seconds": 20,
+  "schema_repair_max_new_tokens": 512,
   "question_timeout_seconds": 90,
-  "wall_time_seconds": 21000
+  "wall_time_seconds": 21000,
+  "max_context_tokens": 16384
 }

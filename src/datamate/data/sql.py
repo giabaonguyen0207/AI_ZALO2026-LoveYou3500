@@ -43,10 +43,12 @@ class SQLExecutor:
             connection.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, 2_000_000)
             connection.setlimit(sqlite3.SQLITE_LIMIT_SQL_LENGTH, 50000)
             register_functions(connection)
-            references, functions, direct_tables = set(), set(), set()
+            views={row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='view'")}
+            references, functions, direct_tables, read_contexts = set(), set(), set(), set()
             def observed_authorize(action, arg1, arg2, database, trigger):
                 if action == sqlite3.SQLITE_READ:
                     references.add((arg1,arg2))
+                    read_contexts.add((arg1,trigger))
                     if trigger is None:
                         direct_tables.add(arg1)
                 elif action == sqlite3.SQLITE_FUNCTION:
@@ -62,9 +64,14 @@ class SQLExecutor:
             truncated = len(values) > self.max_rows
             rows = [list(row) for row in values[:self.max_rows]]
             result = {"columns": columns, "rows": rows, "truncated": truncated,
+                      "sql": sql, "parameters": parameters or [],
                       "returned_rows": len(rows), "elapsed_seconds": round(time.monotonic() - started, 4),
                       "references": [{"table":t,"column":c} for t,c in sorted(references)], "functions":sorted(functions),
-                      'direct_tables':sorted(direct_tables)}
+                      'direct_tables':sorted(direct_tables),
+                      'read_tables':sorted({table for table,_ in references if table}),
+                      'logical_tables':sorted({table for table,context in read_contexts if context not in views}
+                                              | {context for _,context in read_contexts if context in views}),
+                      'read_contexts':[{'table':table,'context':context} for table,context in sorted(read_contexts,key=lambda x:(x[0],str(x[1])))]}
             if len(json_text(result)) > 40000:
                 raise DataMateError("Kết quả quá lớn; chọn ít cột hoặc tổng hợp trong SQL")
             return result

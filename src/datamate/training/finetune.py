@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import time
 
 from ..config import configure_offline
 from ..data.split import read_jsonl
@@ -15,8 +16,13 @@ def tokenize_conversations(rows, tokenizer, max_length):
     encoded, skipped = [], 0
     for row in rows:
         messages = row["messages"]
+        selected=row.get('trainable_assistant_indices')
+        if selected is not None and (not isinstance(selected,list) or not selected or
+                any(type(i) is not int or not 0<=i<len(messages) or messages[i]['role']!='assistant' for i in selected) or
+                len(selected)!=len(set(selected))):
+            raise DataMateError('trainable_assistant_indices cần các vị trí assistant duy nhất, hợp lệ')
         for index, message in enumerate(messages):
-            if message["role"] != "assistant":
+            if message["role"] != "assistant" or selected is not None and index not in selected:
                 continue
             prefix_text = tokenizer.apply_chat_template(messages[:index], tokenize=False, add_generation_prompt=True, enable_thinking=False)
             full_text = tokenizer.apply_chat_template(messages[:index+1], tokenize=False, add_generation_prompt=False, enable_thinking=False)
@@ -49,6 +55,7 @@ def tokenize_conversations(rows, tokenizer, max_length):
 
 
 def train(config_path, resume=None):
+    started=time.monotonic()
     raw = json.loads(Path(config_path).read_text(encoding="utf-8"))
     configure_offline(raw.get("cache_dir", ".cache"))
     model_key, base_dir = raw["model_key"], raw["base_dir"]
@@ -57,8 +64,14 @@ def train(config_path, resume=None):
     manifest = json.loads((data_dir / "manifest.json").read_text(encoding="utf-8"))
     if manifest["source_role"] != "competition_training" or set(manifest["train_businesses"]) & set(manifest["validation_businesses"]):
         raise DataMateError("Training manifest không hợp lệ hoặc rò rỉ doanh nghiệp holdout")
+    if manifest.get('kind')=='curated_seed':
+        from .seed import verify_seed_dataset
+        verify_seed_dataset(data_dir)
+        if model_key not in manifest.get('tokenizer_checks',[]):
+            raise DataMateError('Dataset chưa được kiểm tokenizer cho model này')
     for name, digest in manifest["files"].items():
-        if sha256(data_dir / name) != digest:
+        path=(data_dir/name).resolve()
+        if not path.is_relative_to(data_dir.resolve()) or sha256(path) != digest:
             raise DataMateError("Dữ liệu training bị thay đổi sau khi chuẩn bị")
     import torch
     from datasets import Dataset
@@ -66,12 +79,41 @@ def train(config_path, resume=None):
     from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
     if not torch.cuda.is_available():
         raise DataMateError("Training LoRA cần GPU CUDA; dùng Colab GPU")
+    vram=torch.cuda.get_device_properties(0).total_memory/(1024**3)
+    if vram<raw.get('min_vram_gib',0):
+        raise DataMateError(f'GPU hiện có {vram:.1f} GiB, dưới ngưỡng {raw["min_vram_gib"]} GiB của profile này. Chọn GPU lớn hơn hoặc chuẩn bị profile dữ liệu khác; không cắt ngầm prompt.')
     set_seed(raw.get("seed", 42))
     dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
     tokenizer = AutoTokenizer.from_pretrained(base_dir, local_files_only=True, trust_remote_code=False)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
+    # Check targets and lengths on CPU before allocating base weights on GPU.
+    train_rows, skipped_train = tokenize_conversations(read_jsonl(data_dir / "train.jsonl"), tokenizer, raw.get("max_length", 16384))
+    validation_rows, skipped_validation = tokenize_conversations(read_jsonl(data_dir / "validation.jsonl"), tokenizer, raw.get("max_length", 16384))
+    if not train_rows:
+        raise DataMateError("Không có mẫu train fit context. Không âm thầm cắt rulebook/tool trace")
+    if (skipped_train or skipped_validation) and raw.get('reject_overlength',manifest.get('kind')=='curated_seed'):
+        raise DataMateError('Có mẫu vượt context; dừng trước load model. Chuẩn bị dataset/profile mới, không tự bỏ mẫu.')
+    if raw.get('smoke_longest_only',False):
+        train_rows=[max(train_rows,key=lambda row:len(row['input_ids']))]
+        validation_rows=[]
+    output = Path(raw["output_dir"])
+    if output.exists() and any(output.iterdir()) and resume is None:
+        raise DataMateError("output_dir đã có; dùng resume hoặc chọn thư mục mới")
+    run_identity={k:raw.get(k) for k in ('model_key','method','rank','alpha','dropout','target_suffixes','max_length','seed',
+                                      'smoke_longest_only','batch_size','gradient_accumulation_steps','learning_rate','optimizer')}
+    run_identity.update(base_manifest_sha256=sha256(Path(base_dir)/'artifact_manifest.json'),
+                        dataset_manifest_sha256=sha256(data_dir/'manifest.json'))
+    identity_path=output/'run_identity.json'
+    if resume:
+        if not identity_path.is_file() or json.loads(identity_path.read_text(encoding='utf-8'))!=run_identity:
+            raise DataMateError('Resume khác model/dataset/cấu hình hoặc thiếu run_identity; không trộn checkpoint')
+        if not Path(resume).resolve().is_relative_to(output.resolve()):
+            raise DataMateError('Checkpoint resume cần nằm trong output_dir đã xác minh')
+    output.mkdir(parents=True,exist_ok=True)
+    identity_path.write_text(json_text(run_identity,indent=2),encoding='utf-8')
+    torch.cuda.reset_peak_memory_stats()
     kwargs = {"local_files_only": True, "trust_remote_code": False, "dtype": dtype, "attn_implementation": "sdpa"}
     quantized = raw.get("method", "lora") == "qlora"
     if raw.get("method", "lora") not in {"lora", "qlora"}:
@@ -90,10 +132,6 @@ def train(config_path, resume=None):
     model = get_peft_model(model, LoraConfig(r=raw.get("rank", 16), lora_alpha=raw.get("alpha", 32),
         lora_dropout=raw.get("dropout", 0.05), target_modules=targets, task_type="CAUSAL_LM", bias="none"))
     model.config.use_cache = False
-    train_rows, skipped_train = tokenize_conversations(read_jsonl(data_dir / "train.jsonl"), tokenizer, raw.get("max_length", 16384))
-    validation_rows, skipped_validation = tokenize_conversations(read_jsonl(data_dir / "validation.jsonl"), tokenizer, raw.get("max_length", 16384))
-    if not train_rows:
-        raise DataMateError("Không có mẫu train fit context. Không âm thầm cắt rulebook/tool trace")
     class Collator:
         def __call__(self, features):
             length = max(len(feature["input_ids"]) for feature in features)
@@ -101,9 +139,6 @@ def train(config_path, resume=None):
             for key, padding in (("input_ids", tokenizer.pad_token_id), ("attention_mask", 0), ("labels", -100)):
                 batch[key] = torch.tensor([feature[key] + [padding]*(length-len(feature[key])) for feature in features], dtype=torch.long)
             return batch
-    output = Path(raw["output_dir"])
-    if output.exists() and any(output.iterdir()) and resume is None:
-        raise DataMateError("output_dir đã có; dùng resume hoặc chọn thư mục mới")
     args = TrainingArguments(output_dir=str(output), num_train_epochs=raw.get("epochs", 2),
         per_device_train_batch_size=raw.get("batch_size", 1), per_device_eval_batch_size=1,
         gradient_accumulation_steps=raw.get("gradient_accumulation_steps", 8),
@@ -113,7 +148,7 @@ def train(config_path, resume=None):
         logging_steps=5, save_steps=raw.get("save_steps", 50), save_total_limit=2,
         eval_strategy="steps" if validation_rows else "no", eval_steps=raw.get("save_steps", 50),
         max_steps=raw.get("max_steps", -1), report_to="none", seed=raw.get("seed", 42),
-        optim="adamw_torch", remove_unused_columns=False)
+        optim=raw.get('optimizer','adamw_torch'), remove_unused_columns=False)
     trainer = Trainer(model=model, args=args, train_dataset=Dataset.from_list(train_rows),
         eval_dataset=Dataset.from_list(validation_rows) if validation_rows else None,
         data_collator=Collator(), processing_class=tokenizer)
@@ -125,8 +160,14 @@ def train(config_path, resume=None):
               "train_sequences": len(train_rows), "validation_sequences": len(validation_rows),
               "skipped_overlength_train": skipped_train, "skipped_overlength_validation": skipped_validation,
               "tokens_per_epoch": sum(len(row["input_ids"]) for row in train_rows),
+              'longest_sequence_tokens':max(len(row['input_ids']) for row in train_rows),
+              'max_supervised_tokens':max(sum(x!=-100 for x in row['labels']) for row in train_rows),
+              'adapter_target_modules':targets,
               "trainable_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
-              "peak_cuda_bytes": torch.cuda.max_memory_allocated()}
+              "peak_cuda_bytes": torch.cuda.max_memory_allocated(),
+              'cuda_device':torch.cuda.get_device_name(0),'cuda_total_gib':vram,
+              'elapsed_training_process_seconds':round(time.monotonic()-started,3),
+              'smoke_longest_only':bool(raw.get('smoke_longest_only',False))}
     (output / "training_report.json").write_text(json_text(report, indent=2), encoding="utf-8")
     return report
 

@@ -2,11 +2,43 @@
 
 Ứng dụng Python theo kiến trúc **modular monolith**: đọc dữ liệu doanh nghiệp, cho LLM kiểm tra schema và gọi SQL, lấy đáp án trực tiếp từ kết quả query, rồi xuất JSONL đúng type. CLI, web local và Docker dùng chung mã nguồn. Có notebook Colab để chọn Qwen 3.5 9B hoặc Gemma 4 12B và fine-tune LoRA/QLoRA.
 
+**Hiện đang dùng pipeline 6 — rollback 08/11/2026:** theo yêu cầu người dùng đã hoàn tác interface v7 và đồng bộ cả notebook/kit infer **100 lẫn 200 câu**. **225 kiểm thử qua**, chưa đo lại tốc độ GPU. Tải lại đúng gói và notebook, restart kernel; ô load phải hiện pipeline 6. V7 và log được giữ riêng. Xem [mốc khôi phục và cách chạy](docs/rollback-pipeline6-2026-11-08.md).
+
 **Mới bắt đầu? Đọc [Hướng dẫn chạy từng bước](docs/huong-dan-chay-tung-buoc.md).** Làm phần A để mở web ngay; phần B cài Qwen trên laptop; phần D hướng dẫn Colab từ lúc chuẩn bị ZIP đến lấy model đã train về. Mỗi bước có lệnh, kết quả mong đợi và cách xử lý lỗi. Các mục bên dưới là tài liệu tham chiếu ngắn.
+
+**Benchmark chung cho nhóm, 07/11/2026 — v2:** giữ nguyên **200 câu train**, seed **4000930841**, 28 doanh nghiệp. Dùng được với mọi thiết kế agent/model; chỉ nộp **submission đúng schema cuộc thi và metadata sáu trường**, không cần question log. Có ZIP gửi nhóm không nhãn, ZIP chấm riêng và bảng so từng câu/PA/tổng thời gian. **18 kiểm thử qua; chưa inference model trên mẫu này.** Xem [gói v2, hướng dẫn và kiểm chứng](docs/team-benchmark-train200-2026-11-07.md).
+
+**Notebook Colab chạy 200 câu — rollback 08/11/2026:** notebook và kit đã trở về **engine pipeline 6**, dùng nguyên 200 câu/seed. Tải lại cả notebook và kit vì source được khóa hash; tên lượt mới kết thúc `team200-rollback-pipeline6-Nov8th-01`. Giữ output contract, log/review, resume và tự ngắt runtime. Xem [cách chạy và gói hiện tại](docs/team200-colab.md).
+
+**Fine-tune Gemma trên Colab Pro:** đã chuẩn bị bộ seed từ hai lượt 72+100: **136 câu train / 144 quyết định assistant**, 17 câu cần rà soát và 18 câu validation seed giữ ngoài train. Có ZIP dataset, source riêng và notebook QLoRA cho Gemma; đã kiểm chứng bằng công cụ/tokenizer, chưa train GPU. Xem [hướng dẫn và dữ liệu bàn giao](docs/gemma-seed72-100-colab-pro.md).
+
+**Lịch sử interface v7, đã hoàn tác ngày 08/11/2026:** đã sửa final/query_id, projection, tham số typed/khóa khách, cách giữ kỳ khi sửa API và ngân sách review. **241 kiểm thử qua**; replay toàn bộ 31 lỗi projection giữ được kết quả công cụ, 15 candidate đúng bị mất trước đây được chốt lại trong replay CPU. Chưa có PA/tốc độ checkpoint thật sau sửa. ZIP/notebook 100 câu mới dùng pipeline 7, diagnostic 9, giữ mẫu/seed cũ cho Qwen 9B và Gemma 12B. Phần model hiểu sai câu hỏi để đo và fine-tune sau. Xem [thay đổi, kiểm chứng và cách chạy](docs/interface-v7-2026-11-08.md). Các gói SFT và bộ 200 câu đã khóa giữ nguyên; kit Colab 200 câu được đóng gói lại riêng theo hướng dẫn bên trên.
+
+**Kết quả Qwen pipeline 6, nhận ngày 07/11/2026:** cùng 100 câu cho **43 đúng, 20 sai, 37 abstain; PA 23%**, so với pipeline 5 là 49/32/19 và PA 17%. Trung bình 10,68 giây/câu, 311 calls. Dùng đúng source/checkpoint; 31 câu lỗi projection, 15 candidate đúng bị mất. Sau candidate không có lượt nào sửa plan; ba ca sai do kiểu tham số/key lọt guard. Đã chấm/hash audit và probe CPU, chưa sửa runtime tiếp. Xem [phân tích, nguyên nhân từng nhóm và ưu tiên xử lý](docs/inference-review-qwen9b-pipeline6-2026-11-07.md).
+
+**Sửa chất lượng dùng chung, 07/11/2026:** pipeline **6** bổ sung kiểm tra plan, ngày serial/POS, nhóm danh mục, ngưỡng theo đơn/ngày, dòng tiền nợ, thẻ kho và lineage SQL. Preset Gemma 12B/Qwen 9B và Colab dùng cùng model kiểm tra candidate trước final (`self_review`); **213 kiểm thử qua**, chưa có PA/tốc độ GPU mới. ZIP inference/notebook mới giữ mẫu 100 cũ; ô load chặn source/module RAM cũ trước khi nạp trọng số. Xem [thay đổi, kiểm chứng, giới hạn và cách chạy](docs/shared-quality-fix-2026-11-07.md). Bộ Gemma SFT đã khóa giữ nguyên.
+
+**Đủ 100 câu Qwen 9B sau sửa, nhận ngày 06/11/2026:** đã chạy đúng pipeline 5/backend 3: **49 đúng, 32 sai, 19 abstain; PA 17%**, trung bình **9,64 giây/câu**. Nhanh hơn Gemma fast v5 nhưng sai nhiều hơn; 31/79 auto-final sai. Đã chấm lại, kiểm tra hash/log và probe CPU từng nhóm lỗi; chưa sửa runtime tiếp hoặc đo PA mới. Xem [phân tích đầy đủ 32 câu sai, 19 abstain và thứ tự xử lý](docs/inference-review-qwen9b-100-2026-11-06.md).
+
+**Đã sửa giao tiếp Qwen 9B/14B, 06/11/2026:** hợp nhất EOS từ checkpoint/tokenizer, xử lý nhiều marker cuối, làm rõ plan/feedback và dừng retry parse liên tiếp. **187 kiểm thử qua**; tokenizer thật và Qwen rất nhỏ ép token trên CPU xác nhận dừng đúng lượt, chưa benchmark checkpoint đầy đủ trên GPU sau sửa. Dùng ZIP inference và notebook mới, chọn `MODEL_KEY="qwen35-9b"` ở ô đầu, restart runtime và chạy bảy câu trước. Xem [bản sửa, kiểm chứng và cách chạy Colab](docs/qwen-protocol-fix-2026-11-06.md). Bộ Gemma SFT vẫn dùng source ZIP riêng đã khóa.
+
+**Notebook Qwen 9B nhận tiếp, 06/11/2026:** một câu thử vẫn abstain vì ô load dùng **pipeline 4 / Generation tokens None**, prompt khớp bản trước sửa và cả hai raw lỗi parse marker cuối. Batch bảy câu bị guard chặn nên chưa chạy. Source ZIP local có pipeline 5/backend 3; chưa xác định từ notebook là ZIP Drive cũ hay module Python giữ trong RAM. Chưa đủ căn cứ kết luận Qwen kém; xem [bằng chứng và cách kiểm tra đúng phiên bản](docs/inference-review-qwen9b-notebook-2026-11-06.md).
 
 **Cập nhật inference 03/11/2026:** pipeline v2 đã chạy lại cùng 72 câu development: **56 đúng, 1 sai, 15 bỏ qua; PA 76,39%**, khoảng 18 phút 15 giây riêng batch. Đây là mẫu đã dùng chẩn đoán, chưa đại diện hiệu năng private test. Đọc [phân tích lần 2, rules viết sẵn và lý do thiếu reasoning trong log](docs/inference-review-72-v2-2026-11-03.md), hoặc [những gì đã sửa và cách chạy Colab](docs/pipeline-v2-2026-11-03.md).
 
 **Kết quả lượt 3 nhận ngày 04/11/2026.** Chấm lại 100 câu ngẫu nhiên từ toàn bộ train cho **49 đúng, 13 sai, 38 bỏ qua, PA 36%**. Hai lượt 2 và 3 chỉ trùng một câu. Xem [phân tích và kiểm chứng lỗi](docs/inference-review-100-v3-2026-11-04.md) và [cách lấy mẫu](docs/inference-round3-random100.md).
+
+**Kết quả fast v5 nhận ngày 06/11/2026.** Đủ cùng 100 câu lượt 3: **46 đúng, 16 sai, 38 bỏ qua; PA 30%**, trung bình **23,19 giây/câu** so với 18,26 giây trước đó, không gồm load model. Số model calls giảm nhưng token đầu ra tăng; lỗi tập trung ở phạm vi tỷ lệ, khớp tên/nhóm, hợp đồng plan và kiểm tra/chốt đáp án. Đã chấm lại và kiểm chứng nguyên nhân bằng CPU; chưa triển khai các sửa đổi tiếp theo hoặc chạy inference mới. Xem [báo cáo so sánh, SQL/plan lỗi và thứ tự xử lý](docs/inference-review-fast-v5-2026-11-06.md).
+
+**Thử thêm Pinkstackorg, 06/11/2026.** Notebook inference nhận `MODEL_KEY="qwen35-upscaled14b-v2"` cho `Pinkstackorg/Qwen-3.5-upscaled-14B-V2-noft`, pin revision trước cutoff và đếm đủ **14.599.485.040** tham số, gồm vision. Key `qwen35-9b` vẫn là Qwen chính thức. Kiểm tra tích hợp ban đầu dùng cấu trúc/tokenizer offline. Xem [cấu hình và cách chạy cùng fast v5](docs/qwen35-upscaled14b-v2-colab.md) và kết quả thực tế bên dưới. Bộ fine-tune vẫn chỉ Gemma.
+
+**Kết quả Qwen 14B trước sửa, nhận ngày 06/11/2026.** Bundle có **10 câu, tất cả abstain**, trung bình 49,06 giây/câu; riêng bảy câu đầu là 51,76 giây/câu. Cả 35 output lỗi parse trước khi thực thi plan: generation thiếu stop ID `im_end`, parser chỉ bỏ một marker cuối, rồi các lượt sửa lỗi sinh dư/lặp. Gần 87,5% thời gian generation nằm ở retry. Xem [phân tích EOS/parser, độ trễ và hướng xử lý](docs/inference-review-qwen14b-2026-11-06.md); bản sửa triển khai sau phân tích được ghi bên trên.
+
+**Bản giảm độ trễ fast v5, 05/11/2026.** Mặc định code ánh xạ trước; model lập plan rồi code tự tính/chiếu đáp án. Chỉ thử model sửa phần thiếu theo nhu cầu, có giới hạn và cache; có thể tắt hẳn bằng `schema_mode="code_only"`. Notebook chạy đúng bảy câu đầu của mẫu 100 cũ trước, `RUN_LIMIT=None` để resume đủ mẫu. Xem [thay đổi, kiểm tra và hướng dẫn chạy tại thời điểm triển khai](docs/fast-inference-v5-2026-11-05.md); kết quả model thật nhận sau đó ở báo cáo 06/11 bên trên.
+
+**Pipeline v3 trước khi tối ưu, 05/11/2026.** Đã thêm chuẩn bị schema/rulebook bằng cùng model, plan cho từng câu và phép tính biên dịch có kiểm tra. Xem [thiết kế và giới hạn của bản trước](docs/pipeline-v3-2026-11-05.md).
+
+**Bản trước fast v5 chạy dở bảy câu, 05/11/2026.** Cả bảy đều bỏ qua, trung bình 179,14 giây/câu; chuẩn bị schema/rulebook chiếm 83,38% thời gian. Xem [phân tích độ trễ dẫn đến fast v5](docs/inference-review-7-v4-2026-11-05.md).
 
 **Kiểm tra triển khai ban đầu 01/11/2026:** đã kiểm thử phần mềm, đọc được 30 doanh nghiệp train và kiểm tra tokenizer/template. Cập nhật sau khi người dùng gặp lỗi load Qwen 9B trên RTX 4060 8GB: đã thêm **Qwen 3.5 4B · Local 4bit** để thử agent trên laptop. Xem [hướng dẫn chuyển sang 4B](docs/huong-dan-chay-tung-buoc.md). Chưa có benchmark so sánh model hoặc fine-tune. Demo luôn trả `abstain`.
 
@@ -76,9 +108,10 @@ Lệnh tải đúng full revision đã pin, đếm tensor và seal SHA256 từng
 | Preset | Model/chế độ | Tổng tham số |
 |---|---|---:|
 | `configs/qwen35-4b-local-4bit.json` | Qwen 3.5 4B, thử local 4bit/context 16K | 4,660B |
-| `configs/qwen35-9b.json` | Qwen 3.5 9B, single | 9,653B |
+| `configs/qwen35-9b.json` | Qwen 3.5 9B, self_review / pipeline 6 | 9,653B |
 | `configs/qwen35-9b-local-4bit.json` | Qwen, thử local 4bit/context 8K | 9,653B |
-| `configs/gemma4-12b.json` | Gemma 4 12B IT, single | 11,960B |
+| `configs/qwen35-upscaled14b-v2.json` | Pinkstackorg Qwen 3.5 upscaled V2, single / fast v5 | 14,599B |
+| `configs/gemma4-12b.json` | Gemma 4 12B IT, self_review / pipeline 6 | 11,960B |
 | `configs/gemma4-12b-speculative.json` | Gemma + assistant MTP ~0,423B | 12,383B |
 | `configs/gemma4-12b-self-review.json` | Cùng Gemma gọi lại để kiểm tra | 11,960B |
 

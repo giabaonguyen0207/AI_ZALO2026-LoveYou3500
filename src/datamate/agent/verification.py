@@ -9,16 +9,13 @@ from datetime import date, timedelta
 from ..data.rules import resolve_period
 from ..data.transforms import search_key
 from ..domain import DataMateError
+from .language import ALIASES, folded
 
 
 def question_key(text):
-    folded=unicodedata.normalize('NFKD',text.replace('đ','d').replace('Đ','D')).lower()
-    key=' '+' '.join(''.join(ch for ch in folded if not unicodedata.combining(ch)).split())+' '
-    aliases = {"dthu":"doanh thu","revenue":"doanh thu","sp":"san pham","dc":"duoc","nhiu":"nhieu",
-               "bnhiu":"bao nhieu","bn":"bao nhieu","bnhiu":"bao nhieu","trc":"truoc","hnay":"hom nay",
-               "hqua":"hom qua","order":"don","orders":"don","vs":"voi","ko":"khong","khoong":"khong","cos":"co"}
-    for token,value in aliases.items():
-        key = re.sub(r"\b"+token+r"\b",value,key)
+    key=' '+' '.join(folded(text).split())+' '
+    for token,value in ALIASES.items():
+        key = re.sub(r"\b"+token+r"\b",folded(value),key)
     return key
 
 
@@ -76,7 +73,10 @@ def question_contract(question):
     if extra:
         return {'metrics':[],'type':None,'suggested_metrics':result['metrics'],'extra_constraints':extra,
                 'next_action':'SQL trên facts đã chuẩn hóa; không dùng metric tổng rồi bỏ qua điều kiện'}
-    return result
+    # Legacy lexical recognition is a hint, never an authoritative decision.
+    # The model's explicit plan replaces this at inference.
+    return {'metrics':[], 'type':None, 'suggested_metrics':result['metrics'],
+            'suggested_type':result.get('type'), 'advisory_only':True}
 
 
 def question_periods(question,as_of_date,policy):
@@ -84,11 +84,15 @@ def question_periods(question,as_of_date,policy):
     specs = []
     explicit_days = list(re.finditer(r"(?<!\d)(\d{1,2})/(\d{1,2})/(\d{4})(?!\d)",q))
     days = re.search(r"\b(\d+) ngay\b",q)
-    if explicit_days and days and ("ke tu" in q or "ngay truoc" in q):
+    if 'tu dau nam' in q:
+        specs=[{'kind':'year_to_date'}]
+    elif explicit_days and days and ("ke tu" in q or "ngay truoc" in q):
         d,m,y = map(int,explicit_days[0].groups());anchor=date(y,m,d).isoformat();n=int(days[1])
         specs=[{"kind":"days_from","date":anchor,"days":n},{"kind":"days_before","date":anchor,"days":n}]
     elif explicit_days:
         specs=[{"kind":"range","start":date(int(m[3]),int(m[2]),int(m[1])).isoformat(),"end":date(int(m[3]),int(m[2]),int(m[1])).isoformat()} for m in explicit_days]
+        if len(specs)==2 and re.search(r'\btu\b.*\bden\b',q):
+            specs=[{'kind':'range','start':specs[0]['start'],'end':specs[1]['end']}]
     else:
         quarters = list(re.finditer(r"quy\s+(\d)\s*(?:/|nam\s*)?(\d{4})",q))
         if quarters:
@@ -96,6 +100,11 @@ def question_periods(question,as_of_date,policy):
         else:
             matches=list(re.finditer(r"(?<![\d/])(\d{1,2})\s*(?:/|nam\s+)(\d{4})(?!\d)",q))
             specs=[{"kind":"month","month":int(m[1]),"year":int(m[2])} for m in matches if 1<=int(m[1])<=12]
+            if len(specs)==2 and re.search(r'\btu\b.*\bden\b',q):
+                first,last=specs
+                months=(last['year']-first['year'])*12+last['month']-first['month']
+                if 0<=months<24:
+                    specs=[{'kind':'month','year':first['year']+(first['month']-1+i)//12,'month':(first['month']-1+i)%12+1} for i in range(months+1)]
     if not specs:
         relative = [("thang nay","this_month"),("tuan truoc","last_week"),("tuan roi","last_week"),
                     ("tuan nay","this_week"),("hom qua","yesterday"),("hom nay","today")]
@@ -109,17 +118,18 @@ def question_periods(question,as_of_date,policy):
         else:
             previous=date(current['year'],current['month'],1)-timedelta(days=1)
             specs.append({'kind':'month','year':previous.year,'month':previous.month})
-    if len(specs)==1 and specs[0]['kind']=='this_month' and any(x in q for x in ('thang truoc','th truoc')):
+    if len(specs)==1 and specs[0]['kind']=='this_month' and any(x in q for x in ('thang truoc','th truoc','thang roi')):
         specs.append({'kind':'previous_month_to_date'})
-    return [resolve_period(spec,as_of_date,policy) for spec in specs]
+    resolved=[resolve_period(spec,as_of_date,policy) for spec in specs]
+    return list({(p['start'],p['end']):p for p in resolved}.values())
 
 
-def verify_metric_request(action,question,as_of_date,policy):
+def verify_metric_request(action,question,as_of_date,policy,plan=None):
     contract=question_contract(question)
-    if contract.get('extra_constraints'):
-        raise DataMateError('Câu hỏi có điều kiện ngoài template metric: '+str(contract['extra_constraints'])+'. Dùng SQL trên facts/clean dimensions để giữ đủ điều kiện')
-    if contract['metrics'] and action.get('name') not in contract['metrics']:
-        raise DataMateError("Đại lượng không khớp câu hỏi; metric cần là "+str(contract['metrics']))
+    if plan:
+        from .planning import verify_metric_plan
+        verify_metric_plan(action,plan)
+        contract={'metrics':[], 'type':plan['type']}
     if 'limit' in contract and action.get('limit',1)!=contract['limit']:
         raise DataMateError("limit phải theo top k trong câu hỏi")
     if 'by' in contract and action.get('by',contract['by'])!=contract['by']:
@@ -128,20 +138,27 @@ def verify_metric_request(action,question,as_of_date,policy):
         action.setdefault('by',contract['by'])
     if 'threshold' in contract and action.get('threshold')!=contract['threshold']:
         raise DataMateError('Ngưỡng số đơn không khớp câu hỏi')
-    periods=question_periods(question,as_of_date,policy)
+    periods=plan['resolved_periods'] if plan else question_periods(question,as_of_date,policy)
     if periods:
         specs=[{'kind':'range','start':p['start'],'end':p['end']} for p in periods]
         if action.get('name') in {'continuous_growth','revenue_series'}:
+            if action.get('period'):
+                raise DataMateError('Metric nhiều kỳ dùng periods theo thứ tự; không truyền thêm period')
             action.setdefault('periods',specs)
         elif action.get('name') not in {'debt_rank','inventory','inventory_units'}:
             action.setdefault('period',specs[0])
             if action.get('name') in {'revenue_growth','quantity_growth'} and len(specs)>1:
                 action.setdefault('compare_period',specs[1])
     if action.get('name') in {'inventory','inventory_units','debt_rank'}:
-        expected_date=periods[0]['end'] if periods and periods[0]['start']==periods[0]['end'] else as_of_date
+        expected_date=(plan.get('date') if plan else None) or (periods[0]['end'] if periods and periods[0]['start']==periods[0]['end'] else as_of_date)
         action.setdefault('date',expected_date)
         if action.get('date',as_of_date)!=expected_date:
             raise DataMateError('Ngày chốt không khớp câu hỏi/as_of_date; không dùng snapshot tương lai')
+        if action.get('period'):
+            point=resolve_period(action['period'],as_of_date,policy)
+            if point['start']!=point['end'] or point['end']!=expected_date:
+                raise DataMateError('Công cụ ngày chốt dùng date; period phải là đúng một ngày trùng ngày chốt')
+            action.pop('period')
     if periods and action.get('period'):
         resolved=resolve_period(action['period'],as_of_date,policy)
         if (resolved['start'],resolved['end'])!=(periods[0]['start'],periods[0]['end']):

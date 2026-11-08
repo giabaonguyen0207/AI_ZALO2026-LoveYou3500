@@ -1,0 +1,38 @@
+{
+  "checked_on": "2026-11-06",
+  "model_key": "qwen35-upscaled14b-v2",
+  "repo_id": "Pinkstackorg/Qwen-3.5-upscaled-14B-V2-noft",
+  "revision": "f4fe3d2ad8f2e14799624cdbafa5d46219bc1fb2",
+  "revision_date": "2026-03-24T11:13:01.000Z",
+  "license_reported_by_repository": "apache-2.0",
+  "public_at_verification": true,
+  "gated": false,
+  "weight_upload_commit": {
+    "id": "43418eac1081e1d44dbf1b94fce556b4976fc0a3",
+    "date": "2026-03-24T11:10:54.000Z",
+    "title": "Upload 9 files"
+  },
+  "weight_files_identical_at_upload_and_pinned_revision": true,
+  "parameters_from_hub": 14599485040,
+  "parameters_counted_from_actual_safetensors_header": 14599485040,
+  "vision_parameters_included": 456010480,
+  "inference_parameter_limit": 15000000000,
+  "header_request_bytes": 262144,
+  "header_bytes": 137360,
+  "header_sha256": "d1779c9f43cb7b8ea41bc6fe9493e61cee287f0d3fb90f379aa0853ab791bcca",
+  "weight_files_reported_by_hub": [
+    {
+      "rfilename": "model.safetensors",
+      "blobId": "298e488bec15e3872d72da599e20502d2147fe63",
+      "size": 29199107448,
+      "lfs": {
+        "sha256": "1ae530c1bd99e5a9b9f7f257223db5a099b3d0c1069f29bc7197db9ca1f04a1e",
+        "size": 29199107448,
+        "pointerSize": 136
+      }
+    }
+  ],
+  "metadata_url": "https://huggingface.co/api/models/Pinkstackorg/Qwen-3.5-upscaled-14B-V2-noft/revision/f4fe3d2ad8f2e14799624cdbafa5d46219bc1fb2?blobs=true",
+  "history_url": "https://huggingface.co/Pinkstackorg/Qwen-3.5-upscaled-14B-V2-noft/commits/f4fe3d2ad8f2e14799624cdbafa5d46219bc1fb2",
+  "limits": "Small metadata/config/tokenizer and bounded weight header only. Full weights have not been downloaded or loaded; no generation, GPU memory/speed or PA measured."
+}

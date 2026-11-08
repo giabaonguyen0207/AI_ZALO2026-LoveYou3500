@@ -24,6 +24,10 @@ class RulePolicy:
     exclude_service_product: bool = False
     shifts: dict | None = None
     percent_places: int | None = None
+    gross_profit_line_cost: bool = False
+    money_places: int | None = None
+    price_all_states: bool = False
+    debt_flow_supported: bool = False
 
     def to_dict(self):
         return asdict(self)
@@ -74,7 +78,11 @@ def read_policy(rulebook):
                       quantity_ranking='ban chay' in ranking and 'so luong quy ve don vi co ban' in ranking,
                       exclude_service_product='phi phuc vu' in ranking and 'khong phai mat hang' in ranking,
                       shifts=shifts if len(shifts)==2 else None,
-                      percent_places=int(rounding[1]) if rounding else None)
+                      percent_places=int(rounding[1]) if rounding else None,
+                      gross_profit_line_cost='gia von ghi tren dong ban' in (search_key(section(rulebook,5)) or ''),
+                      money_places=0 if any(x in (search_key(rulebook) or '') for x in ('lam tron ve dong','tien la so nguyen vnd')) else None,
+                      price_all_states='tinh ca dong cua don huy don tra' in (search_key(section(rulebook,5)) or ''),
+                      debt_flow_supported=all(x in debt for x in ('no them','sau ngay mua','cung ngay mua','ghi no')))
 
 
 def resolve_period(spec, as_of_date, policy):
@@ -83,7 +91,26 @@ def resolve_period(spec, as_of_date, policy):
         raise DataMateError("period phải là object")
     today = date.fromisoformat(as_of_date)
     kind = spec.get("kind")
-    if kind in {"today", "yesterday"}:
+    allowed={'today':set(),'yesterday':set(),'this_week':set(),'last_week':set(),'this_month':set(),
+             'previous_month_to_date':set(),'year_to_date':set(),'month':{'month','year'},'quarter':{'quarter','year'},
+             'range':{'start','end'},'last_days':{'days','date'},'days_from':{'days','date'},'days_before':{'days','date'},
+             'month_offset':{'anchor','months','to_date'}}
+    if kind in allowed and set(spec)-({'kind'}|allowed[kind]):
+        raise DataMateError('period có trường không được dùng: '+str(sorted(set(spec)-({'kind'}|allowed[kind]))))
+    if kind=='month_offset':
+        anchor=spec.get('anchor');offset=spec.get('months')
+        if not isinstance(anchor,dict) or anchor.get('kind') not in {'month','this_month'} or type(offset) is not int or not -120<=offset<=120:
+            raise DataMateError('month_offset cần anchor month/this_month và months nguyên trong -120..120')
+        resolved=resolve_period(anchor,as_of_date,policy)
+        first=date.fromisoformat(resolved['start']);index=first.year*12+first.month-1+offset
+        year,month=index//12,index%12+1
+        last=calendar.monthrange(year,month)[1]
+        if type(spec.get('to_date',False)) is not bool:raise DataMateError('month_offset.to_date cần boolean')
+        if spec.get('to_date'):last=min(last,date.fromisoformat(resolved['end']).day)
+        return {'start':date(year,month,1).isoformat(),'end':date(year,month,last).isoformat(),'inclusive':True,'as_of_date':as_of_date}
+    if kind == 'year_to_date':
+        start, end = today.replace(month=1, day=1), today
+    elif kind in {"today", "yesterday"}:
         start = end = today-timedelta(days=kind == "yesterday")
     elif kind in {"this_week", "last_week"}:
         if policy.week_start is None:
