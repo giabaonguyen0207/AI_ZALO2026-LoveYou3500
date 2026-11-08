@@ -1,5 +1,7 @@
 # Huấn luyện trên Colab
 
+**Bộ Gemma seed 72+100, 05/11/2026:** đã chuẩn bị 136 câu/144 quyết định assistant theo fast v5, 17 câu hàng chờ và 18 câu validation seed giữ ngoài train. Dùng notebook `DataMate_Colab_Seed72_100_QLoRA.ipynb` cùng ZIP dataset/source riêng; không cần chạy lại baseline toàn bộ train. Xem [hướng dẫn Gemma trên Colab Pro, kiểm chứng và giới hạn](gemma-seed72-100-colab-pro.md). Chưa chạy GPU fine-tune. Các mục bên dưới giữ quy trình training tổng quát trước đó.
+
 Nếu cần hướng dẫn thao tác từng bước trên PowerShell/Drive/Colab, đọc **phần D** trong [Hướng dẫn chạy từng bước](huong-dan-chay-tung-buoc.md) trước. Tài liệu này giải thích kỹ thuật chuẩn bị dữ liệu và training.
 
 Triển khai ngày 01/11/2026. Chưa chạy GPU fine-tune. Các command dưới đây là quy trình sau khi chuẩn bị trọng số và runtime tương thích.

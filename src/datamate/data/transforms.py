@@ -151,8 +151,10 @@ def parse_quantity(value, unit=None, locale='auto'):
 
 @lru_cache(maxsize=65536)
 def typed_date(value, year=None, excel_epoch=None):
-    if type(value) in (int,float) and excel_epoch:
+    numeric = type(value) in (int,float) or isinstance(value,str) and re.fullmatch(r'\d{1,6}(?:\.\d+)?',value.strip())
+    if numeric and excel_epoch:
         from openpyxl.utils.datetime import from_excel
+        value=float(value)
         if value<1:
             raise ValueError('Serial Excel không có phần ngày')
         result=from_excel(value,epoch=datetime.fromisoformat(excel_epoch))

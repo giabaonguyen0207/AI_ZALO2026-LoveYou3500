@@ -1,6 +1,7 @@
-"""Update only bootstrap + diagnostic cells, preserving user choices and logs."""
+"""Refresh inference cells, backing up the notebook and preserving user choices."""
 import json
 from pathlib import Path
+import re
 import uuid
 
 
@@ -10,7 +11,7 @@ def main():
     original=path.read_bytes()
     notebook=json.loads(original)
     folder=root/'outputs/notebook-backups';folder.mkdir(parents=True,exist_ok=True)
-    backup=folder/('inference-before-pipeline-v2-'+uuid.uuid4().hex[:8]+'.ipynb')
+    backup=folder/('inference-before-refresh-'+uuid.uuid4().hex[:8]+'.ipynb')
     backup.write_bytes(original)
     cells=[c for c in notebook['cells'] if c['cell_type']=='code']
     setup=cells[1]
@@ -29,19 +30,26 @@ import datamate
 print("DataMate import OK:", datamate.__version__, datamate.__file__)
 '''
     setup['source']=source.splitlines(keepends=True)
-    setup['execution_count'],setup['outputs']=None,[]
     diagnostic=next(c for c in cells if c.get('id')=='datamate-train-diagnostic-120')
-    diagnostic['source']=(root/'tools/diagnose_train.py').read_text(encoding='utf-8').splitlines(keepends=True)
-    diagnostic['execution_count'],diagnostic['outputs']=None,[]
+    old_diagnostic=''.join(diagnostic['source'])
+    new_diagnostic=(root/'tools/diagnose_train.py').read_text(encoding='utf-8')
+    for name in ('AUTO_DISCONNECT','SAMPLE_SIZE','SAMPLING_MODE','SAMPLING_SEED','KNOWN_CASE','MAX_RUN_MINUTES'):
+        match=re.search(r'^'+name+r'\s*=.*$',old_diagnostic,re.M)
+        if match:
+            new_diagnostic=re.sub(r'^'+name+r'\s*=.*$',lambda _:match.group(),new_diagnostic,flags=re.M)
+    diagnostic['source']=new_diagnostic.splitlines(keepends=True)
+    loader=next(c for c in cells if c.get('id')=='s8jYg00N6yeq')
+    loader['source']=(root/'tools/colab_load_model.py').read_text(encoding='utf-8').splitlines(keepends=True)
     help_cell=next(c for c in notebook['cells'] if c.get('id')=='datamate-train-diagnostic-help')
     help_cell['source']=[
-        '## Inference lần 3 · 100 câu ngẫu nhiên từ toàn bộ train\n',
-        '**Trước lần chạy mới:** thay `datamate-colab-source.zip` trên Drive bằng gói mới trong outputs local. Khởi động lại kernel/runtime để nạp code mới; giữ MODEL_KEY và QUANTIZATION như baseline. Chạy các ô chuẩn bị/load, sau đó ô batch này.\n',
-        'Tên lượt mới `random100-round3-01`; seed `20261103`. Bốc đều, không hoàn lại từ toàn bộ 3.000 câu train; không cân đối type/doanh nghiệp/ngôn ngữ, không lọc câu cũ hoặc holdout. Không fine-tune; trần mềm 90 phút.\n',
-        'Sau dòng REPORT, kiểm tra ZIP đã lưu trên Drive rồi ngắt GPU. ZIP có log JSON và Markdown cho từng câu để xem LLM, SQL, kết quả/lỗi từng bước. Chưa có accuracy LLM của lượt 3.\n']
+        '## Chạy lại Gemma 12B và Qwen 9B — pipeline 6\n',
+        'Thay source ZIP mới trên Drive, restart kernel rồi chạy từ ô đầu. Preflight phải hiện pipeline 6/backend 3 trước khi chép/nạp trọng số; ô load dùng self_review.\n',
+        'Giữ mẫu 100/seed 20261103. RUN_LIMIT=None chạy đủ, 7 để thử trước; suffix mới random100-rollback-pipeline6-Nov8th-01, output tách theo model. Không resume vào lượt cũ.\n',
+        'Chạy Qwen với MODEL_KEY="qwen35-9b", Gemma với "gemma4-12b" trong các kernel riêng. Output đã lưu là lịch sử; giữ nguyên AUTO_DISCONNECT và QUANTIZATION của bạn.\n',
+        'Review dùng cùng model, thêm một call ở ca thuận lợi; chưa có PA/tốc độ GPU mới. Không bật lại chuẩn bị toàn schema bằng SLM. Xem docs/shared-quality-fix-2026-11-07.md.\n']
     path.write_text(json.dumps(notebook,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     print('Backup:',backup)
-    print('Updated bootstrap and diagnostic only:',path)
+    print('Updated bootstrap, loader, diagnostic and help:',path)
 
 
 if __name__=='__main__':

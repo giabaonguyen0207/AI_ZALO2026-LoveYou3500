@@ -91,9 +91,11 @@ def test_notebook_load_preserves_inference_config_and_verifies_once_on_local(mod
         calls.append(settings)
         assert Path(settings.model_dir).is_relative_to(tmp_path/'local')
         verify_artifact(settings.model_dir, settings.model_key)
-        return object()
+        return types.SimpleNamespace(pipeline_version=6,backend=types.SimpleNamespace(generation_tokens={'effective_eos_token_ids':[1,2]}))
     monkeypatch.setattr(datamate.application, 'create_agent', create)
-    monkeypatch.setattr(runpy, 'run_path', lambda _: {'prepare_local_model':lambda src, cache, key:prepare_local_model(src, tmp_path/'local', key)})
+    real_run_path=runpy.run_path
+    monkeypatch.setattr(runpy, 'run_path', lambda path: real_run_path(path) if Path(path).name=='colab_runtime_check.py' else
+                        {'prepare_local_model':lambda src, cache, key:prepare_local_model(src, tmp_path/'local', key)})
     monkeypatch.setitem(sys.modules, 'torch', types.SimpleNamespace(cuda=types.SimpleNamespace(empty_cache=lambda:None)))
     context={'WORK':root,'MODEL_SOURCE_DIR':model_source,'MODEL_KEY':'fixture', 'QUANTIZATION':'none',
              'TRAIN_ROOT':tmp_path/'train','SAVE':tmp_path/'saved'}
@@ -101,4 +103,24 @@ def test_notebook_load_preserves_inference_config_and_verifies_once_on_local(mod
     assert len(calls)==1
     settings=calls[0]
     assert settings.quantization=='none' and settings.max_context_tokens==16384
-    assert settings.max_new_tokens==768 and settings.max_steps==10 and settings.question_timeout_seconds==240
+    assert settings.max_new_tokens==768 and settings.max_steps==6 and settings.question_timeout_seconds==90
+    assert settings.schema_mode=='code_first' and settings.adaptive_preparation is False
+    assert settings.require_plan and settings.auto_execute_plan
+    assert settings.mode=='self_review'
+
+
+def test_runtime_preflight_rejects_stale_source_or_imports_before_weights(tmp_path,monkeypatch):
+    import datamate.agent.runner
+    import datamate.data.normalization
+    from tools.colab_runtime_check import verify_runtime
+    root=Path(__file__).resolve().parents[1]
+    assert verify_runtime(root)['pipeline_version']==6
+    monkeypatch.setattr(datamate.agent.runner.Agent,'pipeline_version',5)
+    with pytest.raises(RuntimeError,match='Module cũ'):verify_runtime(root)
+    monkeypatch.setattr(datamate.agent.runner.Agent,'pipeline_version',6)
+    monkeypatch.setattr(datamate.data.normalization,'semantic_version',lambda:'stale')
+    with pytest.raises(RuntimeError,match='chuẩn hóa'):verify_runtime(root)
+    source=tmp_path/'src/datamate';(source/'agent').mkdir(parents=True);(source/'models').mkdir()
+    (source/'agent/runner.py').write_text('class Agent:\n    pipeline_version = 5\n')
+    (source/'models/backends.py').write_text('class TransformersBackend:\n    protocol_version = 3\n')
+    with pytest.raises(RuntimeError,match='Source ZIP cũ'):verify_runtime(tmp_path)

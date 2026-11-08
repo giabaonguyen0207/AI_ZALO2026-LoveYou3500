@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import random
+from copy import deepcopy
 from pathlib import Path
 
 from ..agent.prompts import initial_messages
@@ -88,14 +89,29 @@ def prepare_training(split_root, output, kind="format", logs=None, validation_fr
             if not trace or not trace[-1].get("accepted"):
                 rejected += 1
                 continue
-            catalog = ingestor.catalog(question.business_id).summary()
-            members = {name for table in catalog["tables"] for name in table.get("view_of", [])}
-            catalog["tables"] = [table for table in catalog["tables"] if table["name"] not in members]
-            messages = initial_messages(question, split.rulebook, split.readme(question.business_id), catalog)
-            for step in trace:
-                messages.append({"role": "assistant", "content": step["raw"]})
-                if "observation" in step:
-                    messages.append({"role": "user", "content": json_text({"tool_result": step["observation"]})})
+            answer_steps=[step for step in trace if step.get('phase')!='preparation']
+            if any(step.get('error') or step.get('observation',{}).get('error') for step in answer_steps):
+                rejected += 1
+                continue  # A correct final answer does not make failed actions good SFT targets.
+            from ..agent.protocol import parse_action
+            try:
+                parsed_steps=[parse_action(step['raw']) for step in answer_steps]
+            except (DataMateError,KeyError,TypeError):
+                rejected += 1
+                continue
+            if record.get('initial_messages'):
+                messages=deepcopy(record['initial_messages'])
+            elif any(step.get('phase')=='preparation' for step in trace):
+                raise DataMateError('Trajectory thích nghi thiếu initial_messages thực tế; không dựng lại bằng catalog khác')
+            else:
+                catalog = ingestor.catalog(question.business_id).summary()
+                members = {name for table in catalog["tables"] for name in table.get("view_of", [])}
+                catalog["tables"] = [table for table in catalog["tables"] if table["name"] not in members]
+                messages = initial_messages(question, split.rulebook, split.readme(question.business_id), catalog)
+            for step,parsed in zip(answer_steps,parsed_steps):
+                messages.append({"role": "assistant", "content": json_text(parsed)})
+                if 'model_observation' in step or 'observation' in step:
+                    messages.append({"role": "user", "content": json_text({"tool_result": step.get('model_observation',step.get('observation'))})})
             examples.append({"question_id": question.id, "business_id": question.business_id, "messages": messages, "kind": "verified_trajectory"})
         if not examples:
             raise DataMateError("Chưa có trajectory train đúng để fine-tune. Chạy baseline/kiểm tra lỗi trước; không tạo lời giải giả.")

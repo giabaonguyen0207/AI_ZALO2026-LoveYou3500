@@ -10,7 +10,7 @@ from ..domain import Answer, ANSWER_TYPES, DataMateError, finite_number
 from ..data.transforms import iso_date, normalized, round_half_up
 from .native import parse_native_call
 
-ACTIONS = {"schema", "profile", "lookup", "period", "check", "metric", "sql", "final"}
+ACTIONS = {"schema", "profile", "lookup", "period", "check", "metric", "sql", "final", "prepare", "plan", "calculate"}
 
 
 def _pairs(pairs):
@@ -31,7 +31,9 @@ def parse_action(text):
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
     text = re.sub(r"<\|channel>thought\s*.*?<channel\|>", "", text, flags=re.S).strip()
     text = re.sub(r"^(?:<\|turn>model\\?n?\s*)", "", text).strip()
-    text = re.sub(r"(?:<turn\|>|<\|im_end\|>|<\|endoftext\|>|<eos>)\s*$", "", text).strip()
+    # Only remove consecutive known trailers. Preserve internal turn boundaries
+    # so a second action or a model-generated conversation still fails parsing.
+    text = re.sub(r"(?:(?:<turn\|>|<\|im_end\|>|<\|endoftext\|>|<eos>)\s*)+$", "", text).strip()
     # Compatibility with logs decoded by the old skip_special_tokens=True.
     text = re.sub(r"^(?:thought\s*\n)+", "", text).strip()
     envelope = None
@@ -70,7 +72,7 @@ def parse_action(text):
             raise DataMateError("Tên native call khác action JSON")
         value = {"action": envelope, **value}
     if value.get("action") not in ACTIONS:
-        raise DataMateError("action phải là schema/profile/lookup/period/check/metric/sql/final")
+        raise DataMateError("action phải là schema/profile/lookup/period/check/metric/sql/final/prepare/plan")
     kind = value["action"]
     if kind in {"schema", "profile"} and not isinstance(value.get("table"), str):
         raise DataMateError("schema/profile cần table là chuỗi")

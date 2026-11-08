@@ -11,56 +11,83 @@ from .transforms import search_key
 ALIASES = {
     "order_id": {"ma don hang", "ma hoa don", "order id", "ma bill", "don",'ma giao dich','so ct','so phieu','ma phieu','ma gd','so hoa don','orderid','invoice id'},
     "order_date": {"ngay ban", "ngay", "ngay thang", "ngay dat hang", "ngay giao dich", "ngay mua", "ngay lap"},
-    "status": {"trang thai", "trang thai don", "trang thai don hang", "trang thai xu ly", "tinh trang don", "status", "ket qua", "ghi chu tt",'state','order status'},
+    "status": {"trang thai", "trang thai don", "trang thai don hang", "trang thai xu ly", "tinh trang don", "tinh trang", "status", "ket qua", "ghi chu tt",'state','order status'},
     "product_id": {"ma hang", "ma hang hoa", "ma san pham", "ma sku", "ma hh",'ma sp','ma mon','id sp'},
     "product_name": {"ten hang", "ten hang hoa", "ten san pham", "mat hang", "san pham", "hang", "hang hoa", "product", "mon",'chi tiet hang','ten sp'},
     "customer_id": {"ma kh", "ma khach hang", "customer id", "ma khach mua",'ma kh mua','ma khach le si'},
     "customer_name": {"khach hang", "ten khach hang", "ten khach", "ten kh", "khach", "kh", "tenkh",'khach hang ten','ben mua'},
     "quantity": {"so luong", "sl ban", "so luong san pham", "so luong ban", "so luong hang", "sl", "s luong", "s l",'slg','sluong','sl nhap','so luong nhap'},
-    "base_quantity": {"so luong quy doi", "so luong le", "sl le", "sl co ban", "quy ra dv le", "sl quy ra le"},
+    "base_quantity": {"so luong quy doi", "sl quy doi", "so luong le", "sl le", "sl co ban", "quy ra dv le", "sl quy ra le"},
     "line_amount": {"thanh tien", "thanh tien d", "tien ban", "tri gia", "thanh tien", "tien", "amount", "tong"},
     "header_revenue": {"tong tien hang", "tien hang", "tien hang truoc giam"},
-    "order_total": {"tong sau giam gia", "phai thu", "tong tien", "tongtien"},
-    "balance": {"con no", "du no", "chua tra"},
+    "order_total": {"tong sau giam gia", "phai thu", "tong tien", "tongtien", "tong thanh toan"},
+    "balance": {"con no", "du no", "chua tra", "con phai thu"},
     "paid": {"khach da tra", "da tra", "da thu", "thanh toan"},
     "unit": {"don vi tinh", "don vi", "dvt", "dv tinh", "unit", "donvi", "d vi"},
-    "base_unit": {"don vi co ban", "don vi goc", "dv nho", "dv goc"},
+    "base_unit": {"don vi co ban", "don vi co so", "don vi goc", "dv nho", "dv goc"},
     "large_unit": {"don vi quy doi", "dv lon", "dv nhap"},
-    "factor": {"ti le quy doi", "he so", "he so qd", "quy doi", "bang"},
+    "factor": {"ti le quy doi", "he so", "he so qd", "he so quy doi", "quy doi", "bang"},
     "stock": {"ton cuoi ky", "ton cuoi", "ton kho", "ton thuc"},
-    "price": {"don gia", "gia san pham", "gia ban", "gia 1 dv", "gia le", "price",'gia','gia niem yet','gia nhap'},
-    "cost": {"gia von", "gia von luc ban", "gia von hien tai"},
+    "price": {"don gia", "gia san pham", "gia ban", "gia ban le", "gia 1 dv", "gia le", "price",'gia','gia niem yet','gia nhap'},
+    "cost": {"gia von", "gia von hang", "gia von luc ban", "gia von hien tai"},
     "line_no": {"stt", "tt dong"},
-    "timestamp": {"thoi gian tao", "gio tao don"}, "hour": {"gio"},
-    "channel": {"kenh ban", "nguon don"},
+    "timestamp": {"thoi gian tao", "thoi gian lap", "gio tao don"}, "hour": {"gio"},
+    "channel": {"kenh ban", "kenh ban hang", "nguon don", "loai ban"},
     "employee": {"nguoi ban", "ma nv ban"},
-    "payment_method": {"phuong thuc thanh toan", "phuong thuc tt", "hinh thuc thanh toan", "pttt"},
-    "payment_date": {"thoi diem", "thoi gian thu"}, "payment_amount": {"so tien thu", "gia tri"},
+    "payment_method": {"phuong thuc thanh toan", "phuong thuc tt", "hinh thuc thanh toan", "phuong thuc", "pttt"},
+    "payment_date": {"thoi diem", "thoi gian thu", "ngay gio thu", "ngay thu"}, "payment_amount": {"so tien thu", "gia tri"},
     "return_quantity": {"so luong tra", "so luong tra dvt co ban", "sl tra dvt co ban"},
     "cancel_reason": {"ly do huy", "nguyen nhan huy",'cancelreason','cancel reason','cancellation reason'},
     'purchase_date':{'ngay nhap','ngay nhap hang','ngay phieu nhap'},
     'purchase_id':{'ma nhap hang','ma phieu nhap','ma don nhap'},
     'receipt_id':{'phieu thu','ma phieu thu'},
+    'product_group':{'nhom hang','nhom hang hoa','nhom hang 3 cap','danh muc','phan loai'},
+    'customer_group':{'nhom khach','nhom khach hang','loai khach hang'},
+    'gender':{'gioi tinh','nam nu','gender'},
+    'prescription':{'ke don','thuoc ke don','ban theo don'},
+    'return_reason':{'ly do tra','ly do tra hang','nguyen nhan tra hang'},
+    'expiry_date':{'han dung','han su dung','ngay het han','expiry date'},
+    'lot_id':{'ma lo','so lo'},
+    'stock_timestamp':{'ngay gio phat sinh','thoi diem phat sinh'},
+    'location_id':{'ma chi nhanh','ma kho','warehouse id'},
 }
 
 
+def header_key(column):
+    separated = ''.join((' ' if i and char.isupper() and
+        (column[i-1].islower() or column[i-1].isdigit() or
+         column[i-1].isupper() and i+1<len(column) and column[i+1].islower()) else '')+char
+        for i,char in enumerate(column))
+    return search_key(separated)
+
+
 def readme_descriptions(readme, table):
-    result, active = {}, False
+    result, active, active_level = {}, False, 0
     for line in readme.splitlines():
-        if line.startswith("## "):
+        if re.match(r'^#{1,4}\s', line):
+            level=len(line)-len(line.lstrip('#'))
             quoted = re.findall(r"`([^`]+)`", line)
-            active = bool(quoted and quoted[0].casefold() == table["file"].casefold())
-            if len(quoted) > 1:
-                active = active and quoted[1].casefold() == table.get("sheet", "").casefold()
+            # Subheadings without a new file keep the parent file's scope.
+            file_heading=bool(quoted and quoted[0].casefold().endswith(('.csv','.xlsx','.sqlite','.db')))
+            if not active or level<=active_level or file_heading:
+                active = bool(quoted and quoted[0].casefold() == table["file"].casefold())
+                if len(quoted) > 1:
+                    active = active and quoted[1].casefold() == table.get("sheet", "").casefold()
+                active_level=level
         if active:
-            match = re.match(r"\s*-\s*\*\*(.+?)\*\*:\s*(.+)", line)
+            match = re.match(r"\s*[-*]\s*(?:\*\*|`)(.+?)(?:\*\*|`)\s*:\s*(.+)", line)
             if match:
                 result[match[1]] = match[2]
+            if line.strip().startswith('|'):
+                cells=[cell.strip().strip('`* ') for cell in line.strip().strip('|').split('|')]
+                if len(cells)>=2 and cells[0] in table['columns']:
+                    result[cells[0]]=' '.join(cells[1:])
     return result
 
 
 def description_role(description):
     text = search_key(description) or ""
+    text = re.sub(r'^la\s+', '', text)
     # Specific roles precede the broad 'mã hàng', 'số lượng', 'tổng tiền'.
     patterns = [
         ("return_quantity", "so luong tra"), ("base_quantity", "so luong da doi"),
@@ -75,8 +102,10 @@ def description_role(description):
         ("status", "trang thai don"), ("customer_id", "ma khach"),
         ("customer_name", "ten khach"), ("product_id", "ma hang"),
         ("product_name", "ten hang"), ("product_name", "ten mat hang"),
-        ("line_amount", "thanh tien sau giam"), ("header_revenue", "tong tien hang"),
+        ("line_amount", "thanh tien sau giam"), ("line_amount", "thanh tien cua dong"),
+        ("header_revenue", "tong tien hang"),
         ("order_total", "tong tien don"), ("order_total", "tong tien ca don"),
+        ("order_total", "so khach phai tra cho ca don"),
         ("paid", "da thanh toan"), ("balance", "con no"), ("stock", "ton kho"),
         ("payment_method", "hinh thuc thanh toan"), ("payment_method", "phuong thuc thanh toan"),
         ("unit", "don vi tinh"), ("quantity", "so luong"),
@@ -95,7 +124,10 @@ def bind_table(table, readme):
         role = description_role(descriptions.get(column)) if column in descriptions else None
         origin = "README" if role else "header"
         if not role:
-            key = search_key(column)
+            # Split both MaKhachHang and acronym prefixes such as SLQuyDoi.
+            # Unicode ranges such as à-ỹ also contain uppercase Vietnamese
+            # letters. Use character categories so ĐVT stays one acronym.
+            key = header_key(column)
             role = next((name for name, aliases in ALIASES.items() if key in aliases), None)
         if role and role != "empty":
             candidates.setdefault(role, []).append(column)
@@ -109,6 +141,12 @@ def bind_table(table, readme):
         selected[role]=documented if documented else columns
     ambiguous = {role: cols for role, cols in selected.items() if len(cols)>1}
     roles = {role: cols[0] for role, cols in selected.items() if len(cols)==1}
+    generic_names=[c for c in table['columns'] if header_key(c) in {'ten', 'ten goi', 'name'}]
+    if len(generic_names)==1 and 'order_id' not in roles:
+        name_role = 'customer_name' if 'customer_id' in roles and 'product_id' not in roles else 'product_name' if 'product_id' in roles and 'customer_id' not in roles else None
+        if name_role and name_role not in roles and name_role not in ambiguous:
+            roles[name_role]=generic_names[0]
+            origins[generic_names[0]]='header_and_identity_context'
     # A line amount called 'Tổng tiền' in a line-item export is not an order
     # total. The README generally resolves this; retain this structural fallback.
     if "order_total" in roles and "line_amount" not in roles and ("product_name" in roles or "product_id" in roles) and "quantity" in roles:
@@ -124,6 +162,13 @@ def bind_table(table, readme):
         roles["payment_amount"] = roles.pop("line_amount")
     if 'purchase_date' in roles and 'order_id' in roles and 'purchase_id' not in roles:
         roles['purchase_id']=roles.pop('order_id')
+    if 'customer_id' in roles and 'order_id' not in roles and 'product_id' not in roles:
+        for column in table['columns']:
+            if header_key(column) in {'nhom','hang'}:
+                roles.setdefault('customer_group',column)
+    if 'order_id' in roles and 'product_id' not in roles and 'return_quantity' not in roles:
+        for column in table['columns']:
+            if header_key(column)=='nguyen nhan':roles.setdefault('return_reason',column)
     kind = "other"
     if "stock" in roles and ("product_id" in roles or "product_name" in roles):
         kind = "inventory"
@@ -137,7 +182,7 @@ def bind_table(table, readme):
         kind = "sales"
     elif "order_date" in roles and "order_id" in roles and "status" in roles:
         kind = "orders"
-    elif "product_id" in roles and "product_name" in roles and "quantity" not in roles:
+    elif "product_id" in roles and ("product_name" in roles or 'prescription' in roles) and "quantity" not in roles and 'lot_id' not in roles:
         kind = "products"
     elif "customer_id" in roles and "customer_name" in roles and "order_id" not in roles:
         kind = "customers"

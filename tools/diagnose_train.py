@@ -7,6 +7,7 @@ Reference labels never select that sample or enter the agent; scoring is later.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from copy import deepcopy
 import csv
 from datetime import datetime, timezone
 import hashlib
@@ -29,15 +30,16 @@ from datamate.evaluation.scoring import score
 from datamate.models.artifacts import sha256
 from datamate.training.dataset import business_holdout, require_approved_source
 
-DIAGNOSTIC_VERSION = 4
+DIAGNOSTIC_VERSION = 8
 
 # CẤU HÌNH LƯỢT CHẠY: chỉ cần execute một lần sau ô load model.
 SAMPLE_SIZE = 100
+RUN_LIMIT = None              # Cùng mẫu 100 câu; đổi thành 7 nếu muốn smoke-test trước rồi resume.
 SAMPLING_MODE = "random"
 SAMPLING_SEED = 20261103      # Chỉ để lặp lại đúng mẫu; không đổi seed của model.
-MAX_RUN_MINUTES = 90           # Mục tiêu khoảng 15 Unit ở mức 10 Unit/giờ; trần mềm.
+MAX_RUN_MINUTES = 90           # Trần mềm, gồm chuẩn bị doanh nghiệp; có thể resume phần chưa chạy.
 AUTO_DISCONNECT = False        # True: thử đồng bộ Drive và ngắt Colab sau khi xuất ZIP.
-RUN_NAME_SUFFIX = "random100-round3-01"  # Đổi tên nếu thay model/config/code.
+RUN_NAME_SUFFIX = "random100-rollback-pipeline6-Nov8th-01"  # Giữ mẫu cũ, output mới cho pipeline 6.
 KNOWN_CASE = None             # Không ép đưa câu lỗi cũ vào mẫu ngẫu nhiên.
 
 
@@ -176,6 +178,7 @@ def runtime_snapshot(backend):
     result = {"python": sys.version, "backend": type(backend).__name__, "packages": {}}
     result['datamate_code_version']=datamate.__version__
     result['effective_generation']={'do_sample':False,'num_beams':1,'protocol_version':getattr(backend,'protocol_version',None)}
+    result['generation_tokens'] = deepcopy(getattr(backend, 'generation_tokens', None))
     for package in ("torch", "transformers", "accelerate", "bitsandbytes", "datamate-agent"):
         try:
             result["packages"][package] = importlib.metadata.version(package)
@@ -201,6 +204,8 @@ def runtime_snapshot(backend):
     tokenizer = getattr(backend, "tokenizer", None)
     if tokenizer is not None:
         result["tokenizer_class"] = type(tokenizer).__name__
+        result['tokenizer_eos_token_id'] = getattr(tokenizer, 'eos_token_id', None)
+        result['tokenizer_pad_token_id'] = getattr(tokenizer, 'pad_token_id', None)
         result["chat_template"] = getattr(tokenizer, "chat_template", None)
     return result
 
@@ -219,11 +224,11 @@ class TimedBackend:
     def __getattr__(self, name):
         return getattr(self.delegate, name)
 
-    def generate(self, messages, remaining_seconds):
+    def generate(self, messages, remaining_seconds, **kwargs):
         started = time.monotonic()
         event = {"input_characters": sum(len(m.get("content", "")) for m in messages)}
         try:
-            output = self.delegate.generate(messages, remaining_seconds)
+            output = self.delegate.generate(messages, remaining_seconds, **kwargs)
             event["output_characters"] = len(output)
             return output
         except Exception as exc:
@@ -265,7 +270,7 @@ def diagnostic_flags(record, reference):
             flags.add('repeated_action_stopped')
     if predicted["type"] == "abstain":
         flags.add("abstain")
-        if "ngân sách" in predicted.get("reason", "").lower():
+        if predicted.get("reason", "").startswith("Hết ngân sách"):
             flags.add("step_or_time_budget")
     return sorted(flags)
 
@@ -319,10 +324,16 @@ def write_report(destination, plan, manifest, target, runtime, batch_seconds):
                "median_seconds": statistics.median(times) if times else None,
                "p95_seconds": times[max(0, math.ceil(.95 * len(times)) - 1)] if times else None,
                "total_model_calls": sum(r["model_calls"] for r in records),
+               "preparation_seconds": round(sum(e.get('preparation_elapsed_seconds',0) for r in records for e in r.get('trace',[])),4),
+               "preparation_model_calls": sum(e.get('phase')=='preparation' and bool(e.get('model_call_attempted') or 'raw' in e) for r in records for e in r.get('trace',[])),
+               "auto_projected_questions": sum(any(e.get('accepted') and 'auto_final' in e for e in r.get('trace',[])) for r in records),
+               "schema_repair_attempts": sum(e.get('preparation_stage')=='targeted_schema_repair' and bool(e.get('model_call_attempted')) for r in records for e in r.get('trace',[])),
+               "schema_repair_cache_hits": sum(e.get('preparation_stage')=='targeted_schema_repair' and bool(e.get('cache_hit')) for r in records for e in r.get('trace',[])),
                "flag_counts": dict(Counter(flag for r in review for flag in r["flags"])),
                "by_reference_type": by_type, "this_invocation_seconds": round(batch_seconds, 3),
                "model_load_excluded": True,
-               "limitations": "Mẫu development chủ động chọn theo type/ngôn ngữ và tín hiệu độ khó, có thể gồm câu lỗi đã biết; không đại diện tỉ lệ câu toàn train. Nhóm có thể chồng lấp; complex_hint là heuristic, không phải độ khó đã đo. PA chỉ tính câu đã chạy."}
+               "limitations": ("Mẫu ngẫu nhiên đều từ toàn bộ train, không lọc holdout hoặc câu cũ; không phải đánh giá trên tập chưa dùng để phát triển. " if manifest.get('sampling')=='random' else "Mẫu development có tiêu chí, không đại diện tỉ lệ câu toàn train. ")+
+                              "PA chỉ tính câu đã chạy. Thời gian gồm chuẩn bị doanh nghiệp nhưng không gồm load model. Nhóm ngôn ngữ có thể chồng lấp."}
     save_json(destination / "summary.json", summary)
     save_json(destination / "runtime.json", runtime)
     (destination / "review.jsonl").write_text("".join(json_text(r) + "\n" for r in review), encoding="utf-8")
@@ -374,9 +385,9 @@ def run_diagnostic(agent, output_dir, sources, limit=None, wall_budget_seconds=1
         raise DataMateError("limit và wall_budget_seconds phải dương")
     if getattr(agent.backend, "counts_as_model", True) is False:
         raise DataMateError("Chẩn đoán này cần model thật; không chạy Demo")
-    if getattr(agent,'pipeline_version',0)<2:
-        raise DataMateError('Agent trong RAM là bản cũ. Thay source ZIP và khởi động lại kernel, rồi load agent trước batch v2')
-    if type(agent.backend).__name__=='TransformersBackend' and getattr(agent.backend,'protocol_version',0)<2:
+    if getattr(agent,'pipeline_version',0)<6:
+        raise DataMateError('Agent trong RAM là bản cũ. Thay source ZIP và khởi động lại kernel, rồi load pipeline >=6')
+    if type(agent.backend).__name__=='TransformersBackend' and getattr(agent.backend,'protocol_version',0)<3:
         raise DataMateError('Backend trong RAM là bản cũ; khởi động lại kernel sau khi cập nhật source')
     original = agent.backend
     if getattr(original, "settings", agent.settings).to_dict() != agent.settings.to_dict():
@@ -392,7 +403,7 @@ def run_diagnostic(agent, output_dir, sources, limit=None, wall_budget_seconds=1
     model_manifest = Path(settings["model_dir"]) / "artifact_manifest.json"
     if not model_manifest.is_file():
         raise DataMateError("Không thấy manifest của model đang dùng; kiểm tra model_dir")
-    identity = {"diagnostic_version": DIAGNOSTIC_VERSION, "settings": settings,
+    identity = {"diagnostic_version": DIAGNOSTIC_VERSION, "pipeline_version":agent.pipeline_version, "settings": settings,
                 "source_fingerprint": approved["fingerprint"], "source_hashes": source_hashes(),
                 "model_manifest_sha256": sha256(model_manifest), "seed": seed,
                 "development_businesses": development if sampling_mode != "random" else None,
@@ -447,6 +458,7 @@ def run_diagnostic(agent, output_dir, sources, limit=None, wall_budget_seconds=1
             print(f"[{index}/{target}] {question.business_id} | {question.as_of_date} | {question.question}", flush=True)
             result = agent.run(question, remaining_seconds=remaining)
             record = {"id": question.id, "business_id": question.business_id, **question.prompt_dict(),
+                      "rulebook_sha256":split.rulebook_hash,
                       **result.to_dict(question.id), "generation_calls": list(timer.calls)}
             save_json(path, record)
             write_debug_log(path.with_suffix('.md'), record)
@@ -468,6 +480,7 @@ if __name__ == "__main__":
     diagnostic_summary, diagnostic_bundle = run_diagnostic(
         agent, Path(SAVE) / "diagnostics" / RUN_NAME,
         sources=Path(WORK) / "configs/training_sources.json",
+        limit=RUN_LIMIT,
         sample_size=SAMPLE_SIZE, wall_budget_seconds=MAX_RUN_MINUTES * 60, probe=KNOWN_CASE,
         sampling_mode=SAMPLING_MODE, seed=SAMPLING_SEED,
     )

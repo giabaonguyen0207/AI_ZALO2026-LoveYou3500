@@ -40,8 +40,56 @@ def load_target(loader, model_dir, **kwargs):
         raise
 
 
+def generation_token_settings(tokenizer, generation_config, *, vocab_size=None):
+    """Resolve stop/pad IDs from the loaded checkpoint without changing its files.
+
+    Some chat checkpoints only configure end-of-document as generation EOS.
+    Keep those IDs and add the tokenizer's EOS and atomic chat turn terminator.
+    No numeric token ID or model key is assumed here.
+    """
+    size = min(len(tokenizer), vocab_size) if vocab_size is not None else len(tokenizer)
+
+    def checked(value, label):
+        if type(value) is not int or not 0 <= value < size:
+            raise DataMateError(f'{label} không phải token ID hợp lệ trong vocabulary: {value!r}')
+        return value
+
+    configured = getattr(generation_config, 'eos_token_id', None)
+    checkpoint_eos = list(configured) if isinstance(configured, (list, tuple)) else ([] if configured is None else [configured])
+    eos = [checked(value, 'generation.eos_token_id') for value in checkpoint_eos]
+    tokenizer_eos = getattr(tokenizer, 'eos_token_id', None)
+    if tokenizer_eos is not None:
+        eos.append(checked(tokenizer_eos, 'tokenizer.eos_token_id'))
+    template = getattr(tokenizer, 'chat_template', None)
+    if isinstance(template, dict):
+        template = '\n'.join(template.values())
+    turn_tokens = {}
+    for marker in ('<|im_end|>', '<turn|>'):
+        if not isinstance(template, str) or marker not in template:
+            continue
+        value = tokenizer.convert_tokens_to_ids(marker)
+        if (value is None or value not in tokenizer.all_special_ids
+                or tokenizer.convert_ids_to_tokens(value) != marker
+                or tokenizer.encode(marker, add_special_tokens=False) != [value]):
+            raise DataMateError(f'Chat template dùng {marker} nhưng tokenizer không có special token đơn tương ứng')
+        turn_tokens[marker] = checked(value, 'chat turn EOS')
+        eos.append(value)
+    eos = list(dict.fromkeys(eos))
+    if not eos:
+        raise DataMateError('Checkpoint/tokenizer thiếu EOS; không chạy chat generation không có ranh giới dừng')
+    pad = getattr(generation_config, 'pad_token_id', None)
+    tokenizer_pad = getattr(tokenizer, 'pad_token_id', None)
+    if pad is None:
+        pad = tokenizer_pad if tokenizer_pad is not None else eos[0]
+    pad = checked(pad, 'pad_token_id')
+    return {'checkpoint_eos_token_ids': checkpoint_eos, 'tokenizer_eos_token_id': tokenizer_eos,
+            'tokenizer_pad_token_id': tokenizer_pad, 'chat_turn_token_ids': turn_tokens,
+            'effective_eos_token_ids': eos, 'effective_pad_token_id': pad}
+
+
 class TransformersBackend:
-    protocol_version = 2
+    protocol_version = 3
+    supports_token_budget = True
     def __init__(self, settings: Settings):
         self.settings = settings
         self.last_generation = None
@@ -72,6 +120,8 @@ class TransformersBackend:
         # Registered target checkpoints contain multimodal outer architectures.
         # Text-only prompts are tokenized locally, without loading media processors.
         self.model = load_target(AutoModelForImageTextToText, settings.model_dir, **kwargs).eval()
+        self.generation_tokens = generation_token_settings(self.tokenizer, self.model.generation_config,
+            vocab_size=self.model.get_output_embeddings().weight.shape[0])
         self.assistant = None
         if settings.mode == "speculative":
             # Official Gemma MTP assistant consumes hidden states / shared KV from
@@ -84,18 +134,22 @@ class TransformersBackend:
             self.assistant.generation_config.do_sample = False
             self.assistant.generation_config.num_beams = 1
 
-    def generate(self, messages: list[dict], remaining_seconds: float) -> str:
+    def generate(self, messages: list[dict], remaining_seconds: float, *, max_new_tokens: int | None = None) -> str:
         if remaining_seconds <= 0:
             raise DataMateError("Hết thời gian sinh đáp án")
         with self.lock:
+            self.last_generation = None
+            token_budget = self.settings.max_new_tokens if max_new_tokens is None else max_new_tokens
             inputs = self.tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True,
                 return_dict=True, return_tensors="pt", enable_thinking=False)
             length = inputs["input_ids"].shape[-1]
-            if length + self.settings.max_new_tokens > self.settings.max_context_tokens:
+            if length + token_budget > self.settings.max_context_tokens:
                 raise DataMateError("Context vượt giới hạn; tăng max_context_tokens hoặc giảm dữ liệu tool. Không tự cắt rulebook.")
             inputs = inputs.to(self.model.device)
-            options = {"max_new_tokens": self.settings.max_new_tokens, "do_sample": False, "num_beams": 1,
-                       "max_time": max(0.1, remaining_seconds), "use_cache": True}
+            options = {"max_new_tokens": token_budget, "do_sample": False, "num_beams": 1,
+                       "max_time": max(0.1, remaining_seconds), "use_cache": True,
+                       "eos_token_id": list(self.generation_tokens['effective_eos_token_ids']),
+                       "pad_token_id": self.generation_tokens['effective_pad_token_id']}
             if self.assistant is not None:
                 options["assistant_model"] = self.assistant
             started = time.monotonic()
@@ -103,12 +157,14 @@ class TransformersBackend:
                 output = self.model.generate(**inputs, **options)
             tokens = output[0, length:]
             raw = self.tokenizer.decode(tokens, skip_special_tokens=False)
-            eos = self.model.generation_config.eos_token_id
-            eos = eos if isinstance(eos, list) else [eos]
+            eos = options['eos_token_id']
             last = int(tokens[-1]) if len(tokens) else None
             self.last_generation = {"input_tokens": int(length), "output_tokens": len(tokens),
                 "seconds": round(time.monotonic()-started, 4), "effective_do_sample": False,
-                "stop_reason": "eos" if last in eos else "max_new_tokens" if len(tokens)>=self.settings.max_new_tokens else "time_or_other",
+                "stop_reason": "eos" if last in eos else "max_new_tokens" if len(tokens)>=token_budget else "time_or_other",
+                "max_new_tokens":token_budget,
+                "effective_eos_token_ids":list(eos), "effective_pad_token_id":options['pad_token_id'],
+                "tokenizer_eos_token_id":self.generation_tokens['tokenizer_eos_token_id'],
                 "last_token_id": last, "output_sha256": hashlib.sha256(raw.encode()).hexdigest(),
                 "prompt_tail": self.tokenizer.decode(inputs["input_ids"][0,-48:], skip_special_tokens=False)}
             return raw

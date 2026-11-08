@@ -1,0 +1,2547 @@
+{
+  "version": 1,
+  "scope": "Training annotations only; never imported by inference",
+  "reviews": [
+    {
+      "question_id": "q_03a446be8b75",
+      "question_sha256": "7ef1f1ee70d6a1a12375eebb3cb90f5946bb1647082da3001ff5a701a01e16b5",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "cancel_ratio",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 2
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_04ad09f4f1fc",
+      "question_sha256": "9b4b7003d7784f3dd87e46405bcd21b746250df5cebff9fc309202836b98852d",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 3
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_05a8b30443a1",
+      "question_sha256": "928a0cd9c3e817e57079c93df919504d51277e29d11b5151450ffefd17320379",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "customer_percent",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 7
+          }
+        ],
+        "threshold": 8
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_05b478fbe670",
+      "question_sha256": "27827a4cb8bfe7aabba2a771e5dd819824a9435038dbbfe196f31997dc9ad96b",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "quantity_growth",
+        "periods": [
+          {
+            "kind": "days_from",
+            "date": "2025-11-29",
+            "days": 7
+          },
+          {
+            "kind": "days_before",
+            "date": "2025-11-29",
+            "days": 7
+          }
+        ],
+        "product": "magne-B6 corbière hộp 5 vỉ x 10 viên",
+        "unit": "viên"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_095e5097bfb5",
+      "question_sha256": "39e7a9308f77a78919c042fc23061960f6125fcb2cda8101236f6aaa16dd5590",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "average_order_revenue",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 5
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_0b8a4f2ec4e3",
+      "question_sha256": "81ecba4aaea02d5d5c4ce20ad64248d67f0cbb33b6dc706676ad03c1ea350494",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 10
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_0d5667212f41",
+      "question_sha256": "2caca700f2cfcc58af086fbf9335d7d0891f67fccb4720479b86cab07abd6b72",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "quantity",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 2
+          }
+        ],
+        "product": "tra sua o long (m)",
+        "unit": "ly"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_0db8d6ef55e9",
+      "question_sha256": "63319f0cc25c02bbae674a168092299ebf03568056b39310a97cc8d8911d7ec6",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 5
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_0eda9e54fcb5",
+      "question_sha256": "022de132721f9c826c4bc44f940f18ee919fc80b00d18f211fac37e0a6b33af6",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 6
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_0f8a62e75088",
+      "question_sha256": "b1a9237ea219dd26ba4a887617e6542e5a7274a99968ad41ba98d4443b37bdb8",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 2
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_1295f18bd2fe",
+      "question_sha256": "caa07d2b5127430694af3cfec4c557c08306873c1741ce24391505e7307eba59",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "yesterday"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_137ebe6e6af4",
+      "question_sha256": "6a4851ad6002c8075eb908ab568e49e4c84cb6f1c060d7d1a632cf3fce5728d6",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "orders",
+        "periods": [
+          {
+            "kind": "year_to_date"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_13afb3a15b07",
+      "question_sha256": "3089e891d08aab5ae6ee4fbcbc5d067c39205be0ad7d445e643a49c32fcac2ad",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "historical_price",
+        "periods": [],
+        "date": "2025-12-01",
+        "product": "Sinh tố bơ (M)"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_14ea21a5b6a1",
+      "question_sha256": "1387d0421604646250362ab8098557914f74f89108d953ec1fc06356cbed5eb1",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "channel_revenue",
+        "periods": [
+          {
+            "kind": "this_month"
+          }
+        ],
+        "channels": [
+          "Zalo OA",
+          "tại quầy"
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_151d139d77ca",
+      "question_sha256": "6918f1dc06a96e3d3d0c90a6f1a6e0515b944c07df0f717ff5306d8f20073598",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_customers",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 3
+          }
+        ],
+        "limit": 3,
+        "by": "revenue"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_153f4e995558",
+      "question_sha256": "375203129795afbed5d8d1d34a4440b49903531f688d61993aed6527d98ad647",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "debt_rank",
+        "periods": [],
+        "date": "2025-10-27",
+        "limit": 3
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_1837da83c4a5",
+      "question_sha256": "3861f78bf50770c6b6ef3d3a7b0ed45a882c19ac2b0fa5941c09fedab4012db6",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_customers",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 1
+          }
+        ],
+        "limit": 1,
+        "by": "revenue"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_19bb6774e6b7",
+      "question_sha256": "a35c412a7b6ba57a9ee8b25d9e0bc2c67567fb47fddb08aa006210fdad5022dd",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue_growth",
+        "periods": [
+          {
+            "kind": "this_month"
+          },
+          {
+            "kind": "previous_month_to_date"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_1a8f8da9b500",
+      "question_sha256": "8303853f13a441455e26f35d5e26a06d3d778c0852ce0bacaabe15c5b2b6fdb8",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_customers",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 10
+          }
+        ],
+        "limit": 5,
+        "by": "revenue"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_1b0010b8da08",
+      "question_sha256": "6f1fb6a7c44863304436ce038844179e651b28d220466b3396c03cc068715b35",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "quantity",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 12
+          }
+        ],
+        "product": "bộ van dây gas namilux",
+        "unit": "bộ"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_1cc70c12aa27",
+      "question_sha256": "5e42b93720c01473029b63296208c16adb1d1f23ca50899d4b47d40658a80240",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "today"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_205821096a29",
+      "question_sha256": "3f734f2acb229b2d59d0ea1910af844da068b8813ed00f4c7de0885fd7fed9c3",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 1
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_20aa992c0d3f",
+      "question_sha256": "ab1471518d7cb533ff724334bcd064eb04c7fddab84c09e2bd1a547dcda3b39c",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 5
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_2306395cb34a",
+      "question_sha256": "4d033b80eba34c321b513c754165ffd39d8186b8fc2506fa357e47439f327dfd",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "customers_with_orders",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 12
+          }
+        ],
+        "threshold": 14
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_237a88f0c7e3",
+      "question_sha256": "7a290c73ecf0db0fedc5947a7ea67dda721ba66e259c80f0781b5c5df3346773",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "payment_series",
+        "periods": [
+          {
+            "kind": "this_month"
+          }
+        ],
+        "methods": [
+          "cod",
+          "cash"
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_25501a11062a",
+      "question_sha256": "62ebca0097c4c6ab46f698ee68a661fa3957942ff5258166fd7a14f69b46b17f",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "today"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_255991af3110",
+      "question_sha256": "b59f1d9e3049d13245ad07b7e77b1242dbf14e96a07e0622d2dd9aa33865a18b",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "cancel_count",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 3
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_2674d035b36f",
+      "question_sha256": "132ef98a0bdec355fb62b9947972a358877af9b1690899d897ac9c06db4c86f1",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "orders",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 8
+          }
+        ],
+        "shift": "morning"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_26bd17df26e7",
+      "question_sha256": "0faccedd809b930b083d975e1d5c5e4453b18335934e121b517e04bfb9247816",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "quantity_growth",
+        "periods": [
+          {
+            "kind": "days_from",
+            "date": "2026-07-20",
+            "days": 7
+          },
+          {
+            "kind": "days_before",
+            "date": "2026-07-20",
+            "days": 7
+          }
+        ],
+        "product": "Topping Pudding trứng",
+        "unit": "phần"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_270c4da7ec27",
+      "question_sha256": "e121f6ecba08d9838622f70458619dc5c6326f6e3ab67616f889f6fdcffc5669",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_customers",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 2
+          }
+        ],
+        "limit": 3,
+        "by": "revenue"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_27eebcccdf1f",
+      "question_sha256": "67b64fea8c4a7b3775a4ca85798f8b4ceeda46e6e5c31d44830ff9f36b021fc6",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 6
+          },
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 5
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_2ca8fd946a09",
+      "question_sha256": "4b7728aaba69a599240eaa807fe13cc3f1784cd5e85d3728f1093832f19ffb67",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "year_to_date"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_311687ae2c21",
+      "question_sha256": "b3a64ba7f7db947126a8791141f8d517d697aca5b870ba8360d4ecfb82a67755",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 11
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_3234281bf31d",
+      "question_sha256": "c7d9653593175f0e978c76925418d6cebf4869ae49c550b0a93fcdcebf1a7acb",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "cancel_count",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 5
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_37ecac46670e",
+      "question_sha256": "4beedf38fdbc8bf1a105712ac39e9f4575b19e84f3dcaf087b331a92aadbf754",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "orders",
+        "periods": [
+          {
+            "kind": "today"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_3811bb0ccc39",
+      "question_sha256": "9fd2ddbefeb60169aa438ae0438e48c3804ff90050d7a546675a94be3f2029d0",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_customers",
+        "periods": [
+          {
+            "kind": "last_week"
+          }
+        ],
+        "limit": 5,
+        "by": "revenue"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_3919f65b83aa",
+      "question_sha256": "09d61f661f175fdd849440a2750ad5fb08319fabed3e81a8c79c84ad10657d5d",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_products",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 1
+          }
+        ],
+        "limit": 1
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_39698eb3a76b",
+      "question_sha256": "92d47fff4350f03285730ce010f8a129df2496bad14b5620d9709e54c67fcd86",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "day_count",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 1
+          }
+        ],
+        "threshold": 8600000
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_3aae102f4eb2",
+      "question_sha256": "4b55616ae7f8779dc0e90a784bac61a51c0d49380021544838954510210b9c1f",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "inventory_units",
+        "periods": [],
+        "date": "2026-07-17",
+        "product": "salonpas cao dan hop 24 goi x 10 mieng",
+        "large_unit": "hộp"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_3d7beff53344",
+      "question_sha256": "167548d3b2904200de17e6c1401e8a1d664a2124fd63f5169423d7a43155fef6",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "year_to_date"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_3e3ce636c0a2",
+      "question_sha256": "63d7c208b88593aa25fa82123ff0088dfe9004b67138889e6a1a6b0ac0b7812e",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 5
+          }
+        ],
+        "product": "Clarityne 10mg hộp 1 vỉ x 10 viên"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_3e69edbe4dc2",
+      "question_sha256": "ad038db61319bb64cf2e2f89171c4742e82a5975280361d43b972e33e4ec5681",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "inventory_units",
+        "periods": [],
+        "date": "2026-05-20",
+        "product": "đá 4x6",
+        "large_unit": "xe 4m3"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_3f6ddf38634d",
+      "question_sha256": "86848b2bd24da12600372642ac7a825933e2c4742d8e5959526a4878c710d4c2",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 8
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 8
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_3f7dc57965db",
+      "question_sha256": "20e4f12004d682464f083b9a5e0606b2c4a91c672a942cf212552fa19e1f8e51",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_products",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 3
+          }
+        ],
+        "limit": 3
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_41c306df830d",
+      "question_sha256": "74c3ef9bbed86a5ee4f2d320ebbac755fbbfbf27a3023019ce45a5e25bba45fa",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "order_revenue_threshold",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 6
+          }
+        ],
+        "threshold": 93000
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_4362460c082a",
+      "question_sha256": "a6c9c4f59941f26701afb6b41c9815e47142979525340ffbf34beb5b815de066",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "orders",
+        "periods": [
+          {
+            "kind": "today"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_438bfe9d843a",
+      "question_sha256": "866cb52c845937903b26ee9389922d09dd0c150da6ced4ddc0d4c31b6089d3ca",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 3
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_46d72d387508",
+      "question_sha256": "775e9ce76ae523bd7dbc2d952a4dddf1d66fccb21de094032d49abb994f98efd",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "cancel_ratio",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 4
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_489bb0e084b6",
+      "question_sha256": "0f5cfaca01a6a7291901d3ac538daa3f603c7b932a6cf1c065f37d8404c567ad",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "orders",
+        "periods": [
+          {
+            "kind": "quarter",
+            "quarter": 3,
+            "year": 2025
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_4afebc6d1d4b",
+      "question_sha256": "9bfd0e9127ea8ac4c2cbd810c76b78b59a7907496df683b115aacb9ad2f273b0",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "customer_group",
+        "note": "Cần nối nhóm khách bằng khóa thật; giữ khách vãng lai trong mẫu số.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_4bbd72655e8e",
+      "question_sha256": "41745cce0453c83230e4d90ac754a5eb3326021012194b9c7ea613631beb7028",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "quantity",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 9
+          }
+        ],
+        "product": "Chân gà ngâm sả tắc",
+        "unit": "đĩa"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_4bdb1a8972ce",
+      "question_sha256": "c1ae6fd2400db3529992c6339ca150660f1bfc33b6595afea846233b817d48f1",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "day_count",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 11
+          }
+        ],
+        "threshold": 9600000
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_4e75fd94c469",
+      "question_sha256": "7ade3b1614ac0af5d9c49be3d064d2a07fc1811fb24dbe76e252ae3870d35e9a",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 9
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_501e4b45bd00",
+      "question_sha256": "094684cc7ca12a928fadf9e02ab703ebc5be2943831c2f9ee824b2937b8de5da",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "gross_profit",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 12
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_51d12dd67b24",
+      "question_sha256": "47fed62951d3ce16863fbea897421ca9de057a03ca93c0463139f7f014702692",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "inventory",
+        "periods": [],
+        "date": "2026-07-13",
+        "product": "Efferalgan 500mg viên sủi hộp 4 vỉ x 4 viên",
+        "unit": "viên"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_5348170a927c",
+      "question_sha256": "6a8d6f9303a2c1a58882349ba90291defb53a2600ba753f8d26fc3e6af9a371e",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "cancel_ratio",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 6
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_542bdf8584fa",
+      "question_sha256": "770c2032f14b34d0b2112d9fda018f4caebae0f2b7b3d558dff27e00f5330492",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "shift_growth",
+        "periods": [
+          {
+            "kind": "last_week"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_55e037221ed7",
+      "question_sha256": "e198e9a9321a5380d139f838647af9635ae7269e49564b2f847ee3499c68a8ca",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "orders",
+        "periods": [
+          {
+            "kind": "year_to_date"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_576da3a138ac",
+      "question_sha256": "8b30c01c32ae819e3f8bcab5d5a363d2332a045fbed3197959c9da44876a9de5",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 10
+          }
+        ],
+        "shift": "afternoon"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_5a4149617845",
+      "question_sha256": "878d0d9d5011cc7308780264cad7e55a5730ed1b67cb0ae0e8ddf3e0f06e10ca",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "year_to_date"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_61668efd96c5",
+      "question_sha256": "fa6e7f7224bbdb84dbb099c3b8def82da6b80511a5cc7f7f4955acdc776bcd32",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "yesterday"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_6d57349294ec",
+      "question_sha256": "bf5039be89bc3c776ea08c76ddff78071dd54a26e0777bdeed07e3754dfc3373",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "cancel_count",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 7
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_6e13d0978b21",
+      "question_sha256": "e7bb7ddf54d0650398c35f48082b2ff4137e6b039b68adcea86fa1025ff1d5b1",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "debt_flow",
+        "note": "Cần đối soát sổ thu, tách trả ngày mua với trả sau ngày mua.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_717e5f91d40b",
+      "question_sha256": "4292cf97b864c0db43369ce53e39b35fa5e628f5cf00fce6bedb4016c453a42c",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "product_group",
+        "note": "Cần danh mục nhóm ống nước; không chọn một sản phẩm đại diện.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_71f5dee2b82b",
+      "question_sha256": "2cef76276d61217748ddd1befc845c31cc04c9e2aab730a7b1383c392e6defea",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 8
+          }
+        ],
+        "product": "Gỏi khoai môn hải sản"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_725f54f95253",
+      "question_sha256": "172363c80e1f0c32661b2423fec954de714ad27238c1ebcb77a4f8cfa83eef6b",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 7
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_72f43cc7a0bc",
+      "question_sha256": "33aea14604bcfc835c91eb88efa30e7c44364b8b36be0c4c5fcd761af4482f7e",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 4
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_788ab61d79d1",
+      "question_sha256": "fad8cb6cf7beade0a0457669d31524f620b61bfddb0090b8f5130f1a5ccbdbe5",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_products",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 9
+          }
+        ],
+        "limit": 5
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_78928d7dfc95",
+      "question_sha256": "ca71787be3bd304743951b7dc2d543390171a9601218123eb1a4e78c54b3a199",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "product_group",
+        "note": "Cần đúng nhóm gỏi theo danh mục, không suy từ tên mặt hàng.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_7c0a4b5f5196",
+      "question_sha256": "8d4fb2350ce7c9bbad5c79793eec9413b8a5babbf3779c836dcd4d2525b73643",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "day_count",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 5
+          }
+        ],
+        "threshold": 11000000
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_7c8afb8a81e9",
+      "question_sha256": "4a78b1f8fd4ff15fa88cb6cd65abea84fda833f38151e9e9a3516501197c9808",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "quantity",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 7
+          }
+        ],
+        "product": "Nếp cái hoa vàng",
+        "unit": "kg"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_7ccaa782c3f1",
+      "question_sha256": "5a7248e5d9b520de96ffc2f65483ef2e2929987c888d5fa29e7c5fe2edec5413",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_customers",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 4
+          }
+        ],
+        "limit": 1,
+        "by": "orders"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_7dded87ba54e",
+      "question_sha256": "186fa2ec580d4a8047d0cc4a191b414eff84d196da24f590719d0b30af6d0762",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 4
+          },
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 3
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_7e974a3f4552",
+      "question_sha256": "8530726b507cd16618b752201ff814abcb065115f6241553c1ec7ec24c0f61b9",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 1
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_8036e34515e9",
+      "question_sha256": "13e23faa9fbfeff635eff9a26355e4b301164a7272117f1b0366de29cec5043a",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "customer_percent",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 9
+          }
+        ],
+        "threshold": 3
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_80f40d2055e8",
+      "question_sha256": "c4f6172e5bcbf565eafd143ff1e359b46290ebe1edcbb2521e23b9703e1d94d5",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "continuous_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 4
+          },
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 5
+          },
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 6
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_81cc91f86744",
+      "question_sha256": "a13a5411bc82bf9fb61128b825cb76e83039293aa541126d222ce92960c2f3c2",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "gross_profit",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 9
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_83ddbda300ed",
+      "question_sha256": "d53311b3bbf4dfea810d1059d97070f4d3ddca006f4d7ae10a921dde4ac3326c",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "continuous_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 9
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 10
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 11
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_8423c5cc4a42",
+      "question_sha256": "9a2ff7f98b1ca3a2aac8e451b15efb4fbee488fb73242f8e1f3aece210fdc32a",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "debt_rank",
+        "periods": [],
+        "date": "2026-08-05",
+        "limit": 3
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_8659862171ab",
+      "question_sha256": "98ee421c4033b8e7ebf02a0f4c962181d860a15f2e228e33f25fb014e5c0fc48",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "debt_rank",
+        "periods": [],
+        "date": "2026-08-14",
+        "limit": 5
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_89dbb79d6e8c",
+      "question_sha256": "d82dbe4bb9e26f004a8293fa8a4010d1db58940b7d9d48789c993cd8cf8c3f5b",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "continuous_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 7
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 8
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 9
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_8a8fd459a0a3",
+      "question_sha256": "eeb6fd2fefb13eb4f4784c0dae891d5009494c76f362493f751a3980df6c4166",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_customers",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 1
+          }
+        ],
+        "limit": 1,
+        "by": "revenue"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_8ae4326131f8",
+      "question_sha256": "bfe1a57441c1af89167e43ed8b444dbbe9f79e6c86194d0ac35112b7b72557a1",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "debt_rank",
+        "periods": [],
+        "date": "2025-10-05",
+        "limit": 3
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_8aeed472de30",
+      "question_sha256": "5ff7eacbd820d2e28af6ee20d69cd6c58e248010ce3d6bc31383065104aa2723",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 1
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 1
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_8c4380293447",
+      "question_sha256": "7bfe2fc6de6d1ee13c6ba2e6892d83b2576489afe2d003b9492a8f856d4309a1",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 11
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 10
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_8c6b3bb85449",
+      "question_sha256": "457c8a9ca7d9dcc57b0749bdd727f189d5be474408a3f683bb980e22bf78e697",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_products",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 8
+          }
+        ],
+        "limit": 1
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_8d1792dae92c",
+      "question_sha256": "3b10a46131db6b861c11c9a7ba6fa7f9ea1303e514fb2e717ce5397f1835bc4d",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "debt_flow",
+        "note": "Cần chứng minh có hoặc thiếu sổ thu hợp lệ trước khi kết luận thu nợ.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_8f503c0b707e",
+      "question_sha256": "16631dc42051d09a5605153b7a99f562e8d6c440baa85bcd8f8a76163de3d223",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "debt_rank",
+        "periods": [],
+        "date": "2025-07-07",
+        "limit": 3
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_933f5e7df01b",
+      "question_sha256": "66296f59d02565a9856c6a24f403ed71811d7056c1dcaaee0ae551d624736446",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 2
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_93e78b3a3a98",
+      "question_sha256": "b7451c08eb89489da9adc5b4b229b7f2c0de991ab65a111a7a52fa4d74dda435",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "orders",
+        "periods": [
+          {
+            "kind": "quarter",
+            "quarter": 4,
+            "year": 2025
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_97378cee7c0e",
+      "question_sha256": "b285347e7f842786a8e7222692246045259ebac73afcf6b4b25baa33a90f39d6",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "debt_flow",
+        "note": "Cần sổ thu của mọi đơn ghi nợ, phân biệt trả lúc mua và trả sau.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_9a3b9473390e",
+      "question_sha256": "b8f74c4d367c6ce215c9089af631a9bc0e4abeb8f20f2b923ea19d809b789e27",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "product_group",
+        "note": "Cần nhóm cơm mì cháo đúng danh mục, không gộp theo LIKE tên.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_9bc44da7a632",
+      "question_sha256": "501e141ffbd4f8ac90aa151d6256a4a6695f932b7e462e556e276179f3795368",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "continuous_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 3
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 4
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 5
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_9be15002fb02",
+      "question_sha256": "a9d09de189f6935ff0521dc964b5aa9e72be3ecc579b4756b953b092f8ce9f91",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "debt_flow",
+        "note": "Không dùng paid/balance hiện tại thay dòng tiền trong tháng.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_9cffc3664c62",
+      "question_sha256": "ff92875ca1922d1aab6807d3f56231da4f141268d4eb8c709acbd1d2ca6b533f",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_products",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 10
+          }
+        ],
+        "limit": 1
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_9d3c67eadb66",
+      "question_sha256": "975dd0e305c157df406aa18fff5974f0477c49a12e0f4de1cc9c4cf93f457ef6",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "product_group",
+        "note": "Cần nhóm trà sữa theo cột nhóm, không viết danh sách SKU suy đoán.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_9f82b2f25fd6",
+      "question_sha256": "245c4c6bb1dbe9502c7e27a9a5da99455f981480ccf39477734f41aaf304f538",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "customer_attribute",
+        "note": "Cần cột giới tính, không suy đoán giới tính từ tên.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_9f9f075f0959",
+      "question_sha256": "ebc2d6a00e280d21bb86fa09b164180f314eead11d936369c24afd2e7377de97",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 4
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_9fd096dfdb84",
+      "question_sha256": "3f89d604f3de168f8e9698af35146ad3ec499bc0ddd20b0c53e17832efc7ff49",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "shift_growth",
+        "periods": [
+          {
+            "kind": "last_week"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_a0172ef25cac",
+      "question_sha256": "f272ba20e46a74b43f0410c15098fd8aae4826906f22ce9b160cdaf0ba43b543",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 12
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_a261fd5dd101",
+      "question_sha256": "4912a7f461ec81fed43b00e9b47b5a357e9f3d945af9cfd635932b26beda449c",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 8
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 7
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_a536e1622568",
+      "question_sha256": "6ce5d0aa94ed517002eb1c512620d4885f91efe18548e32eb27065027f69a4a4",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 5
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 4
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_a569fbc6b9fc",
+      "question_sha256": "08ca98f93946443bb3dee8e219a12b4179974bcdd12f87ed177887375d55f680",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "continuous_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 4
+          },
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 5
+          },
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 6
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_a8978d09f36e",
+      "question_sha256": "0d45bf86c4b64732a4fb22807921329ba4ffeaa6d25f1e4ea2ae600b9d66327a",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "prescription",
+        "note": "Cần cờ kê đơn từ danh mục thuốc và kiểm tra khóa nối.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_a91735cf4993",
+      "question_sha256": "dd620171365b3a67f879b196d352b81f93de9d64e8f0c0260242e199889d66d3",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "cancel_ratio",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 10
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_a9305e207d35",
+      "question_sha256": "ba0efca369134f146b4343c5c15d0828feb9e1148bafdc28d94c83d64630a8b7",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "orders",
+        "periods": [
+          {
+            "kind": "quarter",
+            "quarter": 3,
+            "year": 2025
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_ac3e06d64164",
+      "question_sha256": "46a4bc1fcb156870813f59461dc5791117a7fc31a095d4649482bdac1a764f9f",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "historical_price",
+        "periods": [],
+        "date": "2026-02-17",
+        "product": "Tương ớt Chinsu 250g"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_af0d482925cc",
+      "question_sha256": "576a9cefb7bf676c385548fc446ecd954f9dfc657d37342d64a2278e45d6ac03",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "yesterday"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_afedc107ddb1",
+      "question_sha256": "baa4c722d39a3100f841150069c066940a815622440109c91519183f16576ab6",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_customers",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 1
+          }
+        ],
+        "limit": 1,
+        "by": "orders"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_b0728619f5b4",
+      "question_sha256": "7b3b098adeb62e04d0bc704f88cd43eeccd749eb7a10a792072018188dd5972a",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "quantity_growth",
+        "periods": [
+          {
+            "kind": "days_from",
+            "date": "2025-08-23",
+            "days": 7
+          },
+          {
+            "kind": "days_before",
+            "date": "2025-08-23",
+            "days": 7
+          }
+        ],
+        "product": "Cà phê muối (M)",
+        "unit": "ly"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_b0ff97ca1db9",
+      "question_sha256": "ee665904aacd9d1e1464b332c718d6b1663b5aed325ed1e9ca9a7cdeb2175593",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "quantity",
+        "periods": [
+          {
+            "kind": "this_week"
+          }
+        ],
+        "unit": "ly"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_b3b45f9adceb",
+      "question_sha256": "2939876574f7fe7352f61903bf806d4bbb64f36107cf0b88cb4f6a04ddd1a9ed",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "quarter",
+            "quarter": 3,
+            "year": 2025
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_b3e5c2fb4852",
+      "question_sha256": "69abbf5ef260e5eeaecce9153dfd94d0672245e839e8a5c7121c175ea70e0c22",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "prescription",
+        "note": "Không kê đơn gồm mọi sản phẩm còn lại, cần cờ danh mục và join đúng.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_b46a38609042",
+      "question_sha256": "937536b4681972f2062f719f2d8a29b28cc5e005a71d3aab95851c13ac262b25",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 1
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 1
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_b4a4c7135e0a",
+      "question_sha256": "58397144743769933d816950a92f5ffb148c53b1ac07578a0785dd261fb052b2",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "continuous_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 11
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 12
+          },
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 1
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_b5c0715af111",
+      "question_sha256": "dc4c5aa422a2e90d5727450d093fc6eac4a24b6437deda75c50a6db545da1681",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "quantity",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 2
+          }
+        ],
+        "unit": "ly",
+        "size": "L"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_b5c41bf00e07",
+      "question_sha256": "02a936e041f3bfdbec7f143c097672a9b567a461623ccdc0f21fd8db042e0947",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "yesterday"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_b602a57b38a4",
+      "question_sha256": "aaf75f09a1d176e6ec7a296d228b14e5d352e2a651ae2bbf83d51cd0b708ac6e",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "product_group",
+        "note": "Cần nhóm chiên xào đúng tên danh mục.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_b622d7d743bc",
+      "question_sha256": "3e06e1bd9da37457545f83420b1143dab3ce7966699d36f7ea6a2aacf4edfad3",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue_series",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 10
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 11
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 12
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_b97a6a037819",
+      "question_sha256": "2ad53b415d2de7547d7fbd0791982f2edc705616a8723bcf9ce49c74eb24264d",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "debt_rank",
+        "periods": [],
+        "date": "2026-08-14",
+        "limit": 3
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_c38f10f3ab5f",
+      "question_sha256": "fcc81d05070a6faf677cebbe68eac951f084b6dd93f8152e284177f990affb51",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_employees",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 7
+          }
+        ],
+        "limit": 1
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_c42078e25d28",
+      "question_sha256": "1cb3393b9961f42777c840052fd89145458fbaf5eec05b65403eda0935b56de4",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "inventory_units",
+        "periods": [],
+        "date": "2026-09-10",
+        "product": "băng keo điện nano 20 yard",
+        "large_unit": "cây"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_c4f58d6b9d7d",
+      "question_sha256": "a5f50175a7fc8cb517fffcd92f1a759c9e14d5a139b68165de5cb6a1e74315bb",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 2
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 1
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_c5639bf3d2a2",
+      "question_sha256": "f45deb4952876d1860db650f1d35d7f3ffabea09a91ea7de1707cd0a50fdf0e3",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "continuous_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 4
+          },
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 5
+          },
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 6
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_ca2575c491d8",
+      "question_sha256": "7499186cfffe7d29fb6807a4cb67676c11e162c9e03dc42ca502c7eab68fcfb8",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 10
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_cadff21c3eac",
+      "question_sha256": "77ea1a69989604c17e05d3c4d3d8a41a2f98cd200653725abdc1e91d62957ddd",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "this_week"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_ce030a6717ff",
+      "question_sha256": "b1189aa219660ff8f44dd15f06329705a636428040bd73f0fd65331d916acf90",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 12
+          }
+        ],
+        "product": "topping thach ca phe"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_cea1b708d80a",
+      "question_sha256": "ce2342a5e8824d6d943507f24173c268f98addae4367eab73e20e7f53fa94aab",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "inventory",
+        "periods": [],
+        "date": "2026-08-05",
+        "product": "Kem đánh răng P/S 180g",
+        "unit": "hộp"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_d345bddf40bc",
+      "question_sha256": "f247e6bd8e775824d0c480b8aaf0be81c7cf069917b8fc08ff13ba4202e530d5",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "channel_revenue",
+        "periods": [
+          {
+            "kind": "this_month"
+          }
+        ],
+        "channels": [
+          "tại quầy",
+          "Zalo OA"
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_d3837b22e001",
+      "question_sha256": "3e5a14ddbdb181b0bf5216d50f4031dfaa186f1b9567ceb1a1eb7e8d17baf974",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "quantity_growth",
+        "periods": [
+          {
+            "kind": "days_from",
+            "date": "2025-08-21",
+            "days": 7
+          },
+          {
+            "kind": "days_before",
+            "date": "2025-08-21",
+            "days": 7
+          }
+        ],
+        "product": "cappuccino (m)",
+        "unit": "ly"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_d767d5ca414e",
+      "question_sha256": "c717126cc45ba0766045e61d7e72fdecdc168106079f618a9fb717968a5d3b41",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "quantity_growth",
+        "periods": [
+          {
+            "kind": "days_from",
+            "date": "2026-01-27",
+            "days": 30
+          },
+          {
+            "kind": "days_before",
+            "date": "2026-01-27",
+            "days": 30
+          }
+        ],
+        "product": "nuoc suoi lavie 1.5L",
+        "unit": "chai"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_d96f45ce61be",
+      "question_sha256": "42281c8af7859aa6ac1ee3f64f198869f46d2ee57236add3bb4c29679966ed2e",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "yesterday"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_db64c1b7436d",
+      "question_sha256": "a23867960428a5e7b056895cfe9c7ec1492b77d15ac597a84857ab2bac4476eb",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_products",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 4
+          }
+        ],
+        "limit": 1
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_dbbfb4af332c",
+      "question_sha256": "c65f8ece8a2f083357dabb0ea09f2d18942ab2c1b46ee1fda25202933f9b3b1a",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "best_day",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 4
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_dd6531374a2b",
+      "question_sha256": "1da1b7278864dfc454345891d0916f8ffa9ab538a6e6976014513900c9267ff4",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "quantity_growth",
+        "periods": [
+          {
+            "kind": "days_from",
+            "date": "2026-04-18",
+            "days": 7
+          },
+          {
+            "kind": "days_before",
+            "date": "2026-04-18",
+            "days": 7
+          }
+        ],
+        "product": "Gas Petrolimex 12kg",
+        "unit": "bình"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_e054949c8650",
+      "question_sha256": "e7758d6a218777f45890460bbdc7465555eeb05271e15654ec2cab70dfe001de",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "inventory",
+        "periods": [],
+        "date": "2026-08-29",
+        "product": "Bia Tiger lon",
+        "unit": "lon"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_e210942807ec",
+      "question_sha256": "c451a25c171574c4b2a2a07b07835662e742a4fce872039bd99af87542747ed1",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "continuous_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 4
+          },
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 5
+          },
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 6
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_e2e41d53f803",
+      "question_sha256": "d154ae50fb9f8cfb2d8d15b4e5c5f7a90824f44912703ecf83f10cb3ce50283a",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "month_rank",
+        "periods": [
+          {
+            "kind": "range",
+            "start": "2025-12-01",
+            "end": "2026-02-28"
+          }
+        ],
+        "note": "Rulebook §9 explicitly requires type date YYYY-MM for a month answer; §2 inclusive period, §3 deterministic ties."
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_e2ea7a9d48c2",
+      "question_sha256": "73a1b2769331db8c06d400e9722ad2253d84180dcbdc95b90d49d56416905549",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "continuous_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 9
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 10
+          },
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 11
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_e308f9743d56",
+      "question_sha256": "560c45cd4431c795ee76aa799d048d88c3f6c2e202a0031a2ef9788b695cd841",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "return_reason",
+        "note": "Cần căn cứ lý do trả hàng, không thay bằng trạng thái hủy.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_e35d8fac5233",
+      "question_sha256": "735ae15c8f7b8461a4592560f58efe1c3166841d9d678ba124b03aa4dddc1f00",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "customers_with_orders",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 1
+          }
+        ],
+        "threshold": 3
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_e4f212c5a50f",
+      "question_sha256": "4f4c42634077fcaddd826fa11e73055604843b48b2c9ad663f0ad7f002e276fd",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "pending",
+        "category": "product_group",
+        "note": "Cần nhóm đá xay theo danh mục; mẫu số gồm mọi doanh thu.",
+        "periods": []
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_e4fe38fbebb9",
+      "question_sha256": "f3bebf141193ee413b3a1817e3ff4e05555c1e9c9aa1dd8fcc8b6a65620b80c8",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "rank_customers",
+        "periods": [
+          {
+            "kind": "last_week"
+          }
+        ],
+        "limit": 1,
+        "by": "revenue"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_e9930d87abdd",
+      "question_sha256": "ac72a0a51f076960b9dbec397e4ec4aa6199846157026138c7aceb58302cf85f",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "debt_rank",
+        "periods": [],
+        "date": "2026-03-27",
+        "limit": 5
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_ec5c0d7eed96",
+      "question_sha256": "faab121e5d1a3e2f62522a19512de7e8e68fc02a6f53c31f7af3117599ed70b1",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "cancel_reason_count",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 3
+          }
+        ],
+        "reason_text": "giao tre"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_ece3c46e24d3",
+      "question_sha256": "872e0f2a8e2e88151d5c362a0e2b351a36294ae8b372805fe05fbac55976ae90",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue_growth",
+        "periods": [
+          {
+            "kind": "this_month"
+          },
+          {
+            "kind": "previous_month_to_date"
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_f19c4e273491",
+      "question_sha256": "74888fc73e3dfeb2bb70aa7e7bff110e21f3a956ad4b92b683bea0add0213bac",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "orders",
+        "periods": [
+          {
+            "kind": "quarter",
+            "quarter": 4,
+            "year": 2025
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_f47b3edba33e",
+      "question_sha256": "a4b2b323fff8c5be1a48bb83bf856e8c93b3cbf9ef98cbb39b9e3f5456580976",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue_growth",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 4
+          },
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 3
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_f4a89e1d7ba0",
+      "question_sha256": "83b6de3340719281a8f62d979f4ae3869338009bf598b9a4d71e45ea35936b2e",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "revenue",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2026,
+            "month": 8
+          }
+        ],
+        "shift": "afternoon"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_f6833cf228b3",
+      "question_sha256": "0dda95401223052032e792b04e7b0e6bc6126e76826287d3da04fb7c65ed740e",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "quantity",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 5
+          }
+        ],
+        "unit": "ly",
+        "size": "L"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_f87ae1288ec0",
+      "question_sha256": "609dc30eadc4d9058d33d33f579f91e751f6381569d787fae8f2a0470a2e3c4e",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "cancel_ratio",
+        "periods": [
+          {
+            "kind": "month",
+            "year": 2025,
+            "month": 8
+          }
+        ]
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_faf7802261fb",
+      "question_sha256": "9b94aa9090a67cecc06465b7d6aa641aceba907046e57a0c3cb4eb2e70327d8f",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "debt_rank",
+        "periods": [],
+        "date": "2026-06-24",
+        "limit": 3
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    },
+    {
+      "question_id": "q_fe14e521d3e0",
+      "question_sha256": "1eed76d109ce70ec71a71326d0468806a0c3829aec37620cafcea6ed8a370d4d",
+      "reviewer": "assistant_question_and_rulebook_review",
+      "recipe": {
+        "task": "inventory_units",
+        "periods": [],
+        "date": "2026-07-17",
+        "product": "strepsils cool hop 2 vi x 12 vien",
+        "large_unit": "hộp"
+      },
+      "review_basis": "Question + current TRAIN rulebook; source columns/units and execution must pass builder checks. No reference answer used to author recipe."
+    }
+  ]
+}

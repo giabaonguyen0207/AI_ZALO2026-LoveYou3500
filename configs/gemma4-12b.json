@@ -2,8 +2,18 @@
   "backend": "transformers",
   "model_key": "gemma4-12b",
   "model_dir": "models/gemma4-12b",
-  "mode": "single",
+  "mode": "self_review",
   "split_root": "train/train",
   "result_dir": "result/gemma4-12b",
-  "quantization": "none"
+  "quantization": "none",
+  "max_steps": 6,
+  "max_context_tokens": 16384,
+  "max_new_tokens": 768,
+  "question_timeout_seconds": 90,
+  "schema_mode": "code_first",
+  "adaptive_preparation": false,
+  "require_plan": true,
+  "auto_execute_plan": true,
+  "schema_repair_timeout_seconds": 20,
+  "schema_repair_max_new_tokens": 512
 }

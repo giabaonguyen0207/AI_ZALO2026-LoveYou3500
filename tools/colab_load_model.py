@@ -1,9 +1,16 @@
 # This entire file is embedded in the inference notebook's model-loading cell.
-from datamate.config import Settings
-from datamate.application import create_agent
 from pathlib import Path
 import gc, os, runpy, subprocess, sys, time
+
+runtime_helper = Path(WORK) / 'tools/colab_runtime_check.py'
+if not runtime_helper.is_file():
+    raise RuntimeError('Source ZIP cũ: thay datamate-colab-source.zip mới rồi chạy lại ô chuẩn bị.')
+verify_runtime = runpy.run_path(str(runtime_helper))['verify_runtime']
+print('Runtime preflight:', verify_runtime(WORK), flush=True)
+from datamate.config import Settings
+from datamate.application import create_agent
 import torch
+verify_runtime(WORK)
 
 load_started = time.monotonic()
 if 'MODEL_SOURCE_DIR' not in globals():
@@ -29,13 +36,19 @@ if 'agent' in globals():
     gc.collect()
     torch.cuda.empty_cache()
 settings = Settings(model_key=MODEL_KEY, model_dir=str(MODEL_DIR),
+                    mode='self_review',
                     quantization=QUANTIZATION, split_root=str(TRAIN_ROOT),
                     cache_dir=str(WORK/'.cache/datamate'), result_dir=str(SAVE),
                     max_context_tokens=16384, max_new_tokens=768,
-                    max_steps=10, question_timeout_seconds=240)
+                    max_steps=6, question_timeout_seconds=90,
+                    schema_mode='code_first', adaptive_preparation=False,
+                    require_plan=True, auto_execute_plan=True,
+                    schema_repair_timeout_seconds=20, schema_repair_max_new_tokens=512)
 print('[3/3] Kiểm tra SHA-256 local một lần, rồi nạp model lên GPU', flush=True)
 started = time.monotonic()
 agent = create_agent(settings)
 print('Kiểm tra + nạp:', round(time.monotonic()-started, 2), 'giây', flush=True)
 print('Loaded:', MODEL_KEY, 'tổng thời gian ô:', round(time.monotonic()-load_started, 2), 'giây', flush=True)
+print('Pipeline:', agent.pipeline_version, '| mode:', settings.mode, '| schema:', settings.schema_mode, '| auto_execute_plan:', settings.auto_execute_plan, flush=True)
+print('Generation tokens:', getattr(agent.backend, 'generation_tokens', None), flush=True)
 print('Giữ agent này để hỏi/chạy batch; không cần chạy lại ô load.', flush=True)

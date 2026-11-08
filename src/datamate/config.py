@@ -28,6 +28,17 @@ class Settings:
     sql_timeout_seconds: float = 12
     max_result_rows: int = 150
     wall_time_seconds: float = 21000  # 5h50, leaves a margin below six hours.
+    # Full, model-written business descriptions are an opt-in research mode.
+    # Planning is independent: turning off schema preparation must not bypass it.
+    adaptive_preparation: bool = False  # Backward-compatible opt-in to full preparation.
+    schema_mode: str = "code_first"  # code_first (bounded repair), code_only, llm
+    require_plan: bool = True
+    auto_execute_plan: bool = True
+    schema_repair_timeout_seconds: float = 20
+    schema_repair_max_new_tokens: int = 512
+    preparation_timeout_seconds: float = 180
+    preparation_max_attempts: int = 2
+    preparation_max_new_tokens: int = 2048
     seed: int = 42
 
     def validate(self) -> Settings:
@@ -49,6 +60,22 @@ class Settings:
             raise DataMateError("max_context_tokens tối thiểu 2048")
         if self.question_timeout_seconds <= 0 or self.sql_timeout_seconds <= 0:
             raise DataMateError("Timeout phải dương")
+        if type(self.adaptive_preparation) is not bool or self.preparation_timeout_seconds <= 0:
+            raise DataMateError("adaptive_preparation phải là boolean; thời gian chuẩn bị phải dương")
+        if self.schema_mode not in {'code_first', 'code_only', 'llm'}:
+            raise DataMateError('schema_mode phải là code_first, code_only hoặc llm')
+        if type(self.require_plan) is not bool or type(self.auto_execute_plan) is not bool:
+            raise DataMateError('require_plan và auto_execute_plan phải là boolean')
+        if self.adaptive_preparation and self.schema_mode == 'code_only':
+            raise DataMateError('code_only không dùng adaptive_preparation')
+        if self.schema_repair_timeout_seconds <= 0:
+            raise DataMateError('schema_repair_timeout_seconds phải dương')
+        if type(self.schema_repair_max_new_tokens) is not int or not 128 <= self.schema_repair_max_new_tokens < self.max_context_tokens:
+            raise DataMateError('schema_repair_max_new_tokens trong [128,max_context_tokens)')
+        if type(self.preparation_max_attempts) is not int or not 1 <= self.preparation_max_attempts <= 3:
+            raise DataMateError("preparation_max_attempts trong 1..3")
+        if type(self.preparation_max_new_tokens) is not int or not 256 <= self.preparation_max_new_tokens < self.max_context_tokens:
+            raise DataMateError('preparation_max_new_tokens trong [256,max_context_tokens)')
         if not 0 < self.wall_time_seconds <= 21600:
             raise DataMateError("wall_time_seconds phải trong (0, 21600]")
         return self
