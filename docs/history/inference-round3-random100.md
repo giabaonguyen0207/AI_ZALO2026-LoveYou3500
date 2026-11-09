@@ -33,7 +33,7 @@ Notebook tự chọn đúng danh sách đã xuất khi dùng train nguyên bản
 
 Thư mục kết quả là `<model>-random100-round3-01`, ví dụ `gemma4-12b-random100-round3-01`. Giữ trần mềm 90 phút như trước; nếu lượt chạy dừng sớm, có thể chạy lại cùng ô với cùng model/config/code để tiếp tục. Không resume vào thư mục lượt 72 câu cũ.
 
-Sau dòng REPORT, ZIP gồm submission, review, manifest và log JSON/Markdown từng câu. Log thể hiện đầu ra LLM, SQL, tham số, kết quả hoặc lỗi mỗi bước. Xem [hướng dẫn debug log](debug-step-logs.md).
+Sau dòng REPORT, ZIP gồm submission, review, manifest và log JSON/Markdown từng câu. Log thể hiện đầu ra LLM, SQL, tham số, kết quả hoặc lỗi mỗi bước. Xem [hướng dẫn debug log](../debug-step-logs.md).
 
 ## Trạng thái kiểm chứng
 

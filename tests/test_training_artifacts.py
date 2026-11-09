@@ -2,9 +2,6 @@ import json
 import struct
 
 import pytest
-from fastapi.testclient import TestClient
-
-from datamate.api import create_app
 from datamate.domain import DataMateError, json_text
 from datamate.models.artifacts import parameter_count, seal_artifact, verify_artifact
 from datamate.training.dataset import prepare_training, source_manifest
@@ -50,19 +47,3 @@ def test_artifact_hash_detects_modified_weights(tmp_path, monkeypatch):
         verify_artifact(tmp_path,"fixture")
 
 
-def test_api_demo_schema_and_origin_guard(split_root,tmp_path):
-    import shutil
-    workspace=tmp_path/"workspace"
-    shutil.copytree(split_root,workspace/"train/train")
-    (workspace/"configs").mkdir()
-    (workspace/"configs/demo.json").write_text('{"backend":"demo","model_key":"qwen35-9b"}',encoding="utf-8")
-    with TestClient(create_app(workspace)) as client:
-        assert client.get("/").status_code==200
-        assert client.get("/api/state").json()["presets"][0]["backend"]=="demo"
-        assert len(client.get("/api/businesses").json()["businesses"])==3
-        assert client.get("/api/schema?business=shop_a").json()["catalog"]["tables"]
-        body={"business_id":"shop_a","question":"Tổng tiền?","as_of_date":"2026-06-02"}
-        result=client.post("/api/chat",json=body)
-        assert result.status_code==200 and result.json()["submission"]["type"]=="abstain"
-        assert client.post("/api/chat",json=body,headers={"Origin":"https://outside.example"}).status_code==403
-        assert client.post("/api/chat",json={**body,"preset":"../../other"}).status_code==400

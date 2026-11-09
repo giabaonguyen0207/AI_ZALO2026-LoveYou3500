@@ -1,40 +1,56 @@
-# Docker và kiểm tra offline
+# Đóng gói Docker cuối
 
-`docker/Dockerfile.dev` là image CPU nhẹ để kiểm tra packaging/ingestion/JSONL; mặc định demo, không có trọng số. Base Python 3.13 slim pin digest sau lần build thật ngày 01/11/2026. Không dùng image này để tuyên bố accuracy/thời gian LLM.
+Chuẩn bị và chạy rehearsal trước ngày nộp; ngày cuối chốt image đã kiểm tra, xuất TAR/checksum và nộp theo guideline BTC. Hiện chưa xác nhận base image chính thức trong workspace. Không dùng Docker dev để tuyên bố model chạy đúng/tốc độ trên GPU thi.
 
-## Smoke test
+## 1. Chuẩn bị trên Linux GPU
+
+- Chốt commit/config và các checkpoint thực sự dùng; tổng tham số ≤15B, có revision/hash/license.
+- Nếu dùng fine-tuned model, merge/seal và giữ training source/config/provenance cần bàn giao.
+- Đối chiếu base image, Python/CUDA/GPU với guideline chính thức. Chuẩn bị image base và wheelhouse phù hợp trước bước build offline.
+- Lưu dependency GPU đã chạy thực tế vào artifact của release. requirements-dev.lock.txt là khóa CPU nhẹ, không dùng làm chứng nhận stack GPU.
+- Hải/Thịnh cần cập nhật extras và công cụ staging khi thêm vLLM/RAG; runtime hiện chưa có hai tích hợp đó.
+
+## 2. Tạo build context có chọn lọc
+
+```bash
+python tools/package_solution.py --config configs/submission.json --wheelhouse /work/wheelhouse --model-source qwen35-9b=/work/models/qwen35-9b --output outputs/packages/release-01/context
+```
+
+Trên workspace Windows hiện tại, Qwen 9B đã lưu nguyên bản ở archive/2026-11-09/models/qwen35-9b; có thể dùng đường dẫn đó khi stage. Khi chạy trên Linux, thay bằng vị trí checkpoint local tương ứng. Assistant nếu chọn cần thêm --model-source cho khóa assistant.
+
+Helper kiểm manifest/hash, chỉ chép source, config submission, checkpoint được khai báo và wheelhouse; giữ training source trong src/datamate/training. Không chép train/public_test, archive, logs, notebook hay toàn bộ models/. Thư mục output phải rỗng; tạo release mới nếu đã tồn tại. solution_manifest.json ghi inventory/hash và trạng thái chưa build/chưa xác nhận GPU.
+
+Công cụ staging không chọn base image thay BTC, không xác nhận wheel tương thích chỉ bằng tên file và không tự tải tài nguyên.
+
+## 3. Build và rehearsal offline
+
+Sau khi thay placeholder bằng base image đã đối chiếu, tải base trước rồi build trong môi trường Linux phù hợp:
+
+```bash
+docker build --network=none -f outputs/packages/release-01/context/docker/Dockerfile.competition --build-arg BASE_IMAGE=OFFICIAL_IMAGE_WITH_DIGEST -t datamate:release-01 outputs/packages/release-01/context
+docker run --rm --gpus all --network none --mount type=bind,src=/work/data/split,dst=/data,readonly --mount type=bind,src=/work/results/release-01,dst=/result --mount type=bind,src=/work/scratch,dst=/work datamate:release-01
+```
+
+Tạo trước các thư mục mount. Chạy workload cần đánh giá, kiểm submission/type/log và thời gian từ trước load/index/compile đến flush output. Giữ cơ chế timeout trong predict.sh; chạy nhanh trên mẫu nhỏ không chứng minh đủ toàn private test trong 6 giờ.
+
+Khi thay code/dependency/checkpoint sau rehearsal, phải kiểm lại image mới. Không sửa dữ liệu /data hoặc dùng test để training.
+
+## 4. Xuất image ngày cuối
+
+```bash
+docker save -o outputs/packages/datamate-solution.tar datamate:release-01
+sha256sum outputs/packages/datamate-solution.tar > outputs/packages/datamate-solution.tar.sha256
+```
+
+Giữ kèm README chạy lại, commit/config, solution manifest, license, dependency GPU, kết quả rehearsal và checksum. Cách upload/tên file/giới hạn gói tuân theo guideline được xác minh, không suy từ template này. Nếu cần nén TAR, tính lại checksum trên đúng file gửi.
+
+## Docker dev / CPU smoke
+
+Giữ Dockerfile.dev để kiểm packaging/input/output mà không tải model:
 
 ```powershell
 docker build -f docker/Dockerfile.dev -t datamate-dev:local .
 .\tools\docker-smoke.ps1
 ```
 
-Helper chọn đúng 3 câu đầu train và chép dữ liệu các doanh nghiệp liên quan vào `outputs/docker-input-<suffix>`. Khi Docker Desktop không nhận bind mount Unicode, dùng Docker cp và volume riêng:
-
-1. Chỉ chép subset nguồn của dự án, không mount toàn ổ E:.
-2. Inference dùng `--network none`, `--read-only`, `/data` volume chỉ đọc, `/work` và `/tmp` là tmpfs.
-3. Ghi submission/log rồi chép về `result/docker-smoke-<suffix>` trên E:.
-4. Kiểm tra exit code, JSONL, ID, đáp án demo và log; dọn đúng container/volume vừa tạo.
-
-Docker Desktop quản lý storage nội bộ theo cấu hình engine. Source và kết quả xuất về E:; helper không đổi global settings.
-
-## Image thi
-
-Chưa có Docker guideline chính thức, chưa xác nhận base image, entrypoint đầy đủ, CUDA/PyTorch/Blackwell. `docker/Dockerfile.competition` yêu cầu `--build-arg BASE_IMAGE=<official-image>`, không có mặc định giả làm ảnh ban tổ chức.
-
-Sau khi nhận guideline:
-
-- Đối chiếu Python, CUDA, PyTorch, native support model/assistant, bitsandbytes nếu dùng và RTX 5090.
-- Dùng Linux builder tương thích tạo wheelhouse đầy đủ, gồm setuptools/wheel. Root `.dockerignore` cho phép wheelhouse/models trong build thi; dev có ignore riêng để không gửi trọng số lớn.
-- Chuẩn bị model chính, assistant nếu chọn, merge adapter và seal artifact.
-- Sửa `configs/submission.json`: `/data`, `/result`, `/work/datamate`, model trong `/app/models`.
-- Build offline từ wheelhouse với base chính thức. `predict.sh` dùng `timeout`; xác nhận có công cụ đó.
-- Chạy toàn split offline, đo wall time từ trước load, kiểm tra JSONL và log. Không dùng test/log test để training.
-
-Ví dụ sau khi có đủ tài liệu, wheelhouse và model (chưa thực hiện):
-
-```text
-docker build -f docker/Dockerfile.competition --build-arg BASE_IMAGE=<official-base-image> -t datamate-solution:validated .
-```
-
-Lần kiểm tra đóng gói cuối dùng trọng số có sẵn trong image, mạng tắt, `/data` chỉ đọc. Batch ghi `/result/submission.jsonl` và `/result/logs/`; dừng ở 21.000 giây, watchdog ngoài dừng dưới 21.600 giây. Câu đã flush được giữ, còn thiếu tính abstain theo ngữ cảnh cuộc thi. Đây là cơ chế giới hạn, chưa bảo đảm throughput hoặc chất lượng.
+DemoBackend luôn abstain; smoke này không phải PA hoặc kiểm thử GPU. Kết quả mới đặt dưới outputs/runs/docker-smoke/.

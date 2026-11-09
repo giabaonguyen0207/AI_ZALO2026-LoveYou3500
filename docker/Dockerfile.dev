@@ -4,8 +4,8 @@ FROM ${BASE_IMAGE}
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
     HF_HOME=/work/huggingface TORCH_HOME=/work/torch XDG_CACHE_HOME=/work
-COPY requirements.lock.txt /app/requirements.lock.txt
-RUN python -m pip install --no-cache-dir -r requirements.lock.txt
+COPY requirements-dev.lock.txt /app/requirements-dev.lock.txt
+RUN python -m pip install --no-cache-dir -r requirements-dev.lock.txt
 COPY pyproject.toml /app/
 COPY src /app/src
 RUN python -m pip install --no-cache-dir --no-deps .

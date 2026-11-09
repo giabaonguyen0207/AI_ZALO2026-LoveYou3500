@@ -9,6 +9,12 @@ outputs
 result
 checkpoints
 wheelhouse
+archive
+docs/history
+docs/references
+docs/research
+.venv-gpu-old
+.venv-cpu
 **/__pycache__
 **/*.egg-info
 *.zip

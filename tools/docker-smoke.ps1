@@ -7,8 +7,8 @@ $stageName = "datamate-prep-$suffix"
 $runName = "datamate-run-$suffix"
 $dataVolume = "datamate-data-$suffix"
 $resultVolume = "datamate-result-$suffix"
-$inputDir = Join-Path $projectRoot "outputs/docker-input-$suffix"
-$outputDir = Join-Path $projectRoot "result/docker-smoke-$suffix"
+$inputDir = Join-Path $projectRoot "outputs/runs/docker-smoke/input-$suffix"
+$outputDir = Join-Path $projectRoot "outputs/runs/docker-smoke/result-$suffix"
 $sourceRoot = Join-Path $projectRoot 'train/train'
 New-Item -ItemType Directory -Force $inputDir, $outputDir | Out-Null
 $questionLines = @(Get-Content -LiteralPath (Join-Path $sourceRoot 'questions.jsonl') -Encoding utf8 -TotalCount 3)

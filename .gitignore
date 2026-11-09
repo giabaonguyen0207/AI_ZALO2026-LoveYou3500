@@ -20,6 +20,9 @@ __pycache__/
 /result/
 /outputs/
 /logs/
+/archive/
+/.venv-gpu-old/
+/.venv-cpu/
 
 # Local caches, packaging and editable installs
 /.cache/

@@ -42,9 +42,6 @@ def parser():
     stage.add_argument("--model", required=True)
     stage.add_argument("--output", required=True)
     commands.add_parser("models", help="Inventory các checkpoint đã xác minh metadata")
-    serve = commands.add_parser("serve", help="Web local trên 127.0.0.1")
-    serve.add_argument("--workspace", default=".")
-    serve.add_argument("--port", type=int, default=7860)
     score = commands.add_parser("score", help="Chấm cục bộ với train references")
     score.add_argument("--predictions", required=True)
     score.add_argument("--references", required=True)
@@ -100,11 +97,6 @@ def main():
             from .application import create_agent
             question = Question("interactive", args.business, args.question, args.as_of)
             result = create_agent(load_settings(args)).run(question).to_dict(question.id)
-        elif args.command == "serve":
-            from .api import create_app
-            import uvicorn
-            uvicorn.run(create_app(args.workspace), host="127.0.0.1", port=args.port)
-            return
         elif args.command == "score":
             from .data.split import read_jsonl
             from .evaluation.scoring import score

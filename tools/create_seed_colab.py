@@ -175,7 +175,8 @@ Giữ `adapter/`, `training_report.json`, `run_identity.json`, config, pip-freez
 ''')
     notebook={'cells':cells,'metadata':{'colab':{'provenance':[]},'kernelspec':{'display_name':'Python 3','language':'python','name':'python3'},
                                       'language_info':{'name':'python'},'accelerator':'GPU'},'nbformat':4,'nbformat_minor':5}
-    path=root/'notebooks/DataMate_Colab_Seed72_100_QLoRA.ipynb'
+    path=root/'notebooks/training/DataMate_Colab_Seed72_100_QLoRA.ipynb'
+    path.parent.mkdir(parents=True,exist_ok=True)
     path.write_text(json.dumps(notebook,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     for item in cells:
         if item['cell_type']=='code': compile(''.join(item['source']),item['id'],'exec')

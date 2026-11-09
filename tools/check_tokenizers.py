@@ -1,4 +1,4 @@
-`"""Online tokenizer/template integration check; deliberately excludes weights."""
+"""Online tokenizer/template integration check; deliberately excludes weights."""
 import json
 import os
 from pathlib import Path
@@ -44,5 +44,6 @@ for key in ("qwen35-9b","gemma4-12b"):
           "max_initial_prompt_tokens":max(x["initial_prompt_tokens"] for x in lengths),"businesses":lengths}
     print(json_text({k:v for k,v in item.items() if k!="businesses"}),flush=True)
     report.append(item)
-out=root/"outputs/tokenizer-check.json"
+out=root/"outputs/runs/tokenizer-check/tokenizer-check.json"
+out.parent.mkdir(parents=True,exist_ok=True)
 out.write_text(json_text(report,indent=2),encoding="utf-8")

@@ -1,6 +1,6 @@
 # Phân tích inference lần 2 — Gemma 4 12B, pipeline v2
 
-**Làm rõ sau báo cáo:** người dùng muốn xem đầu ra LLM, SQL và kết quả/lỗi từng bước. Những nội dung này đã nằm trong JSON trace; đã xuất thêm bản Markdown dễ đọc và bổ sung logging cho lượt chạy sau. Xem [hướng dẫn log từng bước](debug-step-logs.md). Kiểm tra source hash trong báo cáo này ghi nhận thời điểm trước thay đổi logging đó.
+**Làm rõ sau báo cáo:** người dùng muốn xem đầu ra LLM, SQL và kết quả/lỗi từng bước. Những nội dung này đã nằm trong JSON trace; đã xuất thêm bản Markdown dễ đọc và bổ sung logging cho lượt chạy sau. Xem [hướng dẫn log từng bước](../debug-step-logs.md). Kiểm tra source hash trong báo cáo này ghi nhận thời điểm trước thay đổi logging đó.
 
 **Ngày nhận và kiểm tra:** 03/11/2026. **Nguồn:** thư mục người dùng cung cấp tại `outputs/diagnosis-2026-11-03/gemma4-12b-stress72-pipeline-v2-01/`. Đối chiếu với lượt trước tại `outputs/diagnosis-2026-11-02/diagnostic_bundle/`, mã local và rulebook train thực tế. Thời gian sửa file trong bundle không được dùng làm bằng chứng về ngày chạy.
 
@@ -19,7 +19,7 @@
 - Manifest model giống baseline. Cùng Gemma 4 12B, `single`, không quantization, BF16, tham số trên `cuda:0`; GPU ghi nhận là RTX PRO 6000 Blackwell Server Edition, khoảng 94,97 GiB VRAM.
 - Có thay đổi môi trường: Transformers **5.21.0 → 5.22.0**. Vì vậy đây không phải thí nghiệm chỉ thay đúng một biến; không thể quy chính xác toàn bộ mức cải thiện cho riêng một sửa đổi.
 
-Bằng chứng có cấu trúc: [audit.json](../outputs/diagnosis-2026-11-03/analysis-pipeline-v2/audit.json). Có thể chạy lại kiểm chứng bằng script trong cùng thư mục; script không nạp model.
+Bằng chứng có cấu trúc: [audit.json](../../archive/2026-11-09/outputs/diagnosis-2026-11-03/analysis-pipeline-v2/audit.json). Có thể chạy lại kiểm chứng bằng script trong cùng thư mục; script không nạp model.
 
 ## 2. Kết quả so với lượt 1
 
@@ -146,7 +146,7 @@ Hai câu tồn kho có sổ nhập/lô nhưng công cụ hiện mới hỗ trợ
 - `paid=74000` trong bảng đơn là tổng đã trả về sau. Lấy `order_total-paid` để tính nợ thêm tháng 3 làm mất lịch sử và cho 0. Model cũng đã bỏ lọc chỉ đơn ghi nợ sau khi điều kiện nhãn raw không khớp canonical.
 - `question_contract()` không nhận ra yêu cầu hai thành phần của luồng công nợ; kiểm tra SQL chỉ xét nguồn bảng/ngày/trạng thái ở mức hạn chế, không chứng minh đúng nghĩa nghiệp vụ hoặc đủ hai đầu ra.
 
-Một query CPU nối sổ thanh toán theo ngày đã cho `[74000,37000]`, khớp nhãn. Query và các dòng bằng chứng lưu tại [debt-flow-probe.json](../outputs/diagnosis-2026-11-03/analysis-pipeline-v2/debt-flow-probe.json). Đây là phép kiểm chứng phân tích, không thay đổi dự đoán đã nộp.
+Một query CPU nối sổ thanh toán theo ngày đã cho `[74000,37000]`, khớp nhãn. Query và các dòng bằng chứng lưu tại [debt-flow-probe.json](../../archive/2026-11-09/outputs/diagnosis-2026-11-03/analysis-pipeline-v2/debt-flow-probe.json). Đây là phép kiểm chứng phân tích, không thay đổi dự đoán đã nộp.
 
 ## 5. Tại sao không có model reasoning trong logs?
 

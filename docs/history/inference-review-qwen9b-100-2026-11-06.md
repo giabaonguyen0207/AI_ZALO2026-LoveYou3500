@@ -154,7 +154,7 @@ Các đề xuất trên có nhánh kiểm tra API, kiểu dữ liệu, cấu tr�
 
 **Không quy các kết quả sửa tay này thành PA mới hoặc số câu Qwen chắc chắn sẽ sửa được.** Chưa sửa runtime/prompt/notebook hoặc source ZIP trong đợt phân tích này, chưa inference thêm hoặc fine-tune. Toàn bộ 100 thuộc TRAIN đã dùng nhiều lần phát triển; kết quả không phải holdout độc lập hay dự báo private test.
 
-Artifact: [audit và so sánh](../outputs/diagnosis-2026-11-06/qwen9b-full-review/audit.json), [probe từng câu sai](../outputs/diagnosis-2026-11-06/qwen9b-full-review/probes.json), [kiểm tra nguồn/ngày/CTE](../outputs/diagnosis-2026-11-06/qwen9b-full-review/additional-probes.json), [nguyên nhân từng câu dạng JSON](../outputs/diagnosis-2026-11-06/qwen9b-full-review/wrong-causes.json). Các script tái hiện nằm cùng thư mục; verification.json ghi kiểm tra cuối và hash artifact.
+Artifact: [audit và so sánh](../../archive/2026-11-09/outputs/diagnosis-2026-11-06/qwen9b-full-review/audit.json), [probe từng câu sai](../../archive/2026-11-09/outputs/diagnosis-2026-11-06/qwen9b-full-review/probes.json), [kiểm tra nguồn/ngày/CTE](../../archive/2026-11-09/outputs/diagnosis-2026-11-06/qwen9b-full-review/additional-probes.json), [nguyên nhân từng câu dạng JSON](../../archive/2026-11-09/outputs/diagnosis-2026-11-06/qwen9b-full-review/wrong-causes.json). Các script tái hiện nằm cùng thư mục; verification.json ghi kiểm tra cuối và hash artifact.
 
 ## 7. Toàn bộ 32 câu sai
 

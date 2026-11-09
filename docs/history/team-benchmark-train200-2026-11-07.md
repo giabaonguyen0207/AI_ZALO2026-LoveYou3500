@@ -1,6 +1,6 @@
 # Gói benchmark nhóm — 200 câu TRAIN, protocol v2
 
-Để chủ dự án chạy agent hiện có trên Colab, dùng [notebook 200 câu riêng](team200-colab.md).
+Để chủ dự án chạy agent hiện có trên Colab, dùng [notebook 200 câu riêng](../team200-colab.md).
 Notebook xuất đúng hai file nộp nhóm, đồng thời lưu review/log riêng và tự
 ngắt runtime. Tiện ích này không yêu cầu đồng đội dùng cùng model/framework.
 

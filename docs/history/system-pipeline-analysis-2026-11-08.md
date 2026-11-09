@@ -18,11 +18,11 @@ Ngày phân tích: **08/11/2026**, múi giờ Asia/Saigon. Đây là tài liệu
 | Training Gemma | Có bộ seed và quy trình QLoRA; báo cáo seed ghi chưa chạy GPU training |
 | Đo lường mới | Không gọi SLM, không chạy GPU inference/fine-tune hoặc đo tốc độ mới |
 
-Interface v7 **đã rollback**. Một số cách sửa projection, kiểu tham số, khóa và review được ghi trong tài liệu v7 chỉ còn là lịch sử, chưa có trên đường chạy v6 hiện tại. Không suy từ việc rollback rằng tốc độ hoặc PA đã được cải thiện. Xem [phạm vi rollback](<E:/Bảo Lập Trình AI/ZALO_AI_2026/docs/rollback-pipeline6-2026-11-08.md>).
+Interface v7 **đã rollback**. Một số cách sửa projection, kiểu tham số, khóa và review được ghi trong tài liệu v7 chỉ còn là lịch sử, chưa có trên đường chạy v6 hiện tại. Không suy từ việc rollback rằng tốc độ hoặc PA đã được cải thiện. Xem [phạm vi rollback](rollback-pipeline6-2026-11-08.md).
 
-Yêu cầu cuộc thi tiếp tục dựa trên [bản tổng hợp có ghi mức xác minh](<E:/Bảo Lập Trình AI/ZALO_AI_2026/docs/competition-context.md>). Phiên này không xác minh lại toàn bộ quy định chính thức hoặc lịch sử checkpoint trên Internet. Rulebook TRAIN được đọc trực tiếp chỉ xác nhận luật TRAIN.
+Yêu cầu cuộc thi tiếp tục dựa trên [bản tổng hợp có ghi mức xác minh](../competition-context.md). Phiên này không xác minh lại toàn bộ quy định chính thức hoặc lịch sử checkpoint trên Internet. Rulebook TRAIN được đọc trực tiếp chỉ xác nhận luật TRAIN.
 
-Bằng chứng chấm lại và kiểm kê mới nằm ở [evidence.json](<E:/Bảo Lập Trình AI/ZALO_AI_2026/outputs/system-analysis-2026-11-08/evidence.json>).
+Bằng chứng chấm lại và kiểm kê mới nằm ở [evidence.json](../../archive/2026-11-09/outputs/system-analysis-2026-11-08/evidence.json).
 
 **2. Pipeline là gì trong hệ thống này?**
 
@@ -160,7 +160,7 @@ Backend hiện có `use_cache=True` trong mỗi `generate`, dùng SDPA và seria
 
 **Review và retry đang tiêu tốn compute mà chưa thể hiện lợi ích ngữ nghĩa trong lượt này.** Sau 84 candidate tính toán, mọi action tiếp theo quan sát được đều là final; không có plan sửa hoặc phép kiểm tra độc lập sau candidate. Đây là bằng chứng về hành vi của lượt chạy, chưa phải thí nghiệm chứng minh mọi self-review vô ích. Tổng input token Qwen v5→v6 tăng khoảng 2,057 triệu→3,287 triệu, calls 194→311. Cần đo riêng thời gian prefill và decode trước khi khẳng định thành phần nào chiếm ưu thế.
 
-Nguồn chi tiết: [chẩn đoán Qwen pipeline 6](<E:/Bảo Lập Trình AI/ZALO_AI_2026/docs/inference-review-qwen9b-pipeline6-2026-11-07.md>) và [so sánh Gemma fast v5](<E:/Bảo Lập Trình AI/ZALO_AI_2026/docs/inference-review-fast-v5-2026-11-06.md>).
+Nguồn chi tiết: [chẩn đoán Qwen pipeline 6](inference-review-qwen9b-pipeline6-2026-11-07.md) và [so sánh Gemma fast v5](inference-review-fast-v5-2026-11-06.md).
 
 **8. Hướng tối ưu đề xuất, theo thứ tự thử nghiệm**
 
@@ -210,7 +210,7 @@ Recipe hợp lý để thử: giữ base checkpoint đã pin, SFT action đúng 
 
 LoRA học các ma trận cập nhật nhỏ trên base được giữ cố định; QLoRA kết hợp base nén 4bit khi học adapter để giảm nhu cầu bộ nhớ. Đây là cách huấn luyện tiết kiệm tài nguyên, không tự bảo đảm agent tốt hơn. Có thể merge LoRA vào base sau training; chọn dtype inference và đo chất lượng riêng. Nguồn phương pháp: [PEFT LoRA](https://huggingface.co/docs/peft/main/en/conceptual_guides/lora), [bài QLoRA](https://arxiv.org/abs/2305.14314).
 
-Không dùng loss training giảm làm tiêu chí thắng. Tiêu chí là **đáp án generation cuối cùng** trên dữ liệu evaluation được tách phù hợp, với cùng tools và ngân sách. Chi tiết release: [Gemma seed 72+100](<E:/Bảo Lập Trình AI/ZALO_AI_2026/docs/gemma-seed72-100-colab-pro.md>).
+Không dùng loss training giảm làm tiêu chí thắng. Tiêu chí là **đáp án generation cuối cùng** trên dữ liệu evaluation được tách phù hợp, với cùng tools và ngân sách. Chi tiết release: [Gemma seed 72+100](gemma-seed72-100-colab-pro.md).
 
 **10. Cách đánh giá để tránh tối ưu nhầm**
 
@@ -238,7 +238,7 @@ Theo registry/evidence đang lưu trong dự án, Qwen 9B có khoảng **9,653B*
 
 Gọi lại cùng checkpoint để review không cộng thêm một model vào số tham số. MTP assistant là model phụ đề xuất token cho target kiểm chứng; mục tiêu là decoding, khác trách nhiệm review nghiệp vụ. Hiệu quả assistant tại dự án chưa được benchmark. Nén 4bit giúp giảm bộ nhớ trọng số, không giảm tham số được tính hoặc bảo đảm tăng tốc/chất lượng.
 
-Registry đã pin revision, evidence trọng số trước 01/10/2026 và license. Trước khi thay model cần kiểm tra lại checkpoint cụ thể, ngày công khai trọng số, revision và mọi model phụ. Xem [kiểm kê và nguồn model](<E:/Bảo Lập Trình AI/ZALO_AI_2026/docs/model-comparison.md>).
+Registry đã pin revision, evidence trọng số trước 01/10/2026 và license. Trước khi thay model cần kiểm tra lại checkpoint cụ thể, ngày công khai trọng số, revision và mọi model phụ. Xem [kiểm kê và nguồn model](../model-comparison.md).
 
 Ngân sách phải đo theo:
 
@@ -265,13 +265,13 @@ Batch hiện chạy tuần tự, deadline mặc định 21.000 giây; `predict.s
 
 | Chủ đề | Điểm bắt đầu |
 |---|---|
-| Controller, budget, review, auto-execute | [runner.py](<E:/Bảo Lập Trình AI/ZALO_AI_2026/src/datamate/agent/runner.py:24>) |
-| Plan DSL, validation, compiler và SQL checks | [planning.py](<E:/Bảo Lập Trình AI/ZALO_AI_2026/src/datamate/agent/planning.py:63>) |
-| Dữ liệu và policy chung | [normalization.py](<E:/Bảo Lập Trình AI/ZALO_AI_2026/src/datamate/data/normalization.py:115>) |
-| Ingest và fingerprint | [ingest.py](<E:/Bảo Lập Trình AI/ZALO_AI_2026/src/datamate/data/ingest.py:106>) |
-| Prompt và context | [prompts.py](<E:/Bảo Lập Trình AI/ZALO_AI_2026/src/datamate/agent/prompts.py:81>) |
-| Sửa schema giới hạn | [schema_repair.py](<E:/Bảo Lập Trình AI/ZALO_AI_2026/src/datamate/agent/schema_repair.py:82>) |
-| Chiếu kết quả theo type | [protocol.py](<E:/Bảo Lập Trình AI/ZALO_AI_2026/src/datamate/agent/protocol.py:86>) |
-| Generation, EOS, cache và model local | [backends.py](<E:/Bảo Lập Trình AI/ZALO_AI_2026/src/datamate/models/backends.py:90>) |
-| Batch, resume và wall clock | [application.py](<E:/Bảo Lập Trình AI/ZALO_AI_2026/src/datamate/application.py:29>) |
-| Assistant-only SFT, LoRA/QLoRA và merge | [finetune.py](<E:/Bảo Lập Trình AI/ZALO_AI_2026/src/datamate/training/finetune.py:14>) |
+| Controller, budget, review, auto-execute | [runner.py](../../src/datamate/agent/runner.py:24) |
+| Plan DSL, validation, compiler và SQL checks | [planning.py](../../src/datamate/agent/planning.py:63) |
+| Dữ liệu và policy chung | [normalization.py](../../src/datamate/data/normalization.py:115) |
+| Ingest và fingerprint | [ingest.py](../../src/datamate/data/ingest.py:106) |
+| Prompt và context | [prompts.py](../../src/datamate/agent/prompts.py:81) |
+| Sửa schema giới hạn | [schema_repair.py](../../src/datamate/agent/schema_repair.py:82) |
+| Chiếu kết quả theo type | [protocol.py](../../src/datamate/agent/protocol.py:86) |
+| Generation, EOS, cache và model local | [backends.py](../../src/datamate/models/backends.py:90) |
+| Batch, resume và wall clock | [application.py](../../src/datamate/application.py:29) |
+| Assistant-only SFT, LoRA/QLoRA và merge | [finetune.py](../../src/datamate/training/finetune.py:14) |

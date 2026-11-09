@@ -5,7 +5,7 @@
 - Ngày lập: **02/11/2026**, múi giờ Asia/Saigon.
 - Trạng thái: **đề xuất, chưa triển khai các cải tiến, chưa có benchmark trước/sau**. Checkbox trong tài liệu là công việc tương lai.
 - Phạm vi yêu cầu hiện tại: lưu ý tưởng thành tài liệu; không tự sửa agent, đổi model, chạy GPU, fine-tune hoặc thay baseline.
-- Kế thừa cuộc trò chuyện [Đọc abstract và intro](chatgpt-conversation://6ae40b1d-274c-83ec-86a9-fe9a4fc130cc). Các nhận định trong chat được đối chiếu lại; chat không thay thế paper, code hay rulebook thực tế.
+- Kế thừa cuộc trò chuyện [Đọc abstract và intro](chatgpt-conversation:/6ae40b1d-274c-83ec-86a9-fe9a4fc130cc). Các nhận định trong chat được đối chiếu lại; chat không thay thế paper, code hay rulebook thực tế.
 - Mục tiêu: cải thiện **đáp án đúng theo type và giá trị, Penalized Accuracy (PA), thời gian và khả năng tái lập** của agent offline. Chưa chọn phương án thắng hoặc cam kết mức tăng điểm.
 
 ## 1. Chỉ dẫn bắt đầu cho Codex

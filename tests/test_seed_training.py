@@ -62,7 +62,7 @@ def seed_source(split_root,tmp_path):
 
 
 def build_fixture(source,output,monkeypatch):
-    from transformers import AutoTokenizer
+    AutoTokenizer = pytest.importorskip('transformers', reason='Install the test-llm extra for seed/tokenizer fixture tests').AutoTokenizer
     monkeypatch.setattr(AutoTokenizer,'from_pretrained',lambda *args,**kwargs:CharacterTokenizer())
     return prepare_seed(source.split.root,output,reviews=source.reviews,runs=[source.run],
                         sources=source.sources,cache_dir=output.parent/'catalogs',
@@ -212,7 +212,7 @@ def test_colab_configs_smoke_longest_and_report_actual_gpu(seed_source,tmp_path,
 
 def test_seed_notebook_compiles_and_has_small_pilot_defaults():
     root=Path(__file__).resolve().parents[1]
-    notebook=json.loads((root/'notebooks/DataMate_Colab_Seed72_100_QLoRA.ipynb').read_text(encoding='utf-8'))
+    notebook=json.loads((root/'notebooks/training/DataMate_Colab_Seed72_100_QLoRA.ipynb').read_text(encoding='utf-8'))
     import ast
     setup=next(c for c in notebook['cells'] if c.get('id')=='seed-setup')
     desired={'MODEL_KEY','MAX_STEPS','RUN_EVALUATION'}

@@ -12,7 +12,7 @@ from .domain import DataMateError
 class Settings:
     split_root: str = "train/train"
     cache_dir: str = ".cache/datamate"
-    result_dir: str = "result"
+    result_dir: str = "outputs/runs/default"
     model_key: str = "qwen35-9b"
     model_dir: str = "models/qwen35-9b"
     backend: str = "transformers"

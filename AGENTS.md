@@ -3,15 +3,17 @@
 ## Đọc trước khi làm việc
 
 - Đọc `docs/competition-context.md` để hiểu cuộc thi và trạng thái thông tin.
-- `README.md` là điểm bắt đầu và mô tả trạng thái ban đầu của thư mục.
+- `README.md` là điểm bắt đầu và mô tả bố cục/quy trình hiện hành của nhóm.
 - Ngữ cảnh cuộc thi do người dùng cung cấp ngày 30/10/2026. Đây là bản tổng hợp, chưa phải bản sao tài liệu chính thức đã được xác minh độc lập.
 - Khi có tài liệu chính thức hoặc dữ liệu thực tế, dùng chúng để kiểm chứng bản tổng hợp và ghi rõ các điểm khác biệt; không âm thầm coi giả định là quy định đã xác nhận.
 
 ## Phạm vi và cách hỗ trợ
 
 - Người dùng quen Python và kiến thức lập trình cơ bản, chưa từng xây AI Agent. Trao đổi bằng tiếng Việt, giải thích thuật ngữ và lý do của các quyết định khi cần.
-- Hiện chưa chọn kiến trúc, model, framework, chiến lược huấn luyện hoặc lịch triển khai. Không coi bất kỳ phương án nào là quyết định đã được đội chấp thuận.
-- Yêu cầu ban đầu chỉ là chuẩn bị tài liệu ngữ cảnh cho việc xây agent sau này. Chỉ bắt đầu triển khai khi có yêu cầu tiếp theo phù hợp.
+- Quyết định được chủ dự án duyệt ngày 09/11/2026: modular monolith theo Adapter + Strategy; Hải phụ trách vLLM, Thịnh phụ trách RAG. Đọc hai plan trong `docs/plans/`; không coi phần còn nằm trong plan là đã triển khai.
+- Máy cá nhân chỉ phát triển và test CPU; full-checkpoint inference/training trên Colab/Kaggle/GPU thuê. Qwen 4B và web local đã bỏ khỏi runtime; giữ Transformers làm baseline và DemoBackend cho kiểm thử.
+- Mỗi người tự chọn benchmark, chạy baseline trước rồi bản tích hợp trên cùng tập đã chọn. Không bắt buộc Team200 và không so điểm từ hai tập khác nhau để kết luận cải thiện.
+- Dataset/model/output/cache/archive không qua Git. Kho `archive/2026-11-09/` là local, giữ các artifact frozen nguyên hash; dùng `outputs/runs/<người>/<run-id>/` và `outputs/packages/` cho lượt mới. Đọc README, `docs/run-gpu.md`, `docs/team-workflow.md` trước khi đổi entrypoint/đường dẫn.
 - Trước khi thiết kế dựa trên dữ liệu, kiểm tra tài liệu và file thực tế trong workspace. Không suy đoán schema, tên cột, chất lượng dữ liệu, base image chính thức hoặc hiệu năng.
 
 ## Các ràng buộc phải nhớ từ bản tổng hợp
