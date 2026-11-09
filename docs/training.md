@@ -4,6 +4,8 @@ Training source được giữ trong src/datamate/training và được đưa v�
 
 Notebook tổng quát: [DataMate_Colab_LoRA.ipynb](../notebooks/training/DataMate_Colab_LoRA.ipynb). Notebook seed Gemma: [DataMate_Colab_Seed72_100_QLoRA.ipynb](../notebooks/training/DataMate_Colab_Seed72_100_QLoRA.ipynb).
 
+Bộ SQL SFT mới cho Qwen3.5-9B, nguồn 3.000 câu TRAIN và notebook Colab riêng: [hướng dẫn và phạm vi kiểm chứng ngày 09/11/2026](training-sql-qwen35-9b-2026-11-09.md). Chỉ các mẫu đã nhận mới dùng train; giữ validation theo doanh nghiệp và hàng chờ sửa riêng.
+
 ## Nguồn và đánh giá
 
 Chỉ dùng nguồn TRAIN được allowlist trong configs/training_sources.json, synthetic hoặc nguồn hợp lệ khác theo quy định. Không dùng public/private test để training. Bộ train đã nhận gồm 30 doanh nghiệp/3.000 câu; split seed 42 giữ riêng 6 doanh nghiệp/630 câu validation. ID phục vụ chọn partition/ghép nhãn, không quyết định đáp án.

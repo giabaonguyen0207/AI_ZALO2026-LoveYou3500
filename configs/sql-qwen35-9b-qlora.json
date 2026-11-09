@@ -1,0 +1,19 @@
+{
+  "model_key": "qwen35-9b",
+  "base_dir": "models/qwen35-9b",
+  "dataset_dir": "outputs/runs/review/sql-sft-qwen35-9b-20261109/dataset-v1",
+  "output_dir": "checkpoints/qwen35-9b-sql-qlora-v1",
+  "method": "qlora",
+  "rank": 16,
+  "alpha": 32,
+  "dropout": 0.05,
+  "max_length": 16384,
+  "reject_overlength": true,
+  "batch_size": 1,
+  "gradient_accumulation_steps": 8,
+  "epochs": 1,
+  "learning_rate": 0.00005,
+  "save_steps": 50,
+  "seed": 42,
+  "min_vram_gib": 22
+}
