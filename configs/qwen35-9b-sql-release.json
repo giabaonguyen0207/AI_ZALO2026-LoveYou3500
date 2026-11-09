@@ -1,0 +1,14 @@
+{
+  "dataset_archive": "qwen35-9b-sql-sft-v1.zip",
+  "dataset_archive_sha256": "022bd1a8e4c47e2fa478b067b5497c2c4e6ef6644244d7134097d1a16b7a63d1",
+  "dataset_manifest_sha256": "f2fbb6afcfdc193a12451adf7c790a204f0fd4acee29ffd97d2bcc00ffdf966a",
+  "target_model": {
+    "key": "qwen35-9b",
+    "repo_id": "Qwen/Qwen3.5-9B",
+    "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "parameters": 9653104368,
+    "revision_date": "2026-03-02T00:51:43Z",
+    "license": "apache-2.0",
+    "assistant_for": null
+  }
+}

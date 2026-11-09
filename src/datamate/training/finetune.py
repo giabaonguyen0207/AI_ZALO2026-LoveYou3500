@@ -69,6 +69,11 @@ def train(config_path, resume=None):
         verify_seed_dataset(data_dir)
         if model_key not in manifest.get('tokenizer_checks',[]):
             raise DataMateError('Dataset chưa được kiểm tokenizer cho model này')
+    if manifest.get('kind')=='verified_sql_sft':
+        from .sql_dataset import verify_sql_dataset
+        verify_sql_dataset(data_dir)
+        if model_key not in manifest.get('tokenizer_checks',{}):
+            raise DataMateError('SQL dataset chưa kiểm tokenizer cho model này')
     for name, digest in manifest["files"].items():
         path=(data_dir/name).resolve()
         if not path.is_relative_to(data_dir.resolve()) or sha256(path) != digest:
@@ -85,6 +90,10 @@ def train(config_path, resume=None):
     set_seed(raw.get("seed", 42))
     dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
     tokenizer = AutoTokenizer.from_pretrained(base_dir, local_files_only=True, trust_remote_code=False)
+    if manifest.get('kind')=='verified_sql_sft':
+        for name,digest in manifest['tokenizer_checks'][model_key].items():
+            if sha256(Path(base_dir)/name)!=digest:
+                raise DataMateError('Tokenizer/chat template khác bộ SQL đã kiểm: '+name)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"

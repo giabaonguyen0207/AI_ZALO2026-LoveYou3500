@@ -21,7 +21,7 @@ def request_needs(text):
         result.append("customer_identity")
     if any(x in q for x in ("ton kho", "trong kho", "con ton", "con hang")):
         result.append("inventory")
-    if any(x in q for x in ("con no", "cong no", "no nhieu", "no them", "tra no", "thu no", "dang no")):
+    if any(x in q for x in ("con no", "cong no", "no nhieu", "no them", "tra no", "thu no", "dang no",'con thieu','thu hoi','tra bot no')):
         result.append("debt")
     if "huy" in q and any(x in q for x in ("vi giao", "ly do", "nguyen nhan")):
         result.append("cancellation_reason")
@@ -29,8 +29,15 @@ def request_needs(text):
     if 'tra hang vi' in q or any(x in q for x in ('ly do tra','nguyen nhan tra')):result.append('return_reason')
     if any(x in q for x in ("zalo", "tai quay", "kenh ban", "qua san")):
         result.append("channel")
+    if 'ban qua dien thoai' in q:result.append('channel')
     if any(x in q for x in ('tien mat','chuyen khoan','hinh thuc thanh toan','cod')):
         result.append('payment_method')
+    if any(x in q for x in ('dia chi','nha o','o duong','khach duong')):result.append('address')
+    if any(x in q for x in ('hay khen','tan tam','le phep','chu dao','lanh nghe','tay nghe')):result.append('employee_feedback')
+    if any(x in q for x in ('nen uong','lieu dung','uong moi lan')):result.append('medical_use')
+    if any(x in q for x in ('han dung','het han','han su dung')):result.append('expiry')
+    if any(x in q for x in ('nhap hang','nhap vao','gia nhap','tien nhap','nhap tru')):result.append('purchases')
+    if 'nhap' in q and ('binh quan' in q or 'trung binh' in q):result.append('purchase_price')
     return result
 
 
@@ -107,8 +114,24 @@ class BusinessTools:
         uncertain_schema=any(b['ambiguous'] or b['kind']=='other' and not b['roles'] for b in self.semantic['bindings'])
         hints={'customer_identity':('khach','customer','client','buyer'),
                'cancellation_reason':('ly do','nguyen nhan','reason','cause','ghi chu'),
-               'channel':('kenh','channel','source','nguon'),'payment_method':('thanh toan','payment','paid','pttt')}
+                       'channel':('kenh','channel','source','nguon','ban qua'),'payment_method':('thanh toan','payment','paid','pttt')}
         for need in needs:
+            if need in {'address','employee_feedback','medical_use','expiry','purchases','purchase_price'}:
+                # Nonempty candidate fields mean unsupported interpretation,
+                # never proof that the input lacks the requested information.
+                words={'address':('dia chi','diachi','addr'),
+                       'employee_feedback':('danh gia','phan hoi','tay nghe','khen','review','feedback'),
+                       'medical_use':('lieu dung','lieudung','cach dung','cachdung','chi dinh','dosage'),
+                       'expiry':('han dung','han su dung','hansudung','expiry','hsd'),
+                       'purchases':('ngay nhap','ngaynhap','ma nhap','ma phieu nhap','maphieunhap','purchase'),
+                       'purchase_price':('gia nhap','gianhap','don gia','dongia','price')}
+                candidates=[b for b in self.semantic['bindings'] if need!='address' or
+                            b['kind']=='customers' or b['kind']=='other' and 'customer_id' in b['roles']]
+                if need=='purchase_price':candidates=[b for b in candidates if 'purchase_id' in b['roles']]
+                potential=any(any(w in (search_key(c) or '') for w in words[need]) and p.get('nonempty',0)>0
+                              for b in candidates for c,p in self.semantic['profiles'].get(b['table'],{}).items())
+                if need=='purchases':potential |= any('purchase_id' in b['roles'] or 'purchase_date' in b['roles'] for b in candidates)
+                (unsupported if potential else missing).append(need)
             if need in {'gender','return_reason','prescription','product_group','customer_group'} and not caps.get(need):
                 # All columns have been surveyed; a nonempty unbound candidate
                 # is unsupported mapping, rather than proof of absent data.

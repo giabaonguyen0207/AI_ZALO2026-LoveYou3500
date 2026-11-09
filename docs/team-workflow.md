@@ -1,6 +1,6 @@
 # Cập nhật main và làm việc nhóm
 
-Repo hiện tại: [AI_ZALO2026-LoveYou3500](https://github.com/giabaonguyen0207/AI_ZALO2026-LoveYou3500). Nhánh local chuẩn bị bố cục là `codex/team-gpu-layout`; chưa commit hoặc push trong đợt thực hiện này.
+Repo hiện tại: [AI_ZALO2026-LoveYou3500](https://github.com/giabaonguyen0207/AI_ZALO2026-LoveYou3500). Nhánh chuẩn bị bố cục là `codex/team-gpu-layout`. Phần đưa bố cục lên `main` bên dưới chỉ thực hiện nếu PR đó chưa merge; nếu đã merge, chuyển tới phần cập nhật nhánh của Hải/Thịnh.
 
 ## Chủ dự án: đưa bố cục lên main
 
@@ -52,7 +52,16 @@ git merge origin/main
 
 Giải quyết conflict, kiểm tra lại import/config và chạy tests trước khi tiếp tục. Với việc mới, tách nhánh từ main: `git switch -c codex/hai-vllm` hoặc `codex/thinh-rag`. [Git pull --ff-only](https://git-scm.com/docs/git-pull) dừng khi nhánh phân kỳ; không xử lý bằng cách xóa code chưa lưu.
 
-Mỗi người dùng working copy/worktree riêng, không cùng chuyển branch trên một checkout. Đồng bộ đoạn interface/file chung bằng PR nhỏ; thông báo khi đổi config, dependency hoặc đường dẫn notebook.
+Mỗi người dùng working copy/worktree riêng, không cùng chuyển branch trên một checkout.
+
+| Người | Nhánh tính năng | Quyền sửa file và contract |
+|---|---|---|
+| Hải | `codex/hai-vllm` | [Plan kỹ thuật vLLM](plans/plan-integrate-vllm-2026-11-09.md) |
+| Thịnh | `codex/thinh-rag` | [Plan kỹ thuật RAG](plans/plan-integrate-rag-2026-11-09.md) |
+
+Cả hai tách nhánh từ `main` đã cập nhật. Mỗi file dùng chung có một người sửa chính theo bảng trong hai plan; người kia yêu cầu patch qua người phụ trách, không cùng sửa bản riêng rồi chép đè.
+
+Thứ tự merge: PR nền H của Hải (backend contract + config) → PR nền T của Thịnh (NullRetriever + composition) → hai PR tính năng phát triển song song. Sau mỗi PR nền, nhánh còn lại merge `origin/main` để nhận đúng interface. Mỗi người chạy baseline của mình trước khi tích hợp; kiểm bản ghép vLLM + RAG sau khi cả hai tính năng đã merge.
 
 ## Những gì pull không mang theo
 

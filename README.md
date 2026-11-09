@@ -2,10 +2,10 @@
 
 DataMate là ứng dụng Python dùng chung cho **Colab, Kaggle, GPU thuê và Docker**. Máy cá nhân dùng để viết code và kiểm thử CPU. Baseline hiện là **pipeline 6 / Transformers**; vLLM và RAG đang được tích hợp, chưa có số đo mới từ đợt dọn bố cục.
 
-| Người | Phần phụ trách | Kế hoạch |
+| Người | Nhánh riêng | Phần phụ trách / kế hoạch |
 |---|---|---|
-| Hải | Backend vLLM, tốc độ inference | [Plan vLLM](docs/plans/plan-integrate-vllm-2026-11-09.md) |
-| Thịnh | Embedding, retrieval và reranker | [Plan RAG](docs/plans/plan-integrate-rag-2026-11-09.md) |
+| Hải | `codex/hai-vllm` | Backend vLLM — [plan kỹ thuật](docs/plans/plan-integrate-vllm-2026-11-09.md) |
+| Thịnh | `codex/thinh-rag` | Retrieval/reranker — [plan kỹ thuật](docs/plans/plan-integrate-rag-2026-11-09.md) |
 
 Kiến trúc đã chọn: **Adapter + Strategy** trong modular monolith. Mỗi người tự chọn benchmark, chạy baseline trước rồi đo bản tích hợp trên **cùng bộ đã chọn**. [Kiến trúc](docs/architecture.md) · [Ngữ cảnh cuộc thi](docs/competition-context.md).
 
@@ -67,7 +67,7 @@ Mỗi cấu hình dùng run name mới. Không resume kết quả cũ khi code/m
 
 ## 4. Làm việc qua GitHub
 
-Mỗi người dùng nhánh và working copy riêng, PR vào `main`; không cùng chuyển branch trong một checkout. Đọc [hướng dẫn cập nhật main và cho nhóm pull](docs/team-workflow.md).
+Hải dùng `codex/hai-vllm`, Thịnh dùng `codex/thinh-rag`, mỗi người một working copy/worktree riêng và PR vào `main`. Hai plan ghi rõ file cần tạo/sửa, contract, người phụ trách từng file và thứ tự PR nền trước khi phát triển tính năng song song; không cùng chuyển branch trong một checkout. Đọc [hướng dẫn cập nhật main và cho nhóm pull](docs/team-workflow.md).
 
 Sau khi main được cập nhật:
 

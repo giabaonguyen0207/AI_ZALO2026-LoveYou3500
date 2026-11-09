@@ -34,7 +34,7 @@ Chốt **Adapter + Strategy**: adapter bọc thư viện engine/encoder; strateg
 - [Hải: vLLM](plans/plan-integrate-vllm-2026-11-09.md).
 - [Thịnh: RAG](plans/plan-integrate-rag-2026-11-09.md).
 
-Các interface bổ sung trong plan chưa được triển khai bởi đợt dọn bố cục. Khi rag.none, phải giữ hành vi baseline; khi dùng RAG, retrieval hỗ trợ tìm nguồn/nghĩa, SQL vẫn tính trên toàn bộ dòng thỏa điều kiện. Mỗi người tự chọn benchmark nhưng so trước/sau trên cùng tập của mình.
+Hai plan kỹ thuật chỉ rõ file/hàm, contract và quyền sửa từng file: Hải trên `codex/hai-vllm`, Thịnh trên `codex/thinh-rag`; hai PR nền thống nhất interface trước khi phát triển tính năng song song. Các interface bổ sung trong plan chưa được triển khai bởi đợt dọn bố cục. Khi rag.none, phải giữ hành vi baseline; khi dùng RAG, retrieval hỗ trợ tìm nguồn/nghĩa, SQL vẫn tính trên toàn bộ dòng thỏa điều kiện. Mỗi người tự chọn benchmark nhưng so trước/sau trên cùng tập của mình.
 
 Local chỉ edit/test CPU. Full-checkpoint inference trên Colab/Kaggle/GPU thuê; Docker cuối chạy offline với checkpoint đã đóng gói. Giữ local_files_only, manifest/hash và nguồn license dù chuyển nơi chạy.
 
