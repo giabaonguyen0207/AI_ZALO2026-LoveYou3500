@@ -82,4 +82,4 @@ Không ưu tiên tăng timeout, hạ token cap một cách cơ học hay đổi 
 
 Sau sửa, chạy lại đúng bảy câu này và đo riêng câu đầu doanh nghiệp với câu dùng lại cache. So sánh thời gian, số lượt model và đúng/sai/bỏ qua. Chỉ mở rộng sang 100 câu khi đường mới có kết quả thực tế tốt hơn. Chưa có phép đo tốc độ hoặc PA cho bất kỳ phương án sửa nào trong báo cáo này.
 
-Evidence đã xuất tại [analysis.json](../outputs/diagnosis-2026-11-05/round4-notebook-analysis/analysis.json) và [trace tương tác](../outputs/diagnosis-2026-11-05/round4-notebook-analysis/interactive-biz101.json). Notebook gốc và code inference được giữ nguyên trong lần phân tích này.
+Evidence đã xuất tại [analysis.json](../../archive/2026-11-09/outputs/diagnosis-2026-11-05/round4-notebook-analysis/analysis.json) và [trace tương tác](../../archive/2026-11-09/outputs/diagnosis-2026-11-05/round4-notebook-analysis/interactive-biz101.json). Notebook gốc và code inference được giữ nguyên trong lần phân tích này.

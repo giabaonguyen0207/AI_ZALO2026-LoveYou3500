@@ -1,0 +1,247 @@
+{
+  "checked_on": "2026-11-09",
+  "source": "Public Hugging Face publisher model repositories, revision histories, LFS metadata and HTTP Range safetensors headers",
+  "scope": "Metadata/header audit only; not a full weight download, full-payload hash verification, inference benchmark, or a competition-organizer approval",
+  "competition_constraints_source": "docs/competition-context.md (user summary, independently unverified in full)",
+  "models": [
+    {
+      "repo_id": "AITeamVN/Vietnamese_Embedding",
+      "revision": "dea33aa1ab339f38d66ae0a40e6c40e0a9249568",
+      "revision_date": "2025-08-25T13:32:21.000Z",
+      "weight_public_upload": {
+        "id": "d4a60ad49d14ebb0da322b2dff0a46ed04cb7cb2",
+        "date": "2025-03-17T06:59:35.000Z",
+        "title": "Upload folder using huggingface_hub"
+      },
+      "parameters": 567754752,
+      "license": "apache-2.0",
+      "public_repository": true,
+      "gated": false,
+      "metadata_url": "https://huggingface.co/api/models/AITeamVN/Vietnamese_Embedding/revision/dea33aa1ab339f38d66ae0a40e6c40e0a9249568?blobs=true",
+      "history_url": "https://huggingface.co/api/models/AITeamVN/Vietnamese_Embedding/commits/dea33aa1ab339f38d66ae0a40e6c40e0a9249568",
+      "model_card_url": "https://huggingface.co/AITeamVN/Vietnamese_Embedding/blob/dea33aa1ab339f38d66ae0a40e6c40e0a9249568/README.md",
+      "weight_files": [
+        {
+          "rfilename": "model.safetensors",
+          "blobId": "3d79a1a2a960899c4d730240322de7c74e79314c",
+          "size": 2271064456,
+          "lfs": {
+            "sha256": "1f2debafdf03659e8273022a3e902b94deec73cd20c2b7262ab7e21630163f6d",
+            "size": 2271064456,
+            "pointerSize": 135
+          }
+        }
+      ],
+      "weight_hash_matches_2025_upload": true,
+      "header_audit": {
+        "url": "https://huggingface.co/AITeamVN/Vietnamese_Embedding/resolve/dea33aa1ab339f38d66ae0a40e6c40e0a9249568/model.safetensors",
+        "http_status": 206,
+        "content_range": "bytes 0-262143/2271064456",
+        "header_bytes": 45440,
+        "header_sha256": "1138dcba53b5b30b491a1f1de765d3c1185803082729822f9957eac748bd80d4",
+        "tensor_count": 391,
+        "tensor_parameters": 567754752,
+        "full_weight_downloaded": false,
+        "full_weight_sha256_verified_locally": false
+      },
+      "configs": {
+        "config.json": {
+          "_name_or_path": "/AITeamVN/bge_vi_2048",
+          "architectures": [
+            "XLMRobertaModel"
+          ],
+          "attention_probs_dropout_prob": 0.1,
+          "bos_token_id": 0,
+          "classifier_dropout": null,
+          "eos_token_id": 2,
+          "hidden_act": "gelu",
+          "hidden_dropout_prob": 0.1,
+          "hidden_size": 1024,
+          "initializer_range": 0.02,
+          "intermediate_size": 4096,
+          "layer_norm_eps": 1e-05,
+          "max_position_embeddings": 8194,
+          "model_type": "xlm-roberta",
+          "num_attention_heads": 16,
+          "num_hidden_layers": 24,
+          "output_past": true,
+          "pad_token_id": 1,
+          "position_embedding_type": "absolute",
+          "torch_dtype": "float32",
+          "transformers_version": "4.49.0",
+          "type_vocab_size": 1,
+          "use_cache": true,
+          "vocab_size": 250002
+        },
+        "modules.json": [
+          {
+            "idx": 0,
+            "name": "0",
+            "path": "",
+            "type": "sentence_transformers.models.Transformer"
+          },
+          {
+            "idx": 1,
+            "name": "1",
+            "path": "1_Pooling",
+            "type": "sentence_transformers.models.Pooling"
+          },
+          {
+            "idx": 2,
+            "name": "2",
+            "path": "2_Normalize",
+            "type": "sentence_transformers.models.Normalize"
+          }
+        ],
+        "1_Pooling/config.json": {
+          "word_embedding_dimension": 1024,
+          "pooling_mode_cls_token": true,
+          "pooling_mode_mean_tokens": false,
+          "pooling_mode_max_tokens": false,
+          "pooling_mode_mean_sqrt_len_tokens": false,
+          "pooling_mode_weightedmean_tokens": false,
+          "pooling_mode_lasttoken": false,
+          "include_prompt": true
+        },
+        "sentence_bert_config.json": {
+          "max_seq_length": 8192,
+          "do_lower_case": false
+        },
+        "config_sentence_transformers.json": {
+          "__version__": {
+            "sentence_transformers": "2.6.1",
+            "transformers": "4.49.0",
+            "pytorch": "2.6.0+cu124"
+          },
+          "prompts": {},
+          "default_prompt_name": null
+        }
+      }
+    },
+    {
+      "repo_id": "AITeamVN/Vietnamese_Reranker",
+      "revision": "f536976248403314225d7fdfdbc87f0e9516a54e",
+      "revision_date": "2025-05-06T07:15:35.000Z",
+      "weight_public_upload": {
+        "id": "37eada2458a2c3b4ff304b5c73ef53773489728f",
+        "date": "2025-04-30T07:46:11.000Z",
+        "title": "Upload folder using huggingface_hub"
+      },
+      "parameters": 567755777,
+      "license": "apache-2.0",
+      "public_repository": true,
+      "gated": false,
+      "metadata_url": "https://huggingface.co/api/models/AITeamVN/Vietnamese_Reranker/revision/f536976248403314225d7fdfdbc87f0e9516a54e?blobs=true",
+      "history_url": "https://huggingface.co/api/models/AITeamVN/Vietnamese_Reranker/commits/f536976248403314225d7fdfdbc87f0e9516a54e",
+      "model_card_url": "https://huggingface.co/AITeamVN/Vietnamese_Reranker/blob/f536976248403314225d7fdfdbc87f0e9516a54e/README.md",
+      "weight_files": [
+        {
+          "rfilename": "model.safetensors",
+          "blobId": "51ad040269fcd1a0d95488f77a8c66d9b4f0ba44",
+          "size": 2271071852,
+          "lfs": {
+            "sha256": "1cecccab406ec6d3f13da8ccdc5e853a1372e51845322163655ab530d3730071",
+            "size": 2271071852,
+            "pointerSize": 135
+          }
+        }
+      ],
+      "weight_hash_matches_2025_upload": true,
+      "header_audit": {
+        "url": "https://huggingface.co/AITeamVN/Vietnamese_Reranker/resolve/f536976248403314225d7fdfdbc87f0e9516a54e/model.safetensors",
+        "http_status": 206,
+        "content_range": "bytes 0-262143/2271071852",
+        "header_bytes": 48736,
+        "header_sha256": "075c4417478ddd5767f5cdb58122ec937810f41fe4d6046b24fa80015846b4af",
+        "tensor_count": 393,
+        "tensor_parameters": 567755777,
+        "full_weight_downloaded": false,
+        "full_weight_sha256_verified_locally": false
+      },
+      "configs": {
+        "config.json": {
+          "architectures": [
+            "XLMRobertaForSequenceClassification"
+          ],
+          "attention_probs_dropout_prob": 0.1,
+          "bos_token_id": 0,
+          "classifier_dropout": null,
+          "eos_token_id": 2,
+          "hidden_act": "gelu",
+          "hidden_dropout_prob": 0.1,
+          "hidden_size": 1024,
+          "id2label": {
+            "0": "LABEL_0"
+          },
+          "initializer_range": 0.02,
+          "intermediate_size": 4096,
+          "label2id": {
+            "LABEL_0": 0
+          },
+          "layer_norm_eps": 1e-05,
+          "max_position_embeddings": 8194,
+          "model_type": "xlm-roberta",
+          "num_attention_heads": 16,
+          "num_hidden_layers": 24,
+          "output_past": true,
+          "pad_token_id": 1,
+          "position_embedding_type": "absolute",
+          "torch_dtype": "float32",
+          "transformers_version": "4.51.0",
+          "type_vocab_size": 1,
+          "use_cache": true,
+          "vocab_size": 250002
+        }
+      }
+    }
+  ],
+  "rag_total_parameters": 1135510529,
+  "combinations_using_existing_project_inventory": [
+    {
+      "generator": "qwen35-4b",
+      "generator_parameters": 4659865088,
+      "rag_parameters": 1135510529,
+      "total_parameters": 5795375617,
+      "within_15B": true,
+      "remaining_parameters": 9204624383
+    },
+    {
+      "generator": "qwen35-9b",
+      "generator_parameters": 9653104368,
+      "rag_parameters": 1135510529,
+      "total_parameters": 10788614897,
+      "within_15B": true,
+      "remaining_parameters": 4211385103
+    },
+    {
+      "generator": "gemma4-12b",
+      "generator_parameters": 11959730224,
+      "rag_parameters": 1135510529,
+      "total_parameters": 13095240753,
+      "within_15B": true,
+      "remaining_parameters": 1904759247
+    },
+    {
+      "generator": "qwen35-upscaled14b-v2",
+      "generator_parameters": 14599485040,
+      "rag_parameters": 1135510529,
+      "total_parameters": 15734995569,
+      "within_15B": false,
+      "remaining_parameters": -734995569
+    },
+    {
+      "generator": "gemma4-12b + assistant",
+      "generator_parameters": 12382587188,
+      "rag_parameters": 1135510529,
+      "total_parameters": 13518097717,
+      "within_15B": true,
+      "remaining_parameters": 1481902283
+    }
+  ],
+  "raw_audit_files": {
+    "outputs/research/rag-models-2026-11-09/Vietnamese_Embedding-metadata.json": "4ce297b7a9df719ded85d86fcc636a35cfabce11355aed5de7c5bca108837f81",
+    "outputs/research/rag-models-2026-11-09/Vietnamese_Embedding-safetensors-header.json": "5f8156a1c679ec5c25ef28723e3822214ecb001051c3fc34559235b93e26b5ca",
+    "outputs/research/rag-models-2026-11-09/Vietnamese_Reranker-metadata.json": "1d8efdea5f8245e67079ca1763f8d7855399131633ee4c7429aa027be8db8372",
+    "outputs/research/rag-models-2026-11-09/Vietnamese_Reranker-safetensors-header.json": "1841ec042c03a746798ecf8055d36160adb7e70dd5c17783f523321c1d64436c"
+  }
+}

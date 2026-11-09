@@ -13,7 +13,7 @@ def main():
     project = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--split-root", type=Path, default=project / "train/train")
-    parser.add_argument("--output", type=Path, default=project / "outputs/train.zip")
+    parser.add_argument("--output", type=Path, default=project / "outputs/packages/train.zip")
     parser.add_argument("--sources", type=Path, default=project / "configs/training_sources.json")
     args = parser.parse_args()
     source, output = args.split_root.resolve(), args.output.resolve()

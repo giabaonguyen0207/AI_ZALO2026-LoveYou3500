@@ -13,7 +13,7 @@ def test_setup_makes_source_importable_without_kernel_restart(tmp_path, notebook
     work = tmp_path / "workspace"
     shutil.copytree(project / "src/datamate", work / "src/datamate",
                     ignore=shutil.ignore_patterns("__pycache__"))
-    notebook = project / f"notebooks/DataMate_Colab_{notebook_name}.ipynb"
+    notebook = project / ("notebooks" if notebook_name == "Inference" else "notebooks/training") / f"DataMate_Colab_{notebook_name}.ipynb"
     driver = r'''
 import importlib.util, json, sys, types
 from pathlib import Path

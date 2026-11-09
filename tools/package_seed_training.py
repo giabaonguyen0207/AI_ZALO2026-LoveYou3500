@@ -12,7 +12,7 @@ from datamate.training.seed import verify_seed_dataset
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dataset',default='outputs/training/seed72_100_gemma_v1')
-    parser.add_argument('--output',default='outputs/seed72_100_gemma_v1.zip')
+    parser.add_argument('--output',default='outputs/packages/seed72_100_gemma_v1.zip')
     parser.add_argument('--lock',default='configs/gemma_seed72_100_release.json')
     args=parser.parse_args()
     dataset=Path(args.dataset);manifest=verify_seed_dataset(dataset)

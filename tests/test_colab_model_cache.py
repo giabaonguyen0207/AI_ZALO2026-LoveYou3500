@@ -77,29 +77,32 @@ def test_manifest_cannot_escape_cache(model_source, tmp_path, name):
         prepare_local_model(model_source, tmp_path/'local', 'fixture')
 
 
-def test_notebook_load_preserves_inference_config_and_verifies_once_on_local(model_source, tmp_path, monkeypatch):
+def test_gpu_notebook_prepares_without_loading_then_runs_shared_batch_once(model_source, tmp_path, monkeypatch):
     import runpy
     import sys
     import datamate.application
     root=Path(__file__).resolve().parents[1]
     notebook=json.loads((root/'notebooks/DataMate_Colab_Inference.ipynb').read_text(encoding='utf-8'))
-    cell=next(c for c in notebook['cells'] if c.get('id')=='s8jYg00N6yeq')
-    source=''.join(cell['source'])
-    assert source == (root/'tools/colab_load_model.py').read_text(encoding='utf-8')
+    from tools.create_inference_notebook import PREPARE, RUN
+    assert ''.join(next(c for c in notebook['cells'] if c.get('id')=='gpu-prepare')['source']) == PREPARE
+    assert ''.join(next(c for c in notebook['cells'] if c.get('id')=='gpu-run')['source']) == RUN
     calls=[]
-    def create(settings):
+    def batch(settings, **kwargs):
         calls.append(settings)
         assert Path(settings.model_dir).is_relative_to(tmp_path/'local')
         verify_artifact(settings.model_dir, settings.model_key)
-        return types.SimpleNamespace(pipeline_version=6,backend=types.SimpleNamespace(generation_tokens={'effective_eos_token_ids':[1,2]}))
-    monkeypatch.setattr(datamate.application, 'create_agent', create)
+        return {'written': 1}
+    monkeypatch.setattr(datamate.application, 'run_batch', batch)
     real_run_path=runpy.run_path
     monkeypatch.setattr(runpy, 'run_path', lambda path: real_run_path(path) if Path(path).name=='colab_runtime_check.py' else
                         {'prepare_local_model':lambda src, cache, key:prepare_local_model(src, tmp_path/'local', key)})
-    monkeypatch.setitem(sys.modules, 'torch', types.SimpleNamespace(cuda=types.SimpleNamespace(empty_cache=lambda:None)))
     context={'WORK':root,'MODEL_SOURCE_DIR':model_source,'MODEL_KEY':'fixture', 'QUANTIZATION':'none',
-             'TRAIN_ROOT':tmp_path/'train','SAVE':tmp_path/'saved'}
-    exec(compile(source, 'colab-load-cell', 'exec'), context)
+             'TRAIN_ROOT':tmp_path/'train','SAVE':tmp_path/'saved',
+             'COPY_MODEL_TO_SCRATCH':True, 'CONFIG_FILE':root/'configs/qwen35-9b.json',
+             'IDS_FILE':None, 'RUN_LIMIT':None, 'RESUME':False}
+    exec(compile(PREPARE, 'gpu-prepare', 'exec'), context)
+    assert not calls
+    exec(compile(RUN, 'gpu-run', 'exec'), context)
     assert len(calls)==1
     settings=calls[0]
     assert settings.quantization=='none' and settings.max_context_tokens==16384

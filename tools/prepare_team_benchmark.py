@@ -161,7 +161,7 @@ def main():
     project = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--split-root", type=Path, default=project / "train/train")
-    parser.add_argument("--output-dir", type=Path, default=project / "outputs/team-benchmark-train200-2026-11-07-v2")
+    parser.add_argument("--output-dir", type=Path, default=project / "outputs/packages/team-benchmark-train200-2026-11-07-v2")
     parser.add_argument("--seed", type=int, help="Bỏ trống để sinh một seed ngẫu nhiên rồi khóa trong manifest")
     parser.add_argument("--size", type=int, default=200)
     args = parser.parse_args()

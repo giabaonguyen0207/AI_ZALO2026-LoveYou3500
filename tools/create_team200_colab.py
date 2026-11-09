@@ -16,10 +16,10 @@ import hashlib, importlib, json, os, runpy, shutil, stat, subprocess, sys, time,
 BASE = Path("/content/drive/MyDrive/DataMate")  # Sửa nếu Drive của bạn dùng thư mục khác.
 KIT_ZIP = BASE / "datamate-team200-colab-kit.zip"
 PARTICIPANT = "toi"                # Tên dùng trong file nộp nhóm.
-MODEL_KEY = "qwen35-9b"             # Hoặc "gemma4-12b", "qwen35-upscaled14b-v2", "qwen35-4b".
+MODEL_KEY = "qwen35-9b"             # Hoặc "gemma4-12b", "qwen35-upscaled14b-v2".
 QUANTIZATION = "none"              # G4 96 GB: none; GPU ít VRAM có thể chọn 4bit.
 MODE = "self_review"               # Giữ một cấu hình cho cả lượt chạy.
-RUN_NAME = f"{PARTICIPANT}-{MODEL_KEY}-team200-rollback-pipeline6-Nov8th-01"
+RUN_NAME = f"{PARTICIPANT}-{MODEL_KEY}-team200-layout-Nov9th-01"
 AUTO_DISCONNECT = True
 RUN_LIMIT = None                    # None = đủ 200; chỉ đặt 5 nếu muốn chạy thử rồi resume.
 MAX_RUN_MINUTES = 180               # Ngân sách MỖI phiên batch, không gồm chuẩn bị/load.
@@ -158,30 +158,27 @@ def cell(kind, source, name):
     return result
 
 
-def build(root):
+def build(root, release=None, output=None):
     root = Path(root).resolve()
-    release = root / "outputs/team-benchmark-train200-2026-11-07-v2"
+    release = Path(release) if release else root / "outputs/packages/team-benchmark-train200-2026-11-07-v2"
+    if not (release / "release_verification.json").is_file():
+        raise FileNotFoundError("Cần gói benchmark v2 gốc. Truyền --benchmark-release <folder>; không tạo lại bộ câu để thay thế.")
     frozen = json.loads((release / "release_verification.json").read_text(encoding="utf-8"))
     for entry in frozen["packages"]:
         with (release / entry["file"]).open("rb") as stream:
             if hashlib.file_digest(stream, "sha256").hexdigest() != entry["sha256"]:
                 raise ValueError("Benchmark v2 đã thay đổi: " + entry["file"])
-    output = root / "outputs/team200-colab"
+    output = Path(output) if output else root / "outputs/packages/team200-current"
     output.mkdir(parents=True, exist_ok=True)
     source = output / "datamate-team200-source.zip"
     helpers = ["infer_team200.py", "diagnose_train.py", "colab_model_cache.py", "colab_runtime_check.py"]
     with zipfile.ZipFile(source, "w", zipfile.ZIP_DEFLATED) as archive:
         for path in sorted((root / "src").rglob("*.py")):
             archive.write(path, path.relative_to(root).as_posix())
-        # Runtime assets are required by FastAPI imports only when serving;
-        # include them as the same source distribution without any datasets.
-        for path in sorted((root / "src/datamate/web").rglob("*")):
-            if path.is_file():
-                archive.write(path, path.relative_to(root).as_posix())
         for name in helpers:
             archive.write(root / "tools" / name, "tools/" + name)
         archive.writestr("tools/__init__.py", "\"\"\"Notebook runtime helpers.\"\"\"\n")
-        for name in ("pyproject.toml", "requirements.txt"):
+        for name in ("pyproject.toml", "requirements.txt", "README.md"):
             archive.write(root / name, name)
     packages = {"datamate-team200-source.zip": source, "participants.zip": release / "participants.zip",
                 "coordinator-private.zip": release / "coordinator-private.zip"}
@@ -197,7 +194,7 @@ chạy agent hiện có của bạn; không thay cách chấm hay yêu cầu c�
 3. Giữ RUN_LIMIT=None để chạy đủ 200; AUTO_DISCONNECT=True để lưu ZIP,
    đồng bộ Drive rồi tự ngắt runtime. Mặc định Qwen 9B/self_review như pipeline
    6 đã khôi phục; có thể chọn Gemma 12B hoặc checkpoint đã hỗ trợ ở ô đầu.
-   Preflight phải hiện pipeline 6/backend 3. Dùng tên lượt rollback mới,
+   Preflight phải hiện pipeline 6/backend 3. Dùng tên lượt layout-Nov9th mới,
    không resume vào kết quả v7 hoặc lượt v6 đã chạy trước đó.
 
 Kết quả ở MyDrive/DataMate/runs/team200/<RUN_NAME>/:
@@ -260,6 +257,10 @@ Unit giữ null khi chưa đo thực tế; không dùng 10 unit/giờ làm unit 
 
 
 if __name__ == "__main__":
-    import sys
+    import sys, argparse
     sys.stdout.reconfigure(encoding="utf-8")
-    build(Path(__file__).resolve().parents[1])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--benchmark-release', type=Path)
+    parser.add_argument('--output', type=Path)
+    args = parser.parse_args()
+    build(Path(__file__).resolve().parents[1], args.benchmark_release, args.output)

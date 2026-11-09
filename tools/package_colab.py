@@ -1,25 +1,52 @@
-"""Package source on E:, excluding all datasets, weights, credentials and caches."""
+"""Build a source-only GPU kit; exclude local archives, data, weights and history."""
 from pathlib import Path
 import argparse
+import hashlib
+import json
 import zipfile
+
+
+def package(root, output):
+    root, output = Path(root).resolve(), Path(output).resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    folders = ["src", "configs", "notebooks", "docs", "tools", "tests", "docker"]
+    names = ["pyproject.toml", "requirements.txt", "requirements-dev.lock.txt",
+             "requirements-colab.txt", "README.md", "AGENTS.md", "predict.sh"]
+    files = [root / name for name in names]
+    for folder in folders:
+        for path in sorted((root / folder).rglob("*")):
+            relative = path.relative_to(root)
+            if (not path.is_file() or path.is_symlink() or "__pycache__" in relative.parts
+                    or any(p.endswith(".egg-info") for p in relative.parts)
+                    or (folder == "docs" and len(relative.parts) > 1
+                        and relative.parts[1] in {"history", "references", "research"})):
+                continue
+            files.append(path)
+    hashes = {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(files):
+            archive.write(path, path.relative_to(root).as_posix())
+    with zipfile.ZipFile(output) as archive:
+        if archive.testzip() is not None:
+            raise ValueError("Source ZIP CRC failed")
+        for name, digest in hashes.items():
+            if hashlib.sha256(archive.read(name)).hexdigest() != digest:
+                raise ValueError("Source ZIP hash mismatch: " + name)
+    report = {"archive": output.name, "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+              "file_count": len(files), "source_only": True, "files": hashes}
+    output.with_suffix(output.suffix + ".manifest.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return report
 
 
 def main():
     root = Path(__file__).resolve().parents[1]
-    parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output',type=Path,default=root/'outputs/datamate-colab-source.zip')
-    output=parser.parse_args().output
-    output.parent.mkdir(parents=True, exist_ok=True)
-    folders = ["src", "configs", "notebooks", "docs", "tools", "tests", "docker"]
-    files = ["pyproject.toml", "requirements.txt", "requirements.lock.txt", "requirements-colab.txt", "README.md", "AGENTS.md", "predict.sh"]
-    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for folder in folders:
-            for path in sorted((root / folder).rglob("*")):
-                if path.is_file() and "__pycache__" not in path.parts and not any(part.endswith(".egg-info") for part in path.parts):
-                    archive.write(path, path.relative_to(root))
-        for name in files:
-            archive.write(root / name, name)
-    print(output)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=root / "outputs/packages/datamate-colab-source.zip")
+    args = parser.parse_args()
+    report = package(root, args.output)
+    print(json.dumps({k: v for k, v in report.items() if k != "files"}, ensure_ascii=False))
 
 
-if __name__=='__main__': main()
+if __name__ == "__main__":
+    main()

@@ -4,7 +4,7 @@
   "model_dir": "models/qwen35-upscaled14b-v2",
   "mode": "single",
   "split_root": "train/train",
-  "result_dir": "result/qwen35-upscaled14b-v2-fast-v5",
+  "result_dir": "outputs/runs/baseline/qwen35-upscaled14b-v2-fast-v5",
   "quantization": "none",
   "max_steps": 6,
   "max_context_tokens": 16384,

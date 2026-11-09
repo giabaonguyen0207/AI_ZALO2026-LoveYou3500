@@ -320,7 +320,7 @@ Giữ nguyên config, nguồn dữ liệu và tập câu hỏi. Nếu đã đủ
 
 Muốn làm một thí nghiệm mới, đổi tên thư mục output, chẳng hạn `result/local-check-02`. Đừng thêm `--resume` vào một lượt chạy mà bạn đã đổi model/config hoặc dữ liệu.
 
-Muốn chạy toàn split thì bỏ `--limit 3`, nhưng chỉ làm sau khi đã kiểm tra model và tài nguyên. Bộ chấm local/harness so sánh nằm trong [tài liệu model](model-comparison.md); chưa cần dùng chúng để mở web.
+Muốn chạy toàn split thì bỏ `--limit 3`, nhưng chỉ làm sau khi đã kiểm tra model và tài nguyên. Bộ chấm local/harness so sánh nằm trong [tài liệu model](../model-comparison.md); chưa cần dùng chúng để mở web.
 
 ### C4. Kiểm tra Docker riêng
 
@@ -336,7 +336,7 @@ docker build -f docker/Dockerfile.dev -t datamate-dev:local .
 
 Kết quả mong đợi có dòng `Smoke test OK. Kết quả: ...`. Mở đúng thư mục `result/docker-smoke-...` mà lệnh in ra.
 
-Image phát triển này chạy **demo** nên ba đáp án là `abstain`. Nó kiểm tra container offline, dữ liệu chỉ đọc và đầu ra; chưa chạy LLM. Chạy web ở A không cần Docker, còn image nộp thi cần đối chiếu guideline chính thức trong [docs/docker.md](docker.md).
+Image phát triển này chạy **demo** nên ba đáp án là `abstain`. Nó kiểm tra container offline, dữ liệu chỉ đọc và đầu ra; chưa chạy LLM. Chạy web ở A không cần Docker, còn image nộp thi cần đối chiếu guideline chính thức trong [docs/docker.md](../docker.md).
 
 ## D. Fine-tune trên Google Colab
 
@@ -544,7 +544,7 @@ RESUME_CHECKPOINT = str(SAVE / "adapter/checkpoint-50")
 
 Đó là ví dụ đường dẫn, không phải file luôn tồn tại. Cấu hình hiện lưu định kỳ mỗi 50 bước; bị ngắt trước checkpoint đầu thì có thể chưa có adapter checkpoint để resume. Chưa có `training_report.json` hoàn chỉnh thì chưa dùng bước merge như một lượt train đã hoàn tất.
 
-Chi tiết kỹ thuật và cách tách holdout: [docs/training.md](training.md).
+Chi tiết kỹ thuật và cách tách holdout: [docs/training.md](../training.md).
 
 ## E. Chọn Gemma và thử assistant
 
@@ -572,7 +572,7 @@ Trong web có ba lựa chọn khác nhau:
 
 Assistant MTP không phải một AI riêng kiểm tra doanh thu hay sửa SQL. Chưa có số liệu để kết luận dùng assistant nhanh hơn trên phần cứng của bạn. Tổng Gemma + assistant theo metadata đã lưu khoảng 12,383B; ghép Qwen 9B với Gemma 12B sẽ vượt trần 15B.
 
-Notebook hiện cho chọn **model chính** Qwen hoặc Gemma và mặc định baseline `single`; chọn Gemma trong notebook không tự bật assistant. Để làm thí nghiệm assistant, xem preset và harness ở [docs/model-comparison.md](model-comparison.md) sau khi đã chạy model chính ổn định.
+Notebook hiện cho chọn **model chính** Qwen hoặc Gemma và mặc định baseline `single`; chọn Gemma trong notebook không tự bật assistant. Để làm thí nghiệm assistant, xem preset và harness ở [docs/model-comparison.md](../model-comparison.md) sau khi đã chạy model chính ổn định.
 
 ## F. Xử lý lỗi thường gặp
 

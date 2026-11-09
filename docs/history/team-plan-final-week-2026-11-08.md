@@ -2,7 +2,7 @@
 
 Ngày soạn: **08/11/2026**, múi giờ Asia/Saigon. Kế hoạch dành cho tình huống nhóm chọn hệ thống DataMate hiện tại làm nền. Đây là đề xuất để nhóm chốt; chưa phân công người thật, cấu hình GitHub, tạo issue/PR hoặc thay đổi phần mềm.
 
-Mốc làm việc: chuẩn bị ngày 08/11; bảy ngày chính 09–15/11; ngày 16/11 dự phòng. Hạn **16/11/2026 lúc 23:59 GMT+7** lấy từ [ngữ cảnh đội cung cấp](<E:/Bảo Lập Trình AI/ZALO_AI_2026/docs/competition-context.md:434>). Đọc lại portal trong phiên này vẫn không lấy được nội dung văn bản, nên chưa xác nhận độc lập mốc hạn hoặc Docker guideline. Việc đối chiếu hướng dẫn chính thức là đầu việc ngày đầu.
+Mốc làm việc: chuẩn bị ngày 08/11; bảy ngày chính 09–15/11; ngày 16/11 dự phòng. Hạn **16/11/2026 lúc 23:59 GMT+7** lấy từ [ngữ cảnh đội cung cấp](../competition-context.md:434). Đọc lại portal trong phiên này vẫn không lấy được nội dung văn bản, nên chưa xác nhận độc lập mốc hạn hoặc Docker guideline. Việc đối chiếu hướng dẫn chính thức là đầu việc ngày đầu.
 
 Giả định ba thành viên đều có thể làm việc mỗi ngày, chưa có thông tin về số giờ hoặc số GPU. Lập một hàng đợi GPU chung ngay cả khi dùng nhiều tài khoản/máy; nếu nguồn lực hạn chế, bỏ các thí nghiệm tùy chọn trước, giữ thời gian đóng gói và chạy lại.
 
@@ -171,4 +171,4 @@ Nhóm cần kiểm được các đầu ra sau, phân biệt rõ phần đã đo
 
 **Nhịp phối hợp mỗi ngày:** khoảng 10 phút đầu ngày để chốt owner/phụ thuộc/GPU, khoảng 10–15 phút cuối ngày để xem PR và số đo. Cập nhật gồm việc đã hoàn tất kèm bằng chứng, việc bị chặn, và đầu ra ngày kế tiếp. Tính từ ngày 13, cắt việc tùy chọn trước khi cắt rehearsal hoặc thời gian nộp.
 
-Nguồn hiện trạng: [phân tích pipeline 08/11](<E:/Bảo Lập Trình AI/ZALO_AI_2026/docs/system-pipeline-analysis-2026-11-08.md>), [rollback pipeline 6](<E:/Bảo Lập Trình AI/ZALO_AI_2026/docs/rollback-pipeline6-2026-11-08.md>), [Docker và giới hạn kiểm chứng](<E:/Bảo Lập Trình AI/ZALO_AI_2026/docs/docker.md>), [benchmark team200](<E:/Bảo Lập Trình AI/ZALO_AI_2026/docs/team200-colab.md>). Chưa triển khai các thay đổi trong kế hoạch, chưa chạy thêm benchmark/GPU hoặc tạo nội dung trên GitHub trong phiên này.
+Nguồn hiện trạng: [phân tích pipeline 08/11](system-pipeline-analysis-2026-11-08.md), [rollback pipeline 6](rollback-pipeline6-2026-11-08.md), [Docker và giới hạn kiểm chứng](../docker.md), [benchmark team200](../team200-colab.md). Chưa triển khai các thay đổi trong kế hoạch, chưa chạy thêm benchmark/GPU hoặc tạo nội dung trên GitHub trong phiên này.

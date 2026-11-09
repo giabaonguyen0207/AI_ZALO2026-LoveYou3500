@@ -5,3 +5,10 @@
 *.html text eol=lf
 *.css text eol=lf
 *.js text eol=lf
+*.ps1 text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+*.ipynb text eol=lf
+Dockerfile* text eol=lf
+.dockerignore text eol=lf
+*.dockerignore text eol=lf

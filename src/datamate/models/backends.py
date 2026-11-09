@@ -33,8 +33,8 @@ def load_target(loader, model_dir, **kwargs):
         if ("some modules are dispatched on the cpu or the disk" in message
                 or "cuda out of memory" in message):
             raise DataMateError(
-                "Model không tải vừa GPU với cấu hình hiện tại. Trên máy 8GB, thử preset "
-                "'Qwen 3.5 4B · Local 4bit'; dùng Colab/GPU lớn hơn cho 9B hoặc Gemma 12B. "
+                "Model không tải vừa GPU với cấu hình hiện tại. Dùng Colab/Kaggle hoặc GPU thuê "
+                "có đủ VRAM cho checkpoint và context đã chọn. "
                 "Dừng lượt inference khác trước khi thử lại. Chưa tự bật CPU/disk offload."
             ) from exc
         raise

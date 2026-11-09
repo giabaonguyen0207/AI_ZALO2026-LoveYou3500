@@ -4,7 +4,7 @@
   "model_dir": "models/qwen35-9b",
   "mode": "self_review",
   "split_root": "train/train",
-  "result_dir": "result/qwen35-9b",
+  "result_dir": "outputs/runs/baseline/qwen35-9b",
   "quantization": "none",
   "max_steps": 6,
   "max_context_tokens": 16384,

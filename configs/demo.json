@@ -1,7 +1,7 @@
 {
   "backend": "demo",
   "split_root": "train/train",
-  "result_dir": "result/demo",
+  "result_dir": "outputs/runs/baseline/demo",
   "model_key": "qwen35-9b",
   "mode": "single"
 }

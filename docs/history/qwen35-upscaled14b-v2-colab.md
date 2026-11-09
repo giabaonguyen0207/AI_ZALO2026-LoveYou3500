@@ -21,7 +21,7 @@
 
 Đã đối chiếu LFS SHA256 của file trọng số giữa commit upload và revision được pin, kết quả giống nhau. Đã đọc tối đa 256 KiB đầu safetensors, đếm toàn bộ 1.078 tensor trong header và khớp số tham số do Hub báo. Không suy số tham số từ tên “14B” hoặc con số “15B” được làm tròn trên trang model.
 
-Metadata và bằng chứng hash: [model-evidence-pinkstack-2026-11-06.json](model-evidence-pinkstack-2026-11-06.json). Nguồn: [model card](https://huggingface.co/Pinkstackorg/Qwen-3.5-upscaled-14B-V2-noft), [revision đã pin](https://huggingface.co/Pinkstackorg/Qwen-3.5-upscaled-14B-V2-noft/tree/f4fe3d2ad8f2e14799624cdbafa5d46219bc1fb2), [commit upload](https://huggingface.co/Pinkstackorg/Qwen-3.5-upscaled-14B-V2-noft/commit/43418eac1081e1d44dbf1b94fce556b4976fc0a3). Đây là kiểm chứng nguồn model theo ràng buộc đội đang dùng, không phải xác nhận chấp thuận của BTC.
+Metadata và bằng chứng hash: [model-evidence-pinkstack-2026-11-06.json](../model-evidence-pinkstack-2026-11-06.json). Nguồn: [model card](https://huggingface.co/Pinkstackorg/Qwen-3.5-upscaled-14B-V2-noft), [revision đã pin](https://huggingface.co/Pinkstackorg/Qwen-3.5-upscaled-14B-V2-noft/tree/f4fe3d2ad8f2e14799624cdbafa5d46219bc1fb2), [commit upload](https://huggingface.co/Pinkstackorg/Qwen-3.5-upscaled-14B-V2-noft/commit/43418eac1081e1d44dbf1b94fce556b4976fc0a3). Đây là kiểm chứng nguồn model theo ràng buộc đội đang dùng, không phải xác nhận chấp thuận của BTC.
 
 ## Chạy cùng cấu hình fast v5
 

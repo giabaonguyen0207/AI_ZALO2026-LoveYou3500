@@ -13,6 +13,7 @@ RUN python -m pip install --no-index --find-links=/wheelhouse setuptools wheel \
 COPY configs /app/configs
 COPY models /app/models
 COPY predict.sh /app/predict.sh
+COPY README.md solution_manifest.json /app/
 RUN chmod +x /app/predict.sh
 ENV DATAMATE_CONFIG=/app/configs/submission.json
 ENTRYPOINT ["/app/predict.sh"]
