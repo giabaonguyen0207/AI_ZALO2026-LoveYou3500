@@ -9,6 +9,7 @@ from ..data.split import read_jsonl
 from ..domain import DataMateError, json_text
 from ..models.artifacts import sha256, verify_artifact, seal_artifact
 from ..models.registry import get_model
+from .checkpoints import exclusive_training_run
 
 
 def tokenize_conversations(rows, tokenizer, max_length):
@@ -54,6 +55,7 @@ def tokenize_conversations(rows, tokenizer, max_length):
     return encoded, skipped
 
 
+@exclusive_training_run
 def train(config_path, resume=None):
     started=time.monotonic()
     raw = json.loads(Path(config_path).read_text(encoding="utf-8"))
@@ -89,6 +91,12 @@ def train(config_path, resume=None):
         raise DataMateError(f'GPU hiện có {vram:.1f} GiB, dưới ngưỡng {raw["min_vram_gib"]} GiB của profile này. Chọn GPU lớn hơn hoặc chuẩn bị profile dữ liệu khác; không cắt ngầm prompt.')
     set_seed(raw.get("seed", 42))
     dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+    kernel_dispatch = None
+    if raw.get('require_fast_kernels', False):
+        if model_key != 'qwen35-9b': raise DataMateError('Fast training profile chỉ hỗ trợ Qwen3.5-9B')
+        from .kernels import configure_training_kernels
+        kernel_dispatch = configure_training_kernels()
+        print('Training kernel dispatch:', json_text(kernel_dispatch), flush=True)
     tokenizer = AutoTokenizer.from_pretrained(base_dir, local_files_only=True, trust_remote_code=False)
     if manifest.get('kind')=='verified_sql_sft':
         for name,digest in manifest['tokenizer_checks'][model_key].items():
@@ -108,20 +116,13 @@ def train(config_path, resume=None):
         train_rows=[max(train_rows,key=lambda row:len(row['input_ids']))]
         validation_rows=[]
     output = Path(raw["output_dir"])
-    if output.exists() and any(output.iterdir()) and resume is None:
-        raise DataMateError("output_dir đã có; dùng resume hoặc chọn thư mục mới")
-    run_identity={k:raw.get(k) for k in ('model_key','method','rank','alpha','dropout','target_suffixes','max_length','seed',
-                                      'smoke_longest_only','batch_size','gradient_accumulation_steps','learning_rate','optimizer')}
-    run_identity.update(base_manifest_sha256=sha256(Path(base_dir)/'artifact_manifest.json'),
-                        dataset_manifest_sha256=sha256(data_dir/'manifest.json'))
-    identity_path=output/'run_identity.json'
-    if resume:
-        if not identity_path.is_file() or json.loads(identity_path.read_text(encoding='utf-8'))!=run_identity:
-            raise DataMateError('Resume khác model/dataset/cấu hình hoặc thiếu run_identity; không trộn checkpoint')
-        if not Path(resume).resolve().is_relative_to(output.resolve()):
-            raise DataMateError('Checkpoint resume cần nằm trong output_dir đã xác minh')
-    output.mkdir(parents=True,exist_ok=True)
-    identity_path.write_text(json_text(run_identity,indent=2),encoding='utf-8')
+    from .checkpoints import (atomic_json, build_run_identity, make_checkpoint_callback,
+                              prepare_run, recover_completed_checkpoint)
+    run_identity=build_run_identity(raw, sha256(Path(base_dir)/'artifact_manifest.json'),sha256(data_dir/'manifest.json'))
+    run_identity['compute_dtype']=str(dtype)
+    checkpoint=prepare_run(output,resume,run_identity)
+    resume=str(checkpoint) if checkpoint is not None else None
+    if resume: print('Resume từ checkpoint hoàn tất:',resume,flush=True)
     torch.cuda.reset_peak_memory_stats()
     kwargs = {"local_files_only": True, "trust_remote_code": False, "dtype": dtype, "attn_implementation": "sdpa"}
     quantized = raw.get("method", "lora") == "qlora"
@@ -131,8 +132,12 @@ def train(config_path, resume=None):
         kwargs.update(device_map={"": torch.cuda.current_device()}, quantization_config=BitsAndBytesConfig(load_in_4bit=True,
             bnb_4bit_quant_type="nf4", bnb_4bit_use_double_quant=True, bnb_4bit_compute_dtype=dtype))
     model = AutoModelForImageTextToText.from_pretrained(base_dir, **kwargs)
+    io_dtype_report = []
     if quantized:
         model = prepare_model_for_kbit_training(model)
+        if model_key == 'qwen35-9b':
+            from .memory import restore_frozen_io_dtype
+            io_dtype_report = restore_frozen_io_dtype(model, dtype)
     suffixes = set(raw.get("target_suffixes", ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj", "in_proj_qkv", "in_proj_z", "in_proj_a", "in_proj_b", "out_proj"]))
     targets = [name for name, module in model.named_modules() if "language_model" in name
                and name.rsplit(".", 1)[-1] in suffixes and hasattr(module, "in_features")]
@@ -141,43 +146,46 @@ def train(config_path, resume=None):
     model = get_peft_model(model, LoraConfig(r=raw.get("rank", 16), lora_alpha=raw.get("alpha", 32),
         lora_dropout=raw.get("dropout", 0.05), target_modules=targets, task_type="CAUSAL_LM", bias="none"))
     model.config.use_cache = False
-    class Collator:
-        def __call__(self, features):
-            length = max(len(feature["input_ids"]) for feature in features)
-            batch = {}
-            for key, padding in (("input_ids", tokenizer.pad_token_id), ("attention_mask", 0), ("labels", -100)):
-                batch[key] = torch.tensor([feature[key] + [padding]*(length-len(feature[key])) for feature in features], dtype=torch.long)
-            return batch
+    from .memory import AssistantCollator
+    suffix_logits = model_key == 'qwen35-9b'
     args = TrainingArguments(output_dir=str(output), num_train_epochs=raw.get("epochs", 2),
         per_device_train_batch_size=raw.get("batch_size", 1), per_device_eval_batch_size=1,
         gradient_accumulation_steps=raw.get("gradient_accumulation_steps", 8),
-        learning_rate=raw.get("learning_rate", 0.0001), warmup_ratio=0.03,
+        learning_rate=raw.get("learning_rate", 0.0001), warmup_steps=0.03,
         bf16=dtype == torch.bfloat16, fp16=dtype == torch.float16,
         gradient_checkpointing=True, gradient_checkpointing_kwargs={"use_reentrant": False},
-        logging_steps=5, save_steps=raw.get("save_steps", 50), save_total_limit=2,
-        eval_strategy="steps" if validation_rows else "no", eval_steps=raw.get("save_steps", 50),
+        logging_steps=raw.get('logging_steps',1), save_steps=raw.get("save_steps", 5), save_total_limit=raw.get('save_total_limit',3),
+        save_strategy='steps', save_only_model=False,
+        eval_strategy="steps" if validation_rows else "no", eval_steps=raw.get("eval_steps", 50),
         max_steps=raw.get("max_steps", -1), report_to="none", seed=raw.get("seed", 42),
         optim=raw.get('optimizer','adamw_torch'), remove_unused_columns=False)
     trainer = Trainer(model=model, args=args, train_dataset=Dataset.from_list(train_rows),
         eval_dataset=Dataset.from_list(validation_rows) if validation_rows else None,
-        data_collator=Collator(), processing_class=tokenizer)
-    outcome = trainer.train(resume_from_checkpoint=resume)
+        data_collator=AssistantCollator(tokenizer.pad_token_id, supervised_suffix_logits=suffix_logits), processing_class=tokenizer,
+        callbacks=[make_checkpoint_callback(run_identity, raw.get('save_interval_seconds',600))])
+    metrics = recover_completed_checkpoint(trainer,checkpoint,run_identity) if checkpoint is not None else None
+    if metrics is None:
+        metrics = trainer.train(resume_from_checkpoint=resume).metrics
     trainer.save_model(str(output))
     tokenizer.save_pretrained(str(output))
     report = {"base_source": get_model(model_key).to_dict(), "training_config": raw, "dataset_manifest": manifest,
-              "training_manifest_sha256": sha256(data_dir / "manifest.json"), "metrics": outcome.metrics,
+              "training_manifest_sha256": sha256(data_dir / "manifest.json"), "metrics": metrics,
               "train_sequences": len(train_rows), "validation_sequences": len(validation_rows),
               "skipped_overlength_train": skipped_train, "skipped_overlength_validation": skipped_validation,
               "tokens_per_epoch": sum(len(row["input_ids"]) for row in train_rows),
               'longest_sequence_tokens':max(len(row['input_ids']) for row in train_rows),
               'max_supervised_tokens':max(sum(x!=-100 for x in row['labels']) for row in train_rows),
               'adapter_target_modules':targets,
+              'memory_optimizations':{'supervised_suffix_logits':suffix_logits,'frozen_io_dtype':io_dtype_report},
+              'global_step':trainer.state.global_step,'run_identity':run_identity,'kernel_dispatch':kernel_dispatch,
               "trainable_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
               "peak_cuda_bytes": torch.cuda.max_memory_allocated(),
+              'peak_cuda_bytes_scope':'finalization_process' if metrics.get('completion_recovered_from_checkpoint') else 'training_process',
               'cuda_device':torch.cuda.get_device_name(0),'cuda_total_gib':vram,
               'elapsed_training_process_seconds':round(time.monotonic()-started,3),
               'smoke_longest_only':bool(raw.get('smoke_longest_only',False))}
-    (output / "training_report.json").write_text(json_text(report, indent=2), encoding="utf-8")
+    report['adapter_files']={name:sha256(output/name) for name in ('adapter_config.json','adapter_model.safetensors')}
+    atomic_json(output/'training_report.json',report)
     return report
 
 

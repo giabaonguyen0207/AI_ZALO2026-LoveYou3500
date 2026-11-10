@@ -59,6 +59,38 @@ subprocess.run([sys.executable,"-m","pip","install","-q","-c",str(constraints),"
 sys.path.insert(0,str(WORK/"src"))
 print("Source:",actual,"Torch được giữ:",torch_version)
 ''')
+    code('''def run_logged(command, *, cwd, log_path):
+    """Stream child stdout/stderr into notebook output and an exclusive log."""
+    from collections import deque
+    from pathlib import Path
+    import subprocess
+    log_path = Path(log_path)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    tail = deque(maxlen=60)
+    print("Bắt đầu tiến trình; log:", log_path, flush=True)
+    with log_path.open("x", encoding="utf-8") as log:
+        with subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, text=True, bufsize=1) as process:
+            try:
+                for line in process.stdout:
+                    print(line, end="", flush=True)
+                    log.write(line)
+                    log.flush()
+                    tail.append(line)
+                returncode = process.wait()
+            except BaseException:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=15)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                raise
+    if returncode:
+        raise RuntimeError(f"Training exit={returncode}. Log: {log_path}\\n" + "".join(tail))
+    return returncode
+''')
     code('''import torch
 from datamate.training.colab import gpu_preflight
 from datamate.training.sql_dataset import unpack_sql_archive
@@ -91,20 +123,36 @@ profile.update(base_dir=str(BASE_DIR),dataset_dir=str(DATASET),seed=SEED,
                max_steps=5 if STAGE=="pilot" else -1)
 smoke={**profile,"output_dir":str(OUT/"smoke_adapter"),"max_steps":1,
        "gradient_accumulation_steps":1,"smoke_longest_only":True,"save_steps":1}
-smoke_path=OUT/"smoke_config.json";smoke_path.write_text(json.dumps(smoke,indent=2),encoding="utf-8")
-if (OUT/"smoke_adapter/training_report.json").exists():
-    saved=json.loads((OUT/"smoke_adapter/training_report.json").read_text(encoding="utf-8"))
-    assert saved["training_config"]==smoke, "Đổi RUN_TAG cho cấu hình mới"
-else:
-    subprocess.run([sys.executable,"-m","datamate","train","--config",str(smoke_path)],cwd=WORK,check=True)
-print("Smoke training đã ghi report. Bộ nhớ GPU của child process đã được giải phóng.")
+from uuid import uuid4
+completed = None
+for candidate in [OUT/"smoke_adapter", *sorted(OUT.glob("smoke_adapter_retry_*"))]:
+    report_path = candidate/"training_report.json"
+    expected = {**smoke, "output_dir":str(candidate)}
+    if report_path.is_file() and json.loads(report_path.read_text(encoding="utf-8"))["training_config"] == expected:
+        smoke, completed = expected, candidate
+        break
+if completed is None:
+    candidate = OUT/"smoke_adapter"
+    if candidate.exists() and any(candidate.iterdir()):
+        candidate = OUT/("smoke_adapter_retry_"+uuid4().hex[:12])
+    smoke["output_dir"] = str(candidate)
+    smoke_path=OUT/(candidate.name+"_config.json")
+    smoke_path.write_text(json.dumps(smoke,indent=2),encoding="utf-8")
+    run_logged([sys.executable,"-u","-m","datamate","train","--config",str(smoke_path)],
+               cwd=WORK,log_path=OUT/"logs"/("smoke-"+uuid4().hex+".log"))
+    report_path=candidate/"training_report.json"
+    assert report_path.is_file(), "Tiến trình kết thúc nhưng thiếu training_report.json; xem log"
+    assert json.loads(report_path.read_text(encoding="utf-8"))["training_config"] == smoke
+print("Smoke report:",smoke["output_dir"],"— child process đã kết thúc.")
 ''')
     code('''config_path=OUT/"training_config.json"
 if config_path.exists():
     assert json.loads(config_path.read_text(encoding="utf-8"))==profile, "Cấu hình thay đổi: dùng RUN_TAG mới"
 config_path.write_text(json.dumps(profile,indent=2),encoding="utf-8")
 assert not (OUT/"adapter").exists(), "RUN_TAG đã có adapter/checkpoint; dùng tag mới hoặc resume có kiểm tra bằng CLI"
-subprocess.run([sys.executable,"-m","datamate","train","--config",str(config_path)],cwd=WORK,check=True)
+from uuid import uuid4
+run_logged([sys.executable,"-u","-m","datamate","train","--config",str(config_path)],
+           cwd=WORK,log_path=OUT/"logs"/("train-"+uuid4().hex+".log"))
 report=json.loads((OUT/"adapter/training_report.json").read_text(encoding="utf-8"))
 print(json.dumps({k:report[k] for k in ["train_sequences","validation_sequences","trainable_parameters","peak_cuda_bytes","metrics"]},ensure_ascii=False,indent=2))
 print("Adapter và báo cáo đã lưu:",OUT/"adapter")
