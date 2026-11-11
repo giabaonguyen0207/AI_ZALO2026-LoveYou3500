@@ -9,6 +9,7 @@ import time
 from ..data.interpretation import merge_binding, merge_policy
 from ..data.normalization import prepare_catalog
 from ..domain import DataMateError, json_text
+from ..models.contracts import BackendUnavailableError
 from .preparation import BusinessPreparer
 from .protocol import parse_action
 
@@ -148,6 +149,8 @@ class SchemaRepair:
                 event['llm_action']=deepcopy(proposal)
                 if proposal['action']!='prepare': raise DataMateError('Cần action prepare cho bản bổ sung')
                 cached={'proposal':proposal}
+            except BackendUnavailableError:
+                raise
             except Exception as exc:
                 cached={'error':str(exc)}
             self.cache._store(key,cached)

@@ -3,9 +3,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import fields
 from pathlib import Path
 
-from .config import Settings
+from .config import Settings, VLLMSettings, parse_option
 from .domain import DataMateError, Question, json_text
 
 
@@ -13,11 +14,38 @@ def add_config(parser):
     parser.add_argument("--config")
     parser.add_argument("--split-root")
     parser.add_argument("--result-dir")
-    parser.add_argument("--backend", choices=["demo", "transformers"])
+    parser.add_argument("--backend", choices=["demo", "transformers", "vllm"])
+    for f in fields(Settings):
+        if f.name in {'split_root', 'result_dir', 'backend', 'vllm'}:
+            continue
+        flags = ['--' + f.name.replace('_', '-')]
+        if f.name == 'question_workers':
+            flags.append('--concurrency')
+        default = getattr(Settings(), f.name)
+        options = {'default': None}
+        if type(default) is bool:
+            options['action'] = argparse.BooleanOptionalAction
+        parser.add_argument(*flags, **options)
+    for f in fields(VLLMSettings):
+        options = {'dest': 'vllm_' + f.name, 'default': None}
+        if type(getattr(VLLMSettings(), f.name)) is bool:
+            options['action'] = argparse.BooleanOptionalAction
+        parser.add_argument('--vllm-' + f.name.replace('_', '-'), **options)
 
 
 def load_settings(args):
-    return Settings.load(getattr(args, "config", None), **{key: getattr(args, key, None) for key in ("split_root", "result_dir", "backend")})
+    overrides, nested = {}, {}
+    for cls, prefix, target in ((Settings, '', overrides), (VLLMSettings, 'vllm_', nested)):
+        for f in fields(cls):
+            if cls is Settings and f.name == 'vllm':
+                continue
+            value = getattr(args, prefix + f.name, None)
+            if value is not None:
+                default = getattr(cls(), f.name)
+                target[f.name] = value if type(value) is bool or f.name in {'assistant_key', 'assistant_dir'} else parse_option(value, default, prefix + f.name)
+    if nested:
+        overrides['vllm'] = nested
+    return Settings.load(getattr(args, 'config', None), **overrides)
 
 
 def parser():
@@ -96,7 +124,11 @@ def main():
         elif args.command == "ask":
             from .application import create_agent
             question = Question("interactive", args.business, args.question, args.as_of)
-            result = create_agent(load_settings(args)).run(question).to_dict(question.id)
+            agent = create_agent(load_settings(args))
+            try:
+                result = agent.run(question).to_dict(question.id)
+            finally:
+                agent.close()
         elif args.command == "score":
             from .data.split import read_jsonl
             from .evaluation.scoring import score

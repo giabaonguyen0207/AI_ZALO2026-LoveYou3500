@@ -11,6 +11,7 @@ from ..data.ingest import Ingestor, quote
 from ..data.split import DatasetSplit
 from ..domain import Answer, DataMateError, Question, RunResult, json_text
 from ..models.backends import ChatBackend
+from ..models.contracts import BackendUnavailableError
 from .prompts import initial_messages
 from .protocol import answer_from_query, parse_action, verify_legacy_answer
 from .tools import BusinessTools
@@ -28,6 +29,17 @@ class Agent:
         self.ingestor = Ingestor(self.split, settings.cache_dir)
         self.preparer = BusinessPreparer(settings, self.split)
         self.schema_repair = SchemaRepair(settings, self.split)
+
+    def close(self):
+        close = getattr(self.backend, 'close', None)
+        if close:
+            close()
+
+    def new_worker(self):
+        """Isolate per-question/cache controller state; share engine and ingestion."""
+        worker = Agent(self.settings, self.backend, self.split)
+        worker.ingestor = self.ingestor
+        return worker
 
     def run(self, question: Question, remaining_seconds: float | None = None) -> RunResult:
         started = time.monotonic()
@@ -71,6 +83,8 @@ class Agent:
                     catalog,repair_trace=self.schema_repair.repair(catalog,
                         self.ingestor.catalog(question.business_id,normalize=False),self.split.readme(question.business_id),
                         proposal,self.backend,deadline)
+                except BackendUnavailableError:
+                    raise
                 except Exception as exc:
                     repair_trace=getattr(self.schema_repair,'last_trace',[]) or [{'phase':'preparation','preparation_stage':'targeted_schema_repair'}]
                     repair_trace[-1]['observation']={'error':str(exc),'baseline_preserved':True}
@@ -114,7 +128,8 @@ class Agent:
                                          'plan_required':plan_required, 'auto_execute_plan':auto_execute,
                                          'result_review_required':self.settings.mode=='self_review',
                                          'schema_mode':'llm' if adaptive else self.settings.schema_mode,
-                                         'lexical_hints_are_advisory':True})
+                                         'lexical_hints_are_advisory':True},
+                                        cache_prefix=self.settings.backend == 'vllm' and self.settings.vllm.cache_prompt_prefix)
             prompt_snapshot=deepcopy(messages)
             for step in range(self.settings.max_steps):
                 remaining = deadline - time.monotonic()
@@ -338,6 +353,8 @@ class Agent:
                         feedback['catalog_updates']=json.loads(initial_messages(question,'','',catalog.summary())[1]['content'])['catalog']
                     feedback = {**feedback, 'remaining_steps': self.settings.max_steps - step - 1}
                     event['observation'] = feedback
+                except BackendUnavailableError:
+                    raise
                 except (DataMateError, KeyError, TypeError, ValueError) as exc:
                     if stage == 'action_parse':
                         consecutive_parse_failures += 1
@@ -366,6 +383,8 @@ class Agent:
                     break
                 event['model_observation'] = self._feedback_for_model(feedback)
                 messages.append({'role': 'user', 'content': json_text({'tool_result': event['model_observation']},separators=(',',':'))})
+        except BackendUnavailableError:
+            raise
         except Exception as exc:
             trace.append({'error': f'{type(exc).__name__}: {exc}', 'error_kind': 'runtime'})
             answer = Answer('abstain', reason=f'Lỗi xử lý: {str(exc)[:250]}')

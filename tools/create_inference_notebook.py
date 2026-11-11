@@ -8,6 +8,32 @@ PREPARE = "from datamate.config import Settings\nfrom pathlib import Path\nimpor
 RUN = "from datamate.application import run_batch\nfrom pathlib import Path\nimport json\n\nselected_ids = set(json.loads(Path(IDS_FILE).read_text(encoding=\"utf-8\"))) if IDS_FILE else None\nsummary = run_batch(settings, ids=selected_ids, limit=RUN_LIMIT, resume=RESUME)\nprint(json.dumps(summary, ensure_ascii=False, indent=2))\nprint(\"Submission:\", SAVE / \"submission.jsonl\", \"| logs:\", SAVE / \"logs\")\n"
 
 
+# The maintained notebook uses the same configurable batch controller as CLI.
+SETUP = SETUP.replace('PLATFORM = "colab"', 'PLATFORM = "colab"\nPLATFORM = os.environ.get("DATAMATE_PLATFORM", PLATFORM)', 1)
+SETUP = SETUP.replace('MODEL_KEY = "qwen35-9b"', 'MODEL_KEY = os.environ.get("DATAMATE_MODEL_KEY", "qwen35-9b")')
+SETUP = SETUP.replace('# Edit these paths to match your uploaded datasets and sealed checkpoint.', '''
+WORK = Path(os.environ.get("DATAMATE_WORK_DIR", str(WORK)))
+SOURCE_ZIP = Path(os.environ.get("DATAMATE_SOURCE_ZIP", str(SOURCE_ZIP)))
+TRAIN_ROOT = Path(os.environ.get("DATAMATE_SPLIT_ROOT", str(TRAIN_ROOT)))
+MODEL_SOURCE_DIR = Path(os.environ.get("DATAMATE_MODEL_DIR", str(MODEL_SOURCE_DIR)))
+''')
+SETUP = SETUP.replace('SAVE = STORAGE / "runs" / OWNER / RUN_NAME',
+                      'SAVE = Path(os.environ.get("DATAMATE_RESULT_DIR", str(STORAGE / "runs" / OWNER / RUN_NAME)))')
+SETUP = SETUP.replace('CONFIG_FILE = WORK / "configs" / (MODEL_KEY + ".json")',
+                      'CONFIG_FILE = Path(os.environ["DATAMATE_CONFIG"]) if os.environ.get("DATAMATE_CONFIG") else WORK / "configs" / (MODEL_KEY + ".json")')
+INSTALL = INSTALL.replace('import torch\n', 'import os\nimport torch\n', 1)
+INSTALL = INSTALL.replace(
+    'subprocess.run([sys.executable,"-m","pip","install","-e",".[llm]","-c",str(constraints)],cwd=WORK,check=True)',
+    'backend = os.environ.get("DATAMATE_BACKEND", "transformers")\n'
+    'install = [sys.executable, "-m", "pip", "install", "-e", ".[vllm]" if backend == "vllm" else ".[llm]"]\n'
+    'if backend != "vllm": install += ["-c", str(constraints)]\n'
+    'subprocess.run(install, cwd=WORK, check=True)\n'
+    'if backend == "vllm":\n'
+    '    from importlib.metadata import version\n'
+    '    if version("torch").split("+")[0] != torch.__version__.split("+")[0]:\n'
+    '        raise RuntimeError("Torch changed during vLLM install; restart kernel before continuing")\n')
+
+
 def cell(kind, text, identifier):
     item = {"cell_type": kind, "id": identifier, "metadata": {}, "source": text.splitlines(keepends=True)}
     if kind == "code":

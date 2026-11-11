@@ -1,19 +1,24 @@
-# Supply the OFFICIAL image explicitly after receiving the Docker guideline.
-# Prepare /wheelhouse for its Python/CUDA/architecture before this offline build.
+# The team selects and pins BASE_IMAGE; no organizer-provided base is required.
+# Prepare /wheelhouse for this base's Python/CUDA/architecture before offline build.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
-    HF_HOME=/work/huggingface TORCH_HOME=/work/torch XDG_CACHE_HOME=/work
+    HF_HOME=/work/huggingface TORCH_HOME=/work/torch XDG_CACHE_HOME=/work \
+    TMPDIR=/work/tmp VLLM_CACHE_ROOT=/work/vllm VLLM_CONFIG_ROOT=/work/vllm-config \
+    PIP_NO_INDEX=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+# Fail before copying/installing large wheels when the selected base is incomplete.
+RUN python -m pip --version && command -v timeout
 COPY wheelhouse /wheelhouse
 COPY pyproject.toml /app/
 COPY src /app/src
-RUN python -m pip install --no-index --find-links=/wheelhouse setuptools wheel \
-    && python -m pip install --no-index --find-links=/wheelhouse --no-build-isolation '.[llm]'
+COPY README.md solution_manifest.json /app/
+COPY docker/install_runtime.py /app/docker/install_runtime.py
+ARG INFERENCE_EXTRA=auto
+RUN python /app/docker/install_runtime.py
 COPY configs /app/configs
 COPY models /app/models
 COPY predict.sh /app/predict.sh
-COPY README.md solution_manifest.json /app/
 RUN chmod +x /app/predict.sh
 ENV DATAMATE_CONFIG=/app/configs/submission.json
 ENTRYPOINT ["/app/predict.sh"]

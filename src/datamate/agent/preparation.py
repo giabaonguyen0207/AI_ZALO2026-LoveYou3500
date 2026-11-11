@@ -16,6 +16,8 @@ from ..data.profiling import inspect_column
 from ..data.rules import read_policy
 from ..data.sql import SQLExecutor
 from ..domain import DataMateError, json_text
+from ..models.runtime import runtime_identity
+from ..models.contracts import BackendUnavailableError
 from .protocol import parse_action
 
 PREPARATION_VERSION = 'business-interpretation-v1'
@@ -91,6 +93,7 @@ class BusinessPreparer:
         digest.update(Path(__file__).with_name('protocol.py').read_bytes())
         digest.update((Path(__file__).parents[1]/'models/backends.py').read_bytes())
         digest.update(semantic_version().encode())
+        digest.update(json_text(runtime_identity(self.settings), sort_keys=True).encode())
         digest.update(json_text({'model': self.settings.model_key, 'seed': self.settings.seed,
                                 'mode':self.settings.mode,'assistant':self.settings.assistant_key,
                                 'timeout':self.settings.preparation_timeout_seconds,
@@ -156,6 +159,8 @@ class BusinessPreparer:
                     finally:
                         connection.close()
                 event['observation'] = observation
+            except BackendUnavailableError:
+                raise
             except (DataMateError, ValueError, TypeError, KeyError, sqlite3.Error) as exc:
                 if 'llm_action' not in event or event['llm_action']['action'] != 'prepare':
                     attempts += 1
