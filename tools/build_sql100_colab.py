@@ -7,7 +7,10 @@ import textwrap
 from tools.build_sql_colab import build as build_base
 
 
-def build(output, source_sha, source_name, data_name):
+def build(output, source_sha, source_name, data_name, *, profile='a100', selectable_quantization=False, default_quantization='4bit'):
+    if profile not in {'a100','l4'}:raise ValueError('Unknown validation100 profile')
+    if selectable_quantization and profile!='l4':raise ValueError('Selectable profile uses CPU merge workflow')
+    if default_quantization not in {'none','8bit','4bit'}:raise ValueError('Unknown quantization')
     build_base(output,source_sha,source_name,data_name)
     original=json.loads(Path(output).read_text(encoding='utf-8'))
     logger=next(c for c in original['cells'] if c['cell_type']=='code' and ''.join(c['source']).startswith('def run_logged'))
@@ -167,5 +170,39 @@ assert RUN_NAME and Path(RUN_NAME).name==RUN_NAME
     print("Đã xong. Có thể ngắt runtime để tiết kiệm GPU. Điểm này là validation phát triển, chưa phải test BTC.")
     ''')
     nb={'nbformat':4,'nbformat_minor':5,'metadata':original['metadata'],'cells':cells}
+    if profile=='l4':
+        for cell in cells:
+            source=''.join(cell['source'])
+            if cell['cell_type']=='markdown':
+                source=source.replace('A100 40 GB và High RAM','L4 23 GB và High RAM')
+                source=source.replace('Hai model dùng BF16,','Hai model dùng NF4 4-bit, compute BF16,')
+                if source.startswith('# Qwen3.5'):
+                    source+='\nNếu chưa có model merge hợp lệ, notebook merge bằng CPU trong process riêng: cần khoảng 32 GiB RAM hệ thống còn trống (High RAM), không phải VRAM. Không cần A100. Merge có thể chậm hơn GPU; chỉ làm một lần rồi tái sử dụng trên Drive. Chưa đo trực tiếp độ vừa VRAM L4 cho bộ này; không tự cắt context nếu lỗi.\n'
+            else:
+                source=source.replace('qwen35-9b-sql-v1.3-validation100-01','qwen35-9b-sql-v1.3-validation100-l4-01')
+                source=source.replace('>=38,"Chọn A100 40GB để merge và so BF16"',
+                    '>=22,"Profile L4 cần ít nhất 22 GiB VRAM; không tự giảm context"')
+                if source.startswith('expected_report_sha='):
+                    old='[sys.executable,"-u","-m","datamate","merge","--model","qwen35-9b",'
+                    assert old in source, 'CPU merge replacement no longer matches builder'
+                    source=source.replace(old,'[sys.executable,"-u",str(WORK/"tools/merge_sql100_cpu.py"),')
+                    source=source.replace('"quantization":"none"','"quantization":"4bit"')
+                ast.parse(source)
+            cell['source']=source.splitlines(True)
+    if selectable_quantization:
+        for cell in cells:
+            source=''.join(cell['source'])
+            if cell['cell_type']=='markdown' and source.startswith('# Qwen3.5'):
+                source=source.replace('Hai model dùng NF4 4-bit, compute BF16,',
+                    'Hai model dùng cùng QUANTIZATION (none / 8bit / 4bit), compute BF16,')
+                source+='\nĐổi QUANTIZATION ở ô đầu rồi chạy lại từ đầu. Mặc định4bit; none là BF16, 8bit là LLM.int8, 4bit là NF4 double quantization. None/8bit cần nhiều VRAM hơn4bit; chưa đo khả năng vừa16K cho mọi lựa chọn trên L4. RUN_NAME tự thêm hậu tố precision để không trộn kết quả.\n'
+            elif cell['cell_type']=='code':
+                if source.startswith('from pathlib import Path'):
+                    source+='\nQUANTIZATION = "4bit"  # "none", "8bit", hoặc "4bit"; dùng chung cho cả hai model\nassert QUANTIZATION in {"none","8bit","4bit"}, "QUANTIZATION không hợp lệ"\nRUN_NAME = RUN_NAME + "-" + QUANTIZATION\n'
+                    source=source.replace('QUANTIZATION = "4bit"','QUANTIZATION = '+json.dumps(default_quantization))
+                if source.startswith('expected_report_sha='):
+                    source=source.replace('"quantization":"4bit"','"quantization":QUANTIZATION')
+                ast.parse(source)
+            cell['source']=source.splitlines(True)
     for i,c in enumerate(cells):c['id']=f'sql100-{i:02d}'
     Path(output).write_text(json.dumps(nb,ensure_ascii=False,indent=1)+'\n',encoding='utf-8')

@@ -44,13 +44,14 @@ def select_questions(questions, validation_ids, size=100, seed=42):
     return sorted(selected,key=rank)
 
 
-def verify_benchmark(root):
+def verify_benchmark(root, *, include_references=True):
     root=Path(root).resolve()
     manifest=json.loads((root/'benchmark_manifest.json').read_text(encoding='utf-8'))
     actual={p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
     if actual != set(manifest['files'])|{'benchmark_manifest.json'}:
         raise DataMateError('Benchmark có file thừa/thiếu')
     for name,digest in manifest['files'].items():
+        if not include_references and name.startswith('evaluation/'):continue
         path=(root/name).resolve()
         if not path.is_relative_to(root) or hash_file(path)!=digest:
             raise DataMateError('Benchmark sai checksum: '+name)
@@ -93,7 +94,7 @@ def run_variant(config_path, benchmark):
 
 
 def _run_variant(settings, benchmark):
-    benchmark=Path(benchmark).resolve();manifest=verify_benchmark(benchmark)
+    benchmark=Path(benchmark).resolve();manifest=verify_benchmark(benchmark,include_references=False)
     split=DatasetSplit(settings.split_root)
     if split.root!=(benchmark/'input').resolve():raise DataMateError('Sai inference split')
     output=ensure_outside_dataset(settings.result_dir,split.root)
@@ -120,7 +121,8 @@ def _run_variant(settings, benchmark):
         from transformers import set_seed
         set_seed(settings.seed)
         agent=create_agent(settings)
-        session['load_seconds']=time.monotonic()-started;write_json(ledger_path,ledger)
+        session['load_seconds']=time.monotonic()-started
+        session['elapsed_seconds']=session['load_seconds'];write_json(ledger_path,ledger)
         # No gold/reference files are read by this process.
         for index,q in enumerate(questions,1):
             if q.id in records:continue
@@ -164,10 +166,15 @@ def paired_report(benchmark, baseline, finetuned, output):
         if set(records[-1])!=set(ids):raise DataMateError('Chưa đủ câu ở cả hai model; chạy lại ô inference để resume')
         summaries.append(json.loads((folder/'summary.json').read_text(encoding='utf-8')))
     a,b=identities
+    current_benchmark_sha=hash_file(benchmark/'benchmark_manifest.json')
+    if any(identity['benchmark_sha256']!=current_benchmark_sha for identity in identities):
+        raise DataMateError('Run không thuộc benchmark hiện tại')
     for key in ('benchmark_sha256','runner_sha256','runtime_source','runtime'):
         if a[key]!=b[key]:raise DataMateError('Đối chứng khác '+key)
     def shared(config):return {k:v for k,v in config.items() if k not in {'model_dir','result_dir','cache_dir'}}
     if shared(a['settings'])!=shared(b['settings']):raise DataMateError('Hai model khác cấu hình inference')
+    if a['model_manifest_sha256']==b['model_manifest_sha256']:
+        raise DataMateError('Hai lượt đang dùng cùng model artifact')
     refs=read_jsonl(benchmark/'evaluation/references.jsonl')
     reports=[score([rows[i]['submission'] for i in ids],refs,set(ids)) for rows in records]
     output=Path(output);output.mkdir(parents=True,exist_ok=True)

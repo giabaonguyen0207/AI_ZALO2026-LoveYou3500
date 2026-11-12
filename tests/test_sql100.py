@@ -60,9 +60,53 @@ def test_run_resume_does_not_repeat_questions_and_rejects_changed_identity(tmp_p
     with pytest.raises(RuntimeError,match='runtime lost'):runner.run_variant(cp,root)
     summary=runner.run_variant(cp,root)
     assert summary['completed']==3 and calls.count('0')==1
+    assert summary['timing_incomplete_after_runtime_loss'] and summary['wall_seconds'] is None
     before=len(calls);runner.run_variant(cp,root);assert len(calls)==before
     config['max_new_tokens']=999;runner.write_json(cp,config)
     with pytest.raises(DataMateError,match='identity'):runner.run_variant(cp,root)
+
+
+def test_paired_report_rejects_partial_or_unfair_runs_and_scores_same_ids(tmp_path,monkeypatch):
+    import tools.sql100 as runner
+    from datamate.config import Settings
+    from datamate.domain import Answer,RunResult
+    root=tmp_path/'bench';(root/'input/data/biz').mkdir(parents=True);(root/'evaluation').mkdir()
+    (root/'input/rulebook.md').write_text('rules');(root/'input/calendar.csv').write_text('calendar')
+    q={'id':'a','business_id':'biz','question':'x','as_of_date':'2026-01-01'}
+    (root/'input/questions.jsonl').write_text(json.dumps(q)+'\n')
+    (root/'evaluation/references.jsonl').write_text('{"id":"a","type":"number","answer":1}\n')
+    runner.write_json(root/'question_ids.json',['a'])
+    runner.write_json(root/'benchmark_manifest.json',{'sample_size':1,'files':{
+        p.relative_to(root).as_posix():runner.hash_file(p) for p in root.rglob('*') if p.is_file()}})
+    class Agent:
+        def __init__(self,value):self.value=value
+        def run(self,q,remaining):return RunResult(Answer('number',self.value),.01,[],1)
+    monkeypatch.setattr(runner,'create_agent',lambda settings:Agent(1 if settings.model_dir.endswith('base') else 2))
+    monkeypatch.setattr(runner,'runtime_identity',lambda:{'fixture':'cpu'})
+    for label in ('base','fine'):
+        model=tmp_path/label;model.mkdir();runner.write_json(model/'artifact_manifest.json',{'fixture':label})
+        config=Settings(model_dir=str(model),split_root=str(root/'input'),cache_dir=str(tmp_path/('cache-'+label)),
+                        result_dir=str(tmp_path/('out-'+label))).to_dict()
+        path=tmp_path/(label+'.json');runner.write_json(path,config);runner.run_variant(path,root)
+    result=runner.paired_report(root,tmp_path/'out-base',tmp_path/'out-fine',tmp_path/'review')
+    assert result['baseline']['correct']==1 and result['finetuned']['wrong']==1
+    assert result['delta_pa']==-2
+    assert len(json.loads((tmp_path/'review/regressions.json').read_text()))==1
+    # A separately sealed benchmark with the same IDs must not reuse these runs.
+    import shutil
+    other=tmp_path/'other';shutil.copytree(root,other)
+    (other/'input/rulebook.md').write_text('different rules')
+    meta=json.loads((other/'benchmark_manifest.json').read_text())
+    meta['files']['input/rulebook.md']=runner.hash_file(other/'input/rulebook.md')
+    runner.write_json(other/'benchmark_manifest.json',meta)
+    with pytest.raises(DataMateError,match='benchmark'):
+        runner.paired_report(other,tmp_path/'out-base',tmp_path/'out-fine',tmp_path/'other-review')
+    record=next((tmp_path/'out-fine/records').glob('*.json'));record.unlink()
+    with pytest.raises(DataMateError,match='Chưa đủ'):runner.paired_report(root,tmp_path/'out-base',tmp_path/'out-fine',tmp_path/'review')
+    runner.run_variant(tmp_path/'fine.json',root)
+    ip=tmp_path/'out-fine/evaluation_identity.json';identity=json.loads(ip.read_text())
+    identity['settings']['max_new_tokens']=999;runner.write_json(ip,identity)
+    with pytest.raises(DataMateError,match='cấu hình'):runner.paired_report(root,tmp_path/'out-base',tmp_path/'out-fine',tmp_path/'review')
 
 
 def test_generated_notebook_has_separate_processes_and_frozen_drive_root(tmp_path):
@@ -77,3 +121,15 @@ def test_generated_notebook_has_separate_processes_and_frozen_drive_root(tmp_pat
     assert 'checkpoint-190' not in code and 'smoke_adapter' not in code
     assert 'baseline' in code and 'finetuned' in code
     assert 'run_logged' in code and 'sql100.py' in code
+    import sys
+    from uuid import uuid4
+    commands=[]
+    namespace={'sys':sys,'WORK':tmp_path,'BENCH':tmp_path/'data','RESULT':tmp_path/'result',
+               'configs':{'baseline':tmp_path/'base.json','finetuned':tmp_path/'fine.json'},'uuid4':uuid4,
+               'run_logged':lambda command,**kwargs:commands.append(command)}
+    for c in nb['cells']:
+        src=''.join(c['source'])
+        if src.startswith('run_logged') and '"run",' in src:exec(compile(src,'<notebook run cell>','exec'),namespace)
+    assert len(commands)==2
+    assert commands[0][-1]==commands[1][-1]==str(tmp_path/'data')
+    assert commands[0][commands[0].index('--config')+1]!=commands[1][commands[1].index('--config')+1]
