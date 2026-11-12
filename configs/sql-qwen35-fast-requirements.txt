@@ -1,0 +1,7 @@
+# GPU-only setup. Colab's existing Torch and Triton are constrained, not replaced.
+transformers==5.22.1
+peft==0.21.2
+accelerate==1.15.0
+fla-core==0.6.0
+flash-linear-attention[cuda]==0.6.0
+# FLA's Triton conv is selected explicitly when native causal-conv1d is absent.

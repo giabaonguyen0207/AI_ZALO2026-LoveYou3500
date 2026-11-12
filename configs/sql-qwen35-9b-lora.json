@@ -1,8 +1,8 @@
 {
   "model_key": "qwen35-9b",
   "base_dir": "models/qwen35-9b",
-  "dataset_dir": "outputs/runs/review/sql-sft-qwen35-9b-20261109/dataset-v1",
-  "output_dir": "checkpoints/qwen35-9b-sql-lora-v1",
+  "dataset_dir": "outputs/runs/review/sql-sft-qwen35-9b-20261110-speed/dataset-v1.3",
+  "output_dir": "outputs/runs/review/sql-sft-qwen35-9b-v1.3-lora/adapter",
   "method": "lora",
   "rank": 16,
   "alpha": 32,
@@ -13,7 +13,11 @@
   "gradient_accumulation_steps": 8,
   "epochs": 1,
   "learning_rate": 0.00005,
-  "save_steps": 50,
+  "save_steps": 5,
+  "save_total_limit": 3,
+  "save_interval_seconds": 600,
+  "eval_steps": 50,
+  "require_fast_kernels": true,
   "seed": 42,
   "min_vram_gib": 38
 }

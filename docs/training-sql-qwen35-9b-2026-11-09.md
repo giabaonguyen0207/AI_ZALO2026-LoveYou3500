@@ -1,5 +1,9 @@
 # Chuẩn bị SQL SFT cho Qwen3.5-9B — 09/11/2026
 
+> Bản mới cho kernel tăng tốc và tự resume: [v1.3 — hướng dẫn ngày 10/11/2026](training-sql-speed-resume-2026-11-10.md). Giữ các gói v1/v1.1/v1.2 để truy vết; pilot A100 v1.2 đã hoàn tất nhưng chậm do fallback kernels. Dùng cùng bộ source–dataset–notebook v1.3 khi bắt đầu run mới.
+
+> Cập nhật 10/11/2026: dùng notebook `DataMate_Colab_Qwen35_9B_SQL_SFT_v1_1.ipynb` cùng hai ZIP `qwen35-9b-sql-sft-v1.1.zip` và `datamate-qwen35-9b-sql-source-v1.1.zip`. Bản v1 truyền `warmup_ratio` đã bị Transformers 5 loại bỏ; v1.1 dùng `warmup_steps=0.03`, vẫn warmup 3%. Dữ liệu học, tokenizer và checkpoint giữ nguyên; provenance và hash tương ứng được phát hành riêng, không ghi đè v1. Khởi động runtime mới, chạy notebook v1.1 từ đầu; model base trên Drive được tái sử dụng. Notebook chọn RUN_TAG v1.1 mới để tránh thư mục smoke đã tạo dở. Đây là sửa tương thích API; chưa xác nhận training vừa VRAM L4 bằng GPU thực tế.
+
 Nguồn yêu cầu: chủ dự án ngày 09/11/2026, cùng đề xuất trong chat [Phân tích kết quả inference lần 2](codex://threads/01a1a0a2-9d9a-7c11-8487-caea75948690). Đây là bộ dữ liệu mới và notebook mới; các artifact Gemma frozen trong `archive/2026-11-09/` được giữ nguyên.
 
 ## Dữ liệu này dạy model làm gì?
