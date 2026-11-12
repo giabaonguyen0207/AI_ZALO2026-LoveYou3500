@@ -14,20 +14,28 @@ from .debug_log import write_debug_log
 from .models.backends import build_backend
 from .models.registry import inventory
 from .models.artifacts import sha256
+from .models.runtime import runtime_identity
+from .batching import run_questions
 
 
-def create_agent(settings: Settings) -> Agent:
+def create_agent(settings: Settings, *, remaining_seconds=None) -> Agent:
     settings.validate()
     inventory(settings.model_key, settings.assistant_key)
     split = DatasetSplit(settings.split_root)
     # Check writable outputs before loading a large model.
     ensure_outside_dataset(settings.cache_dir, split.root)
     ensure_outside_dataset(settings.result_dir, split.root)
-    return Agent(settings, build_backend(settings), split)
+    backend = build_backend(settings, remaining_seconds=remaining_seconds) if settings.backend == 'vllm' else build_backend(settings)
+    try:
+        return Agent(settings, backend, split)
+    except BaseException:
+        backend.close()
+        raise
 
 
 def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None = None, resume: bool = False) -> dict:
     started = time.monotonic()  # Includes model load, hash verification and ingestion.
+    settings.validate()
     split = DatasetSplit(settings.split_root)
     questions = split.questions()
     if ids is not None:
@@ -47,7 +55,8 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
     identity = {"settings": settings.to_dict(), "rulebook_sha256": split.rulebook_hash,
                 "questions_sha256": hashlib.sha256((split.root / "questions.jsonl").read_bytes()).hexdigest(),
                 "selected_ids_sha256": hashlib.sha256(json_text([q.id for q in questions]).encode()).hexdigest(),
-                "inventory": inventory(settings.model_key, settings.assistant_key)}
+                "inventory": inventory(settings.model_key, settings.assistant_key),
+                "runtime": runtime_identity(settings)}
     package_root=Path(__file__).parent
     identity['source_hashes']={p.relative_to(package_root).as_posix():sha256(p) for p in sorted(package_root.rglob('*.py'))}
     input_files = [split.root / "calendar.csv"]
@@ -77,33 +86,66 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
         for row in rows:
             Answer.from_dict(row)
     identity_path.write_text(json_text(identity, indent=2), encoding="utf-8")
-    agent = create_agent(settings)
-    loaded_seconds = time.monotonic() - started
-    written, timed_out = 0, False
-    with output.open("a" if resume else "w", encoding="utf-8", newline="\n") as handle:
-        for question in questions:
-            if question.id in completed:
-                continue
-            remaining = settings.wall_time_seconds - (time.monotonic() - started)
-            if remaining <= 0:
-                timed_out = True
-                break  # Missing answers count as abstain; existing rows survive.
-            run = agent.run(question, remaining)
-            name = hashlib.sha256(question.id.encode()).hexdigest()[:24] + ".json"
-            payload = {"id": question.id, "business_id": question.business_id,
-                       **question.prompt_dict(),
-                       "rulebook_sha256": split.rulebook_hash, **run.to_dict(question.id)}
-            temporary = logs / (name + ".tmp")
-            temporary.write_text(json_text(payload, indent=2), encoding="utf-8")
-            temporary.replace(logs / name)
-            handle.write(json_text(run.answer.to_dict(question.id)) + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-            write_debug_log((logs / name).with_suffix('.md'), payload)
-            written += 1
-    summary = {"backend": settings.backend, "mode": settings.mode, "model": settings.model_key,
-               "selected_questions": len(questions), "previously_completed": len(completed), "written": written,
-               "wall_time_seconds": round(time.monotonic()-started, 4), "load_seconds": round(loaded_seconds, 4),
-               "time_budget_exhausted": timed_out, "submission": str(output.resolve())}
-    (result_dir / "run_summary.json").write_text(json_text(summary, indent=2), encoding="utf-8")
+    todo = [q for q in questions if q.id not in completed]
+    if settings.backend == 'vllm' and settings.vllm.group_by_business:
+        todo.sort(key=lambda q: q.business_id)  # IDs route data; never determine answers.
+    deadline = started + settings.wall_time_seconds
+    state = {'time_budget_exhausted': False}
+    agent, loaded_seconds, written, failure = None, None, 0, None
+    try:
+        if time.monotonic() >= deadline:
+            state['time_budget_exhausted'] = True
+            todo = []
+        if todo:
+            agent = create_agent(settings, remaining_seconds=deadline-time.monotonic())
+        loaded_seconds = time.monotonic()-started
+        if agent and callable(getattr(agent.backend, 'runtime_info', None)):
+            (result_dir / 'runtime.json').write_text(json_text(agent.backend.runtime_info(), indent=2), encoding='utf-8')
+        with output.open('a' if resume else 'w', encoding='utf-8', newline='\n') as handle:
+            runs = run_questions(agent, todo, settings.effective_workers, deadline, state) if agent else iter(())
+            try:
+                for question, run in runs:
+                    name = hashlib.sha256(question.id.encode()).hexdigest()[:24] + '.json'
+                    payload = {'id': question.id, 'business_id': question.business_id,
+                               **question.prompt_dict(), 'rulebook_sha256': split.rulebook_hash,
+                               **run.to_dict(question.id)}
+                    temporary = logs / (name + '.tmp')
+                    temporary.write_text(json_text(payload, indent=2), encoding='utf-8')
+                    temporary.replace(logs / name)
+                    handle.write(json_text(run.answer.to_dict(question.id)) + '\n')
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                    written += 1
+                    write_debug_log((logs / name).with_suffix('.md'), payload)
+            finally:
+                close_runs = getattr(runs, 'close', None)
+                if close_runs:
+                    close_runs()
+    except BaseException as exc:
+        failure = f'{type(exc).__name__}: {exc}'
+        (logs / 'runtime-error.json').write_text(json_text({
+            'id': getattr(exc, 'question_id', None), 'error': failure,
+            'elapsed_seconds': time.monotonic()-started, 'submission': {'type': 'abstain'}}, indent=2), encoding='utf-8')
+        raise
+    finally:
+        try:
+            if agent:
+                agent.close()
+                if callable(getattr(agent.backend, 'runtime_info', None)):
+                    (result_dir / 'runtime.json').write_text(json_text(agent.backend.runtime_info(), indent=2), encoding='utf-8')
+        except BaseException as exc:
+            cleanup_error = f'{type(exc).__name__}: {exc}'
+            (logs / 'shutdown-error.json').write_text(json_text({'error': cleanup_error,
+                'elapsed_seconds': time.monotonic()-started}, indent=2), encoding='utf-8')
+            if failure is None:
+                failure = cleanup_error
+                raise
+        finally:
+            summary = {'backend': settings.backend, 'mode': settings.mode, 'model': settings.model_key,
+                       'question_workers': settings.effective_workers,
+                       'selected_questions': len(questions), 'previously_completed': len(completed), 'written': written,
+                       'wall_time_seconds': round(time.monotonic()-started, 4),
+                       'load_seconds': round(loaded_seconds, 4) if loaded_seconds is not None else None,
+                       **state, 'error': failure, 'submission': str(output.resolve())}
+            (result_dir / 'run_summary.json').write_text(json_text(summary, indent=2), encoding='utf-8')
     return summary

@@ -1,0 +1,10 @@
+{
+  "backend": "vllm",
+  "mode": "self_review",
+  "max_steps": 6,
+  "max_new_tokens": 768,
+  "schema_mode": "code_first",
+  "adaptive_preparation": false,
+  "require_plan": true,
+  "auto_execute_plan": true
+}

@@ -78,7 +78,7 @@ SYSTEM += ('\nEnum measure: '+', '.join(MEASURES)+'\nEnum operation: '+', '.join
            +'\nVí dụ cấu trúc; chỉ dùng khi đúng câu hỏi và nguồn thực tế:\n'+'\n'.join(json_text(item,separators=(',',':')) for item in PLAN_EXAMPLES))
 
 
-def initial_messages(question: Question, rulebook: str, readme: str, catalog: dict, contract=None) -> list[dict]:
+def initial_messages(question: Question, rulebook: str, readme: str, catalog: dict, contract=None, *, cache_prefix=False) -> list[dict]:
     semantic = catalog.get('semantic', {})
     if semantic:
         status_profiles={}
@@ -103,6 +103,14 @@ def initial_messages(question: Question, rulebook: str, readme: str, catalog: di
         summary = catalog
     if contract and 'answerability' in contract:
         contract={**contract,'answerability':{k:v for k,v in contract['answerability'].items() if k!='source_bindings'}}
+    if cache_prefix:
+        # Keep all context, but place stable business material before the
+        # question-dependent suffix so APC can reuse more than SYSTEM alone.
+        common = {'rulebook': rulebook, 'business_readme': readme, 'catalog': summary}
+        request = {'request': question.prompt_dict(), 'abbreviation_hints': abbreviation_hints(question.question),
+                   'request_contract': contract}
+        return [{'role': 'system', 'content': SYSTEM},
+                {'role': 'user', 'content': json_text(common, separators=(',', ':')) + '\n' + json_text(request, separators=(',', ':'))}]
     return [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': json_text({
         'request': question.prompt_dict(), 'rulebook': rulebook, 'business_readme': readme,
         'abbreviation_hints':abbreviation_hints(question.question),

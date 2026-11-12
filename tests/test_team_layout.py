@@ -81,7 +81,8 @@ def test_gpu_setup_separates_source_versions_and_rejects_stale_kernel(tmp_path, 
     assert (second['WORK'] / 'src/datamate/__init__.py').read_text() == '# version two'
 
 
-def test_solution_staging_copies_only_declared_models_and_runtime_files(tmp_path, monkeypatch):
+@pytest.mark.parametrize('backend', ['transformers', 'vllm'])
+def test_solution_staging_copies_only_declared_models_and_runtime_files(tmp_path, monkeypatch, backend):
     import struct
     from datamate.domain import json_text
     from datamate.models.registry import MODELS, ModelSpec
@@ -99,10 +100,13 @@ def test_solution_staging_copies_only_declared_models_and_runtime_files(tmp_path
     wheelhouse.mkdir()
     (wheelhouse / 'fixture.whl').write_bytes(b'fixture, not an installable wheel')
     config = tmp_path / 'settings.json'
-    config.write_text(json_text({'model_key': 'fixture'}), encoding='utf-8')
+    config.write_text(json_text({'model_key': 'fixture', 'backend': backend}), encoding='utf-8')
     output = tmp_path / 'context'
-    report = stage(project, config, output, wheelhouse, {'fixture': model})
+    report = stage(project, config, output, wheelhouse, {'fixture': model}, base_image='team/base@sha256:fixture')
     assert report['inventory']['total_parameters'] == 3 and report['image_built'] is False
+    assert report['inference_extra'] == ('vllm' if backend == 'vllm' else 'llm')
+    assert report['base_image'] == 'team/base@sha256:fixture'
+    assert report['base_image_policy'] == 'team_selected' and report['base_image_gpu_verified'] is False
     assert (output / 'src/datamate/training/finetune.py').exists()
     assert not any((output / name).exists() for name in ('archive', 'train', 'public_test', 'outputs', 'tests'))
     assert list((output / 'models').iterdir()) == [output / 'models/fixture']

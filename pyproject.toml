@@ -14,6 +14,8 @@ llm = ["torch>=2.7,<3", "transformers>=5.15,<6", "accelerate>=1.10,<2", "safeten
 train = ["datamate-agent[llm]", "peft>=0.20,<1", "datasets>=4,<6", "bitsandbytes>=0.48,<1"]
 dev = ["pytest>=8,<10"]
 test-llm = ["transformers>=5.15,<6", "safetensors>=0.8,<1", "sentencepiece>=0.2,<1"]
+# AsyncLLM V1 API target; candidate range, not a GPU-validated environment lock.
+vllm = ["vllm>=0.33,<0.34", "bitsandbytes>=0.48,<1"]
 
 [project.scripts]
 datamate = "datamate.cli:main"

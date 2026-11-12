@@ -11,6 +11,7 @@ import re
 import shutil
 import sqlite3
 import uuid
+import threading
 from collections import Counter, defaultdict
 from dataclasses import replace
 from datetime import datetime
@@ -468,7 +469,17 @@ def build_semantics(connection, tables, rulebook, readme, interpretation=None):
                 "channel":any("channel" in b["roles"] for b in sales_bindings+order_bindings)}}
 
 
+_semantic_lock = threading.RLock()
+
+
 def prepare_catalog(catalog, rulebook, readme, cache_dir, interpretation=None):
+    # Different question workers may repair the same shop simultaneously.
+    # Publish one complete SQLite+metadata pair, never replace a DB in use.
+    with _semantic_lock:
+        return _prepare_catalog(catalog, rulebook, readme, cache_dir, interpretation)
+
+
+def _prepare_catalog(catalog, rulebook, readme, cache_dir, interpretation=None):
     key = hashlib.sha256((catalog.fingerprint+semantic_version()+json.dumps(interpretation,sort_keys=True,ensure_ascii=False)).encode()).hexdigest()
     path = Path(cache_dir)/(key+".semantic.sqlite")
     metadata = path.with_suffix(".json")

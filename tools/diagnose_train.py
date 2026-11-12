@@ -177,6 +177,9 @@ def runtime_snapshot(backend):
     import datamate
     result = {"python": sys.version, "backend": type(backend).__name__, "packages": {}}
     result['datamate_code_version']=datamate.__version__
+    info = getattr(backend, 'runtime_info', None)
+    if callable(info):
+        result['engine_runtime'] = info()
     result['effective_generation']={'do_sample':False,'num_beams':1,'protocol_version':getattr(backend,'protocol_version',None)}
     result['generation_tokens'] = deepcopy(getattr(backend, 'generation_tokens', None))
     for package in ("torch", "transformers", "accelerate", "bitsandbytes", "datamate-agent"):
