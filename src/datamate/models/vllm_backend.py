@@ -185,7 +185,9 @@ class VLLMBackend:
             if not getattr(last, 'finished', False):
                 await self._abort(request_id)
                 raise BackendUnavailableError('vLLM đóng stream khi request chưa finished')
-            return last.outputs[0]
+            # Request-level cache counts come from vLLM, not inferred from
+            # overlapping callers or repeated text. None means unavailable.
+            return last.outputs[0], getattr(last, 'num_cached_tokens', None)
         except (GenerationTimeoutError, BackendUnavailableError):
             raise
         except ValueError as exc:
@@ -219,11 +221,12 @@ class VLLMBackend:
         try:
             # The coroutine handles its own timeout AND abort acknowledgement.
             # This outer watchdog detects a stuck event loop/cancellation path.
-            result = future.result(timeout=max(0, deadline-time.monotonic()) + 2*self.settings.vllm.abort_timeout_seconds)
+            result, cached_tokens = future.result(timeout=max(0, deadline-time.monotonic()) + 2*self.settings.vllm.abort_timeout_seconds)
             tokens = list(result.token_ids)
             with self._tokenizer_lock:
                 raw = self.tokenizer.decode(tokens, skip_special_tokens=False)
-            metadata.update(output_tokens=len(tokens), stop_reason=getattr(result, 'finish_reason', None),
+            metadata.update(output_tokens=len(tokens), cached_tokens=cached_tokens,
+                            stop_reason=getattr(result, 'finish_reason', None),
                             engine_stop_reason=getattr(result, 'stop_reason', None),
                             last_token_id=tokens[-1] if tokens else None,
                             output_sha256=hashlib.sha256(raw.encode()).hexdigest())
