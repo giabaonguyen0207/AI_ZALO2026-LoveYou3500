@@ -12,7 +12,8 @@ from .data.split import DatasetSplit, ensure_outside_dataset, read_jsonl
 from .domain import Answer, DataMateError, Question, RunResult, json_text
 from .debug_log import write_debug_log
 from .models.backends import build_backend
-from .models.registry import inventory
+from .models.registry import inventory_from_settings
+from .retrieval import build_retriever
 from .models.artifacts import sha256
 from .models.runtime import runtime_identity
 from .batching import run_questions
@@ -20,15 +21,17 @@ from .batching import run_questions
 
 def create_agent(settings: Settings, *, remaining_seconds=None) -> Agent:
     settings.validate()
-    inventory(settings.model_key, settings.assistant_key)
+    inventory_from_settings(settings)
     split = DatasetSplit(settings.split_root)
     # Check writable outputs before loading a large model.
     ensure_outside_dataset(settings.cache_dir, split.root)
     ensure_outside_dataset(settings.result_dir, split.root)
+    retriever = build_retriever(settings, split)
     backend = build_backend(settings, remaining_seconds=remaining_seconds) if settings.backend == 'vllm' else build_backend(settings)
     try:
-        return Agent(settings, backend, split)
+        return Agent(settings, backend, split, retriever)
     except BaseException:
+        retriever.close()
         backend.close()
         raise
 
@@ -55,7 +58,7 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
     identity = {"settings": settings.to_dict(), "rulebook_sha256": split.rulebook_hash,
                 "questions_sha256": hashlib.sha256((split.root / "questions.jsonl").read_bytes()).hexdigest(),
                 "selected_ids_sha256": hashlib.sha256(json_text([q.id for q in questions]).encode()).hexdigest(),
-                "inventory": inventory(settings.model_key, settings.assistant_key),
+                "inventory": inventory_from_settings(settings),
                 "runtime": runtime_identity(settings)}
     package_root=Path(__file__).parent
     identity['source_hashes']={p.relative_to(package_root).as_posix():sha256(p) for p in sorted(package_root.rglob('*.py'))}
@@ -65,7 +68,8 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
     identity["input_hashes"] = {p.relative_to(split.root).as_posix(): sha256(p) for p in input_files}
     if settings.backend != "demo":
         identity["artifact_manifests"] = {}
-        for folder in (settings.model_dir, settings.assistant_dir):
+        rag_folders = ([settings.rag.embedding_dir] if settings.rag.mode != 'none' else []) + ([settings.rag.reranker_dir] if settings.rag.mode == 'dense_rerank' else [])
+        for folder in (settings.model_dir, settings.assistant_dir, *rag_folders):
             if folder:
                 manifest_path = Path(folder) / "artifact_manifest.json"
                 if not manifest_path.exists():
@@ -89,6 +93,7 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
     todo = [q for q in questions if q.id not in completed]
     if settings.backend == 'vllm' and settings.vllm.group_by_business:
         todo.sort(key=lambda q: q.business_id)  # IDs route data; never determine answers.
+    print(f'Inference: {len(questions)} câu; đã có {len(completed)}, còn {len(todo)}. Kết quả: {output}', flush=True)
     deadline = started + settings.wall_time_seconds
     state = {'time_budget_exhausted': False}
     agent, loaded_seconds, written, failure = None, None, 0, None
@@ -97,7 +102,9 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
             state['time_budget_exhausted'] = True
             todo = []
         if todo:
+            print('Đang nạp model và chuẩn bị dữ liệu...', flush=True)
             agent = create_agent(settings, remaining_seconds=deadline-time.monotonic())
+            print(f'Model đã sẵn sàng sau {time.monotonic()-started:.1f}s; bắt đầu trả lời.', flush=True)
         loaded_seconds = time.monotonic()-started
         if agent and callable(getattr(agent.backend, 'runtime_info', None)):
             (result_dir / 'runtime.json').write_text(json_text(agent.backend.runtime_info(), indent=2), encoding='utf-8')
@@ -117,6 +124,10 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
                     os.fsync(handle.fileno())
                     written += 1
                     write_debug_log((logs / name).with_suffix('.md'), payload)
+                    error = any(item.get('error_kind') in {'runtime', 'generation'} for item in run.trace)
+                    outcome = 'LỖI XỬ LÝ' if error else 'ĐÃ LƯU'
+                    print(f'[{len(completed)+written}/{len(questions)}] {outcome} {question.id} | '
+                          f'{run.answer.type} | {run.elapsed_seconds:.1f}s | {run.model_calls} model calls', flush=True)
             finally:
                 close_runs = getattr(runs, 'close', None)
                 if close_runs:

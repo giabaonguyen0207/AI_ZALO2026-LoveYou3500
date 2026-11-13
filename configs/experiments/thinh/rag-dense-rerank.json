@@ -1,0 +1,30 @@
+{
+  "backend": "transformers",
+  "model_key": "qwen35-9b",
+  "model_dir": "models/qwen35-9b",
+  "mode": "self_review",
+  "quantization": "4bit",
+  "split_root": "train",
+  "cache_dir": ".cache/datamate-thinh",
+  "result_dir": "outputs/runs/thinh/team200-dense-rerank",
+  "max_steps": 6,
+  "max_context_tokens": 8192,
+  "max_new_tokens": 768,
+  "question_timeout_seconds": 120,
+  "schema_mode": "code_first",
+  "adaptive_preparation": false,
+  "require_plan": true,
+  "auto_execute_plan": true,
+  "rag": {
+    "mode": "dense_rerank",
+    "embedding_key": "vietnamese-embedding",
+    "embedding_dir": "models/vietnamese-embedding",
+    "reranker_key": "vietnamese-reranker",
+    "reranker_dir": "models/vietnamese-reranker",
+    "device": "cpu",
+    "candidate_k": 12,
+    "context_k": 4,
+    "context_tokens": 1200,
+    "timeout_seconds": 45
+  }
+}

@@ -19,25 +19,28 @@ from .verification import question_contract, question_periods, verify_metric_req
 from .preparation import BusinessPreparer
 from .planning import validate_plan, calculate, verify_sql_plan
 from .schema_repair import SchemaRepair, repair_needs
+from ..retrieval import NullRetriever
 
 
 class Agent:
     pipeline_version = 6
-    def __init__(self, settings: Settings, backend: ChatBackend, split: DatasetSplit | None = None):
+    def __init__(self, settings: Settings, backend: ChatBackend, split: DatasetSplit | None = None, retriever=None):
         self.settings, self.backend = settings, backend
         self.split = split or DatasetSplit(settings.split_root)
         self.ingestor = Ingestor(self.split, settings.cache_dir)
         self.preparer = BusinessPreparer(settings, self.split)
         self.schema_repair = SchemaRepair(settings, self.split)
+        self.retriever = retriever if retriever is not None else NullRetriever()
 
     def close(self):
+        self.retriever.close()
         close = getattr(self.backend, 'close', None)
         if close:
             close()
 
     def new_worker(self):
         """Isolate per-question/cache controller state; share engine and ingestion."""
-        worker = Agent(self.settings, self.backend, self.split)
+        worker = Agent(self.settings, self.backend, self.split, self.retriever)
         worker.ingestor = self.ingestor
         return worker
 
@@ -123,13 +126,29 @@ class Agent:
             if preflight['availability'] == 'missing' and not adaptive:
                 evidence['e0'] = preflight
                 preflight = {**preflight, 'evidence_id': 'e0'}
-            messages = initial_messages(question, self.split.rulebook, self.split.readme(question.business_id), catalog.summary(),
-                                        {'contract': contract, 'periods': expected_periods, 'answerability': preflight,
+            request_contract = {'contract': contract, 'periods': expected_periods, 'answerability': preflight,
                                          'plan_required':plan_required, 'auto_execute_plan':auto_execute,
                                          'result_review_required':self.settings.mode=='self_review',
                                          'schema_mode':'llm' if adaptive else self.settings.schema_mode,
-                                         'lexical_hints_are_advisory':True},
-                                        cache_prefix=self.settings.backend == 'vllm' and self.settings.vllm.cache_prompt_prefix)
+                                         'lexical_hints_are_advisory':True}
+            prompt_args = (question, self.split.rulebook, self.split.readme(question.business_id), catalog.summary(), request_contract)
+            prefix = self.settings.backend == 'vllm' and self.settings.vllm.cache_prompt_prefix
+            messages = initial_messages(*prompt_args, cache_prefix=prefix)
+            if self.settings.rag.mode != 'none':
+                chunks, retrieval = self.retriever.retrieve(question.question, question.business_id,
+                    self.ingestor.catalog(question.business_id, normalize=False),
+                    min(deadline-time.monotonic(), self.settings.rag.timeout_seconds))
+                selected = []
+                for chunk in chunks:
+                    proposal = selected + [chunk]
+                    if self.backend.count_tokens(initial_messages(*prompt_args, cache_prefix=prefix, retrieved_context=proposal)) + self.settings.max_new_tokens > self.settings.max_context_tokens:
+                        continue
+                    if sum(len(item['text']) for item in proposal) > self.settings.rag.context_tokens * 3:
+                        continue
+                    selected = proposal
+                if selected:
+                    messages = initial_messages(*prompt_args, cache_prefix=prefix, retrieved_context=selected)
+                trace.append({'phase':'retrieval', **retrieval, 'selected': [c['source'] for c in selected]})
             prompt_snapshot=deepcopy(messages)
             for step in range(self.settings.max_steps):
                 remaining = deadline - time.monotonic()
