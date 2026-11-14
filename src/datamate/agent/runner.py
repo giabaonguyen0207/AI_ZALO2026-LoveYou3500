@@ -20,28 +20,38 @@ from .preparation import BusinessPreparer
 from .planning import validate_plan, calculate, verify_sql_plan
 from .schema_repair import SchemaRepair, repair_needs
 from ..retrieval import NullRetriever
+from ..retrieval.contracts import RetrievalFatalError
+from ..retrieval.context import fit_context
 
 
 class Agent:
     pipeline_version = 6
-    def __init__(self, settings: Settings, backend: ChatBackend, split: DatasetSplit | None = None, retriever=None):
+    def __init__(self, settings: Settings, backend: ChatBackend, split: DatasetSplit | None = None, retriever=None, *, ingestor=None):
         self.settings, self.backend = settings, backend
         self.split = split or DatasetSplit(settings.split_root)
-        self.ingestor = Ingestor(self.split, settings.cache_dir)
+        self.ingestor = ingestor if ingestor is not None else Ingestor(self.split, settings.cache_dir)
         self.preparer = BusinessPreparer(settings, self.split)
         self.schema_repair = SchemaRepair(settings, self.split)
+        if retriever is None and settings.rag.mode != 'none':
+            raise DataMateError('RAG bật cần retriever do application tạo')
         self.retriever = retriever if retriever is not None else NullRetriever()
+        self._owns_resources, self._closed = True, False
 
     def close(self):
-        self.retriever.close()
-        close = getattr(self.backend, 'close', None)
-        if close:
-            close()
+        if not self._owns_resources or self._closed:
+            return
+        self._closed = True
+        try:
+            close = getattr(self.backend, 'close', None)
+            if close:
+                close()  # Abort generation before waiting for an encoder batch.
+        finally:
+            self.retriever.close()
 
     def new_worker(self):
         """Isolate per-question/cache controller state; share engine and ingestion."""
-        worker = Agent(self.settings, self.backend, self.split, self.retriever)
-        worker.ingestor = self.ingestor
+        worker = Agent(self.settings, self.backend, self.split, self.retriever, ingestor=self.ingestor)
+        worker._owns_resources = False
         return worker
 
     def run(self, question: Question, remaining_seconds: float | None = None) -> RunResult:
@@ -134,26 +144,26 @@ class Agent:
             prompt_args = (question, self.split.rulebook, self.split.readme(question.business_id), catalog.summary(), request_contract)
             prefix = self.settings.backend == 'vllm' and self.settings.vllm.cache_prompt_prefix
             messages = initial_messages(*prompt_args, cache_prefix=prefix)
+            selected = []
             if self.settings.rag.mode != 'none':
                 chunks, retrieval = self.retriever.retrieve(question.question, question.business_id,
                     self.ingestor.catalog(question.business_id, normalize=False),
                     min(deadline-time.monotonic(), self.settings.rag.timeout_seconds))
-                selected = []
-                for chunk in chunks:
-                    proposal = selected + [chunk]
-                    if self.backend.count_tokens(initial_messages(*prompt_args, cache_prefix=prefix, retrieved_context=proposal)) + self.settings.max_new_tokens > self.settings.max_context_tokens:
-                        continue
-                    if sum(len(item['text']) for item in proposal) > self.settings.rag.context_tokens * 3:
-                        continue
-                    selected = proposal
-                if selected:
-                    messages = initial_messages(*prompt_args, cache_prefix=prefix, retrieved_context=selected)
-                trace.append({'phase':'retrieval', **retrieval, 'selected': [c['source'] for c in selected]})
+                messages, selected, packed = fit_context(chunks,
+                    build_messages=lambda context: initial_messages(*prompt_args, cache_prefix=prefix, retrieved_context=context),
+                    backend=self.backend, settings=self.settings)
+                trace.append({'phase':'retrieval', **retrieval, **packed, 'selected': [c['source'] for c in selected]})
             prompt_snapshot=deepcopy(messages)
             for step in range(self.settings.max_steps):
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     break
+                if selected:
+                    history = messages[2:]
+                    messages, selected, packed = fit_context(selected,
+                        build_messages=lambda context: initial_messages(*prompt_args, cache_prefix=prefix, retrieved_context=context) + history,
+                        backend=self.backend, settings=self.settings)
+                    trace.append({'phase': 'retrieval_context', 'step': step + 1, **packed})
                 calls += int(getattr(self.backend, 'counts_as_model', True))
                 try:
                     raw = self.backend.generate(messages, remaining)
@@ -402,7 +412,7 @@ class Agent:
                     break
                 event['model_observation'] = self._feedback_for_model(feedback)
                 messages.append({'role': 'user', 'content': json_text({'tool_result': event['model_observation']},separators=(',',':'))})
-        except BackendUnavailableError:
+        except (BackendUnavailableError, RetrievalFatalError):
             raise
         except Exception as exc:
             trace.append({'error': f'{type(exc).__name__}: {exc}', 'error_kind': 'runtime'})

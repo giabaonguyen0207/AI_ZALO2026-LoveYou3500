@@ -79,11 +79,21 @@ class RAGSettings:
     embedding_dir: str = 'models/vietnamese-embedding'
     reranker_key: str = 'vietnamese-reranker'
     reranker_dir: str = 'models/vietnamese-reranker'
-    device: str = 'cpu'
-    candidate_k: int = 12
-    context_k: int = 4
-    context_tokens: int = 1200
-    timeout_seconds: float = 45.0
+    device: str = 'cuda:0'
+    dtype: str = 'auto'
+    candidate_k: int = 20
+    context_k: int = 5
+    context_tokens: int = 2048
+    timeout_seconds: float = 8.0
+    chunk_tokens: int = 384
+    chunk_overlap: int = 48
+    embedding_max_tokens: int = 2048
+    rerank_max_tokens: int = 2304
+    rerank_query_max_tokens: int = 256
+    embedding_batch_size: int = 8
+    rerank_batch_size: int = 4
+    index_dir: str | None = None
+    max_cached_businesses: int = 2
 
     def validate(self):
         if self.mode not in {'none', 'dense', 'dense_rerank'}:
@@ -94,10 +104,22 @@ class RAGSettings:
             raise DataMateError('rag.reranker_key phai la checkpoint reranker da kiem chung')
         if self.device not in {'cpu', 'cuda', 'cuda:0', 'cuda:1'}:
             raise DataMateError('rag.device khong hop le')
+        if self.dtype not in {'auto', 'float16', 'bfloat16', 'float32'}:
+            raise DataMateError('rag.dtype không hợp lệ')
         if any(type(v) is not int or v < 1 for v in (self.candidate_k, self.context_k, self.context_tokens)) or self.context_k > self.candidate_k:
             raise DataMateError('rag top-k/token budget khong hop le')
         if type(self.timeout_seconds) not in (int, float) or not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
             raise DataMateError('rag.timeout_seconds phai duong')
+        for name in ('chunk_tokens', 'embedding_max_tokens', 'rerank_max_tokens', 'rerank_query_max_tokens',
+                     'embedding_batch_size', 'rerank_batch_size', 'max_cached_businesses'):
+            if type(getattr(self, name)) is not int or getattr(self, name) < 1:
+                raise DataMateError('rag.' + name + ' phải là số nguyên dương')
+        if (type(self.chunk_overlap) is not int or not 0 <= self.chunk_overlap < self.chunk_tokens
+                or self.chunk_tokens + 2 > self.embedding_max_tokens
+                or self.rerank_query_max_tokens >= self.rerank_max_tokens):
+            raise DataMateError('rag chunk/overlap/encoder token budgets không hợp lệ')
+        if self.index_dir is not None and (not isinstance(self.index_dir, str) or not self.index_dir.strip()):
+            raise DataMateError('rag.index_dir phải là đường dẫn hoặc null')
         return self
 
 
@@ -142,6 +164,8 @@ class Settings:
         return self.question_workers if self.question_workers is not None else min(4, self.vllm.max_num_seqs) if self.backend == 'vllm' else 1
 
     def validate(self) -> Settings:
+        if self.backend == 'torch':
+            self.backend = 'transformers'
         for f in fields(Settings):
             default, value = getattr(Settings(), f.name), getattr(self, f.name)
             if type(default) is int and (type(value) is not int or value < (0 if f.name == 'seed' else 1)):
@@ -223,6 +247,7 @@ class Settings:
         rag = raw.get('rag', {})
         if not isinstance(rag, dict):
             raise DataMateError('rag can JSON object')
+        rag = dict(rag)
         nested = raw.get('vllm', {})
         if not isinstance(nested, dict):
             raise DataMateError('vllm cần JSON object')
@@ -304,6 +329,7 @@ def configure_offline(cache_root: str | Path = ".cache") -> None:
     for name, value in {
         "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", "HF_HUB_DISABLE_TELEMETRY": "1",
         "VLLM_NO_USAGE_STATS": "1", "VLLM_DO_NOT_TRACK": "1", "DO_NOT_TRACK": "1",
+        "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
         "HF_HOME": str(root / "huggingface"), "TORCH_HOME": str(root / "torch"),
         "XDG_CACHE_HOME": str(root), "TOKENIZERS_PARALLELISM": "false",
     }.items():

@@ -51,6 +51,7 @@ def inventory(main_key: str, assistant_key: str | None = None, *, extra_keys=())
             raise DataMateError("Assistant không được nhà phát hành ghép với model chính này")
         specs.append(assistant)
     specs.extend(get_model(key) for key in extra_keys)
+    specs = list({spec.key: spec for spec in specs}.values())
     total = sum(spec.parameters for spec in {spec.key: spec for spec in specs}.values())
     if total > PARAMETER_CAP:
         raise DataMateError(f"Tổng {total:,} tham số vượt giới hạn 15B")
@@ -65,3 +66,30 @@ def inventory_from_settings(settings) -> dict:
     if settings.rag.mode == 'dense_rerank':
         extras.append(settings.rag.reranker_key)
     return inventory(settings.model_key, settings.assistant_key, extra_keys=extras)
+
+
+def model_paths(settings) -> dict:
+    """Every active checkpoint, using the same roles as full inventory."""
+    result = {settings.model_key: settings.model_dir}
+    if settings.assistant_key:
+        result[settings.assistant_key] = settings.assistant_dir
+    if settings.rag.mode != 'none':
+        result[settings.rag.embedding_key] = settings.rag.embedding_dir
+    if settings.rag.mode == 'dense_rerank':
+        result[settings.rag.reranker_key] = settings.rag.reranker_dir
+    return result
+
+
+def relocate_models(settings, paths):
+    settings.model_dir = str(paths[settings.model_key])
+    if settings.assistant_key:
+        settings.assistant_dir = str(paths[settings.assistant_key])
+    if settings.rag.mode != 'none':
+        settings.rag.embedding_dir = str(paths[settings.rag.embedding_key])
+    if settings.rag.mode == 'dense_rerank':
+        settings.rag.reranker_dir = str(paths[settings.rag.reranker_key])
+
+
+def inference_extras(settings) -> str:
+    primary = 'vllm' if settings.backend == 'vllm' else 'llm'
+    return primary + (',rag' if settings.rag.mode != 'none' else '')

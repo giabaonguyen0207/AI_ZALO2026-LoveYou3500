@@ -51,15 +51,6 @@ def _resolve_plan_period(spec,as_of_date,policy):
     # Older models sometimes repeat the anchor or resolved date. These are
     # assertions to check, never alternate anchors and never silently ignored.
     spec=deepcopy(spec)
-    # Models sometimes copy an already-resolved period from request_contract.
-    # Treat an unambiguous ISO start/end pair as the documented ``range`` form
-    # instead of spending a generation merely to add the redundant kind field.
-    # ``inclusive`` is an output property, not an input to resolve_period.
-    if spec.get('kind') is None and {'start', 'end'} <= set(spec):
-        inclusive = spec.pop('inclusive', True)
-        if inclusive is not True or set(spec) - {'start', 'end', 'as_of_date'}:
-            raise DataMateError('range without kind only accepts start/end ISO and inclusive=true')
-        spec['kind'] = 'range'
     if 'as_of_date' in spec and spec.pop('as_of_date')!=as_of_date:
         raise DataMateError('period.as_of_date khác mốc của câu hỏi')
     asserted_date=spec.pop('date',None) if spec.get('kind') in {'today','yesterday'} else None
@@ -67,22 +58,6 @@ def _resolve_plan_period(spec,as_of_date,policy):
     if asserted_date is not None and asserted_date!=resolved['start']:
         raise DataMateError('period.date mâu thuẫn kind theo as_of_date')
     return resolved
-
-
-def _forced_measure(question_text):
-    """Return a measure only for a narrow, unambiguous Vietnamese intent."""
-    from .verification import question_key
-    key = question_key(question_text)
-    debt_terms = (' con no ', ' cong no ', ' no bao nhieu ', ' chua tra ')
-    if any(term in key for term in debt_terms):
-        return None
-    sale_money = (
-        ' doanh thu ' in key
-        or bool(re.search(r'\bban(?: duoc)?(?: bao nhieu)? tien\b', key))
-        or ' tien hang ' in key
-        or ' thu ve bao nhieu tien ' in key
-    )
-    return 'revenue' if sale_money else None
 
 
 def validate_plan(action, question, tools, readme=''):
@@ -98,9 +73,6 @@ def validate_plan(action, question, tools, readme=''):
                            ('type', ANSWER_TYPES - {'abstain','unanswerable'}), ('population', POPULATIONS)):
         if not isinstance(plan.get(field), str) or plan[field] not in choices:
             raise DataMateError(f'plan.{field}={plan.get(field)!r}: cần một chuỗi trong '+', '.join(sorted(choices)))
-    forced_measure = _forced_measure(question.question)
-    if forced_measure and plan['measure'] != forced_measure:
-        raise DataMateError('Cau hoi hoi tien ban/doanh thu; plan.measure phai la revenue, khong chuyen sang '+plan['measure'])
     if plan.get('evidence_id') == 'Q' and 'evidence' not in plan:
         plan['evidence'] = question.question
     elif 'evidence_id' in plan and plan['evidence_id'] != 'Q':

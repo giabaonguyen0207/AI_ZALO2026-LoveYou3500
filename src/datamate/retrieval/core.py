@@ -1,19 +1,21 @@
-"""Local, source-scoped retrieval over rulebook, README and raw schema.
-
-Retrieved text is evidence for planning, never a substitute for SQL over rows.
-"""
+"""Local Vietnamese retrieval: source-scoped corpus, reusable index and adapters."""
 from __future__ import annotations
 
+from collections import OrderedDict
+from dataclasses import asdict, dataclass, field
 import hashlib
+import json
+from pathlib import Path
 import re
 import threading
 import time
-from dataclasses import dataclass
 
+from ..data.split import ensure_outside_dataset
 from ..domain import DataMateError
-from ..models.artifacts import verify_artifact
-from ..models.artifacts import sha256
-from ..data.transforms import search_key
+from ..models.artifacts import sha256, verify_artifact
+from .contracts import RetrievalFatalError, RetrievalTimeoutError
+from .encoders import VietnameseEncoders, validate_vectors
+from . import index as disk_index
 
 
 @dataclass(frozen=True)
@@ -22,201 +24,252 @@ class Chunk:
     source: str
     scope: str
     digest: str
+    metadata: dict = field(default_factory=dict)
 
     def to_dict(self):
-        return {'text': self.text, 'source': self.source, 'scope': self.scope, 'source_sha256': self.digest}
+        return {**self.metadata, 'text': self.text, 'source': self.source,
+                'scope': self.scope, 'source_sha256': self.digest}
 
 
-def sections(text: str, source: str, scope: str) -> list[Chunk]:
-    digest = hashlib.sha256(text.encode('utf-8')).hexdigest()
-    result, current, heading = [], [], ''
-    for line in text.splitlines():
+def sections(text, source, scope, *, tokenizer, chunk_tokens=384, overlap=48,
+             source_sha256=None, metadata=None):
+    """Split original text by headings and actual embedding-token budget."""
+    digest = source_sha256 or hashlib.sha256(text.encode('utf-8')).hexdigest()
+    groups, current = [], []
+    for line in text.splitlines(keepends=True):
         if line.lstrip().startswith('#') and current:
-            content = '\n'.join(current).strip()
-            if content:
-                result.append(Chunk(content, source, scope, digest))
+            groups.append(''.join(current).strip())
             current = []
-        if line.lstrip().startswith('#'):
-            heading = line
-        if current and sum(len(item) for item in current) + len(line) > 1800:
-            result.append(Chunk('\n'.join(current).strip(), source, scope, digest))
-            current = [heading] if heading else []
         current.append(line)
     if current:
-        content = '\n'.join(current).strip()
-        if content:
-            result.append(Chunk(content, source, scope, digest))
+        groups.append(''.join(current).strip())
+    result = []
+    count = lambda value: len(tokenizer.encode(value, add_special_tokens=False))
+    for section_number, value in enumerate(groups):
+        if not value:
+            continue
+        heading = value.splitlines()[0] if value.startswith('#') else ''
+        if count(heading) >= chunk_tokens // 2:
+            heading = ''
+        position = 0
+        while position < len(value):
+            prefix = heading + '\n' if position and heading else ''
+            low, high = 1, len(value) - position
+            while low < high:
+                mid = (low + high + 1) // 2
+                if count(prefix + value[position:position + mid]) <= chunk_tokens:
+                    low = mid
+                else:
+                    high = mid - 1
+            piece = prefix + value[position:position + low]
+            if count(piece) > chunk_tokens:
+                raise DataMateError('Embedding token budget cannot fit a source character')
+            end = position + low
+            chunk_id = disk_index.fingerprint([scope, source, digest, section_number, position, end, chunk_tokens, overlap])
+            result.append(Chunk(piece, source, scope, digest,
+                                {**(metadata or {}), 'chunk_id': chunk_id, 'section': section_number,
+                                 'start_character': position, 'end_character': end}))
+            if end == len(value):
+                break
+            # Retain a token-bounded suffix without re-encoding/rewriting source.
+            start = end
+            while start > position + 1 and count(value[start - 1:end]) <= overlap:
+                start -= 1
+            position = max(position + 1, start)
     return result
 
 
 class NullRetriever:
+    def prepare(self, business_ids, *, ingestor, remaining_seconds):
+        pass
+
     def retrieve(self, question, business_id, catalog, remaining_seconds):
         return [], {'mode': 'none', 'status': 'disabled'}
+
+    def identity(self):
+        return {'mode': 'none'}
+
+    def runtime_info(self):
+        return self.identity()
 
     def close(self):
         pass
 
 
 class ContextRetriever:
-    def __init__(self, settings, split):
+    def __init__(self, settings, split, *, cache_dir='.cache/datamate', encoder=None):
         self.settings, self.split = settings, split
-        self.encoder = self.reranker = None
-        self.index = {}
         self.lock = threading.RLock()
+        self._closed = threading.Event()
+        self.index = OrderedDict()
         self.embedding_manifest = verify_artifact(settings.embedding_dir, settings.embedding_key)
         self.reranker_manifest = (verify_artifact(settings.reranker_dir, settings.reranker_key)
                                   if settings.mode == 'dense_rerank' else None)
+        self.encoder = encoder or VietnameseEncoders(settings)
+        self.cache_dir = ensure_outside_dataset(settings.index_dir or Path(cache_dir) / 'retrieval', split.root)
+        self._source_hash = disk_index.fingerprint({
+            p.name: sha256(p) for p in sorted(Path(__file__).parent.glob('*.py'))})
+        self._stats = {'prepare_seconds': 0.0, 'cache_hits': 0, 'cache_builds': 0}
+        self._prepared = set()
 
-    def _load(self):
-        if self.encoder is not None:
-            return
-        # No hub identifiers or remote code reach model loaders at inference.
-        from transformers import AutoModel, AutoModelForSequenceClassification, AutoTokenizer
-        import torch
-        self.torch = torch
-        self.encoder_tokenizer = AutoTokenizer.from_pretrained(self.settings.embedding_dir, local_files_only=True, trust_remote_code=False)
-        self.encoder = AutoModel.from_pretrained(self.settings.embedding_dir, local_files_only=True, trust_remote_code=False).to(self.settings.device).eval()
-        if self.reranker_manifest:
-            self.reranker_tokenizer = AutoTokenizer.from_pretrained(self.settings.reranker_dir, local_files_only=True, trust_remote_code=False)
-            self.reranker = AutoModelForSequenceClassification.from_pretrained(
-                self.settings.reranker_dir, local_files_only=True, trust_remote_code=False).to(self.settings.device).eval()
+    def identity(self):
+        return {'mode': self.settings.mode, 'settings': asdict(self.settings),
+                'embedding': self.embedding_manifest, 'reranker': self.reranker_manifest,
+                'source_sha256': self._source_hash}
 
-    def _encode(self, texts):
-        self._load()
-        vectors = []
-        for start in range(0, len(texts), 8):
-            encoded = self.encoder_tokenizer(texts[start:start + 8], padding=True, truncation=True,
-                                             max_length=2048, return_tensors='pt').to(self.settings.device)
-            with self.torch.inference_mode():
-                hidden = self.encoder(**encoded).last_hidden_state[:, 0, :].float()
-                hidden = self.torch.nn.functional.normalize(hidden, p=2, dim=-1)
-            if hidden.shape[1] != 1024 or not self.torch.isfinite(hidden).all():
-                raise DataMateError('Embedding shape/values invalid')
-            vectors.extend(hidden.cpu().tolist())
-        return vectors
+    def runtime_info(self):
+        return {**self.identity(), **self._stats, 'closed': self._closed.is_set(),
+                'device': self.settings.device, 'dtype': getattr(self.encoder, 'dtype', None),
+                'cached_businesses': len(self.index)}
+
+    def _check(self, deadline):
+        if self._closed.is_set():
+            raise RetrievalFatalError('Retriever is closed')
+        if time.monotonic() >= deadline:
+            raise RetrievalTimeoutError('RAG deadline exhausted')
 
     def _corpus(self, business_id, catalog):
-        readme = self.split.readme(business_id)
-        chunks = sections(self.split.rulebook, 'rulebook.md', 'split')
-        chunks += sections(readme, f'data/{business_id}/README.md', business_id)
-        # Catalog is built from raw files; no generated binding, answer or trace is indexed.
-        digests = {}
+        root = self.split.root
+        business_root = self.split.business_path(business_id)
+        metadata = {'split_fingerprint': catalog.fingerprint}
+        result = []
+
+        def document(text, path, scope, extra):
+            result.extend(sections(text, path.relative_to(root).as_posix(), scope,
+                tokenizer=self.encoder.tokenizer, chunk_tokens=self.settings.chunk_tokens,
+                overlap=self.settings.chunk_overlap, source_sha256=sha256(path),
+                metadata={**metadata, **extra}))
+
+        self.encoder.load()
+        document(self.split.rulebook, root / 'rulebook.md', 'split', {'source_kind': 'rulebook'})
+        readme_path = business_root / 'README.md'
+        if readme_path.is_file():
+            document(self.split.readme(business_id), readme_path, business_id, {'source_kind': 'readme'})
+        files = sorted(p for p in business_root.rglob('*') if p.is_file()
+                       and p.suffix.lower() in {'.csv', '.xlsx', '.sqlite', '.db'})
         for table in catalog.tables:
             if table['name'] == 'calendar':
                 continue
-            source = str(table.get('file') or table.get('source') or table['name'])
-            columns = table.get('columns', [])
-            names = [c['name'] if isinstance(c, dict) else str(c) for c in columns]
-            description = f"Bảng {table['name']} từ {source}; cột: {', '.join(names)}"
-            path = (self.split.business_path(business_id) / source).resolve()
-            root = self.split.business_path(business_id).resolve()
-            if source not in digests:
-                digests[source] = sha256(path) if path.is_relative_to(root) and path.is_file() else hashlib.sha256(description.encode('utf-8')).hexdigest()
-            chunks.append(Chunk(description, f'data/{business_id}/{source}', business_id, digests[source]))
-        return chunks
+            # Ingestor assigns raw_<sorted file index>_<table/sheet>. Its
+            # public file field is a basename, so reconstruct nested paths from
+            # the same raw-file ordering rather than claiming a description hash.
+            match = re.match(r'raw_(\d+)(?:_|$)', table['name'])
+            path = files[int(match[1])] if match and int(match[1]) < len(files) else None
+            if path is None:
+                candidates = [p for p in files if p.name == table.get('file')]
+                path = candidates[0] if len(candidates) == 1 else None
+            if path is None or not path.resolve().is_relative_to(business_root.resolve()):
+                raise RetrievalFatalError('Cannot establish raw-schema source provenance')
+            columns = [c['name'] if isinstance(c, dict) else str(c) for c in table.get('columns', [])]
+            description = f"Bảng {table['name']} từ {path.relative_to(business_root)}; cột: {', '.join(columns)}"
+            document(description, path, business_id, {'source_kind': 'schema', 'table': table['name'],
+                                                     'sheet': table.get('sheet'), 'columns': columns})
+        return result
 
-    @staticmethod
-    def _question_specific_boost(question, chunk):
-        """Tie-break near-equal chunks using facts explicitly present in the query."""
-        text = search_key(chunk.text)
-        raw = chunk.text.lower()
-        q = search_key(question)
-        boost = 0.0
-        for month, year in re.findall(r'(?<!\d)(\d{1,2})\s*/\s*(\d{4})(?!\d)', question):
-            marker = rf'(?:t|thang|month)[ _-]*0?{int(month)}[ _/-]*{year}'
-            if re.search(marker, raw):
-                boost += 0.35
-        if 'huy' in q and any(term in text for term in ('ty le don huy', 'don bi huy', 'trang thai huy')):
-            boost += 0.20
-        if ('doanh thu' in q or ('ban' in q and 'tien' in q)) and any(term in text for term in ('doanh thu', 'thanh tien', 'line_amount')):
-            boost += 0.20
-        return boost
+    def _index(self, business_id, catalog, deadline):
+        key = (business_id, catalog.fingerprint)
+        if key in self.index:
+            self.index.move_to_end(key)
+            return self.index[key]
+        self._check(deadline)
+        chunks = self._corpus(business_id, catalog)
+        self._check(deadline)
+        identity = {'business_id': business_id, 'catalog': catalog.fingerprint,
+                    'rulebook': self.split.rulebook_hash, 'embedding': self.embedding_manifest,
+                    'source_code': self._source_hash,
+                    'encoding': {name: getattr(self.settings, name) for name in
+                        ('embedding_max_tokens', 'chunk_tokens', 'chunk_overlap', 'dtype', 'device')},
+                    'chunks': [c.to_dict() for c in chunks]}
+        folder = self.cache_dir / disk_index.fingerprint(identity)
+        vectors = disk_index.load(folder, identity, chunks)
+        if vectors is None:
+            self._check(deadline)
+            vectors = validate_vectors(self.encoder.encode([c.text for c in chunks],
+                        remaining_seconds=deadline - time.monotonic()), expected_rows=len(chunks))
+            self._check(deadline)
+            disk_index.save(folder, identity, chunks, vectors)
+            self._stats['cache_builds'] += 1
+        else:
+            self._stats['cache_hits'] += 1
+        self._check(deadline)
+        self.index[key] = (chunks, vectors)
+        while len(self.index) > self.settings.max_cached_businesses:
+            self.index.popitem(last=False)
+        return chunks, vectors
+
+    def prepare(self, business_ids, *, ingestor, remaining_seconds):
+        started = time.monotonic()
+        deadline = started + remaining_seconds
+        with self.lock:
+            try:
+                self._check(deadline)
+                self.encoder.load()
+                for business_id in sorted(set(business_ids)):
+                    self._check(deadline)
+                    catalog = ingestor.catalog(business_id, normalize=False)
+                    self._index(business_id, catalog, deadline)
+                    self._prepared.add(business_id)
+            except (RetrievalTimeoutError, RetrievalFatalError):
+                raise
+            except Exception as exc:
+                raise RetrievalFatalError(f'RAG preparation failed: {exc}') from exc
+            finally:
+                self._stats['prepare_seconds'] += time.monotonic() - started
 
     def retrieve(self, question, business_id, catalog, remaining_seconds):
-        # Workers share the encoder and index; avoid duplicate initialization.
-        started = time.monotonic()
+        start = time.monotonic()
+        deadline = start + max(0, remaining_seconds)
+        self._check_closed()
         if not self.lock.acquire(timeout=max(0, remaining_seconds)):
             return [], {'mode': self.settings.mode, 'status': 'timeout', 'phase': 'lock'}
         try:
-            return self._retrieve_locked(question, business_id, catalog,
-                                         remaining_seconds - (time.monotonic() - started))
+            self._check(deadline)
+            chunks, vectors = self._index(business_id, catalog, deadline)
+            query = validate_vectors(self.encoder.encode([question],
+                remaining_seconds=deadline-time.monotonic()), expected_rows=1)[0]
+            self._check(deadline)
+            scores = vectors @ query
+            candidates = sorted(range(len(chunks)), key=lambda i: (-float(scores[i]), chunks[i].metadata['chunk_id']))[:self.settings.candidate_k]
+            rerank_scores = {}
+            if self.settings.mode == 'dense_rerank' and candidates:
+                values = self.encoder.score(question, [chunks[i].text for i in candidates],
+                                            remaining_seconds=deadline-time.monotonic())
+                if len(values) != len(candidates):
+                    raise DataMateError('Reranker alignment mismatch')
+                rerank_scores = dict(zip(candidates, values))
+                candidates.sort(key=lambda i: (-rerank_scores[i], -float(scores[i]), chunks[i].metadata['chunk_id']))
+            self._check(deadline)
+            chosen = [{**chunks[i].to_dict(), 'dense_score': float(scores[i]),
+                       'rerank_score': rerank_scores.get(i)} for i in candidates[:self.settings.context_k]]
+            return chosen, {'mode': self.settings.mode, 'status': 'ok' if chosen else 'empty',
+                            'candidate_count': len(candidates), 'seconds': time.monotonic()-start,
+                            'index_fingerprint': catalog.fingerprint,
+                            'selected_sources': [c['source'] for c in chosen]}
+        except RetrievalFatalError:
+            raise
+        except RetrievalTimeoutError as exc:
+            return [], {'mode': self.settings.mode, 'status': 'timeout', 'error': str(exc),
+                        'seconds': time.monotonic()-start}
+        except (DataMateError, ValueError) as exc:
+            return [], {'mode': self.settings.mode, 'status': 'fallback', 'error': str(exc),
+                        'seconds': time.monotonic()-start}
+        except Exception as exc:
+            raise RetrievalFatalError(f'RAG infrastructure failure: {exc}') from exc
         finally:
             self.lock.release()
 
-    def _retrieve_locked(self, question, business_id, catalog, remaining_seconds):
-        start = time.monotonic()
-        if remaining_seconds <= 0:
-            return [], {'mode': self.settings.mode, 'status': 'timeout'}
-        try:
-            key = (business_id, catalog.fingerprint, self.split.rulebook_hash)
-            if key not in self.index:
-                chunks = self._corpus(business_id, catalog)
-                self.index[key] = (chunks, [])
-            chunks, vectors = self.index[key]
-            # Persist progress in memory when a CPU index takes longer than
-            # one question budget. Subsequent questions resume at this chunk.
-            while len(vectors) < len(chunks):
-                if time.monotonic() - start >= remaining_seconds:
-                    return [], {'mode': self.settings.mode, 'status': 'timeout', 'phase': 'index',
-                                'indexed_chunks': len(vectors), 'total_chunks': len(chunks)}
-                batch = chunks[len(vectors):len(vectors) + 4]
-                vectors.extend(self._encode([c.text for c in batch]))
-            if time.monotonic() - start >= remaining_seconds:
-                return [], {'mode': self.settings.mode, 'status': 'timeout', 'phase': 'index',
-                            'indexed_chunks': len(vectors), 'total_chunks': len(chunks)}
-            query = self._encode([question])[0]
-            scores = [sum(a*b for a, b in zip(query, vector)) for vector in vectors]
-            retrieval_scores = [score + self._question_specific_boost(question, chunk)
-                                for score, chunk in zip(scores, chunks)]
-            candidates = sorted(range(len(chunks)), key=lambda i: (-retrieval_scores[i], chunks[i].source, i))[:self.settings.candidate_k]
-            # Keep a directly relevant split/business-document chunk in the
-            # reranker pool.  Otherwise several near-identical workbook-sheet
-            # schemas can crowd out the rule that defines the requested metric.
-            for scope in ('split', business_id):
-                scoped = [i for i, chunk in enumerate(chunks)
-                          if chunk.scope == scope and self._question_specific_boost(question, chunk) > 0]
-                if not scoped:
-                    continue
-                best = max(scoped, key=lambda i: (retrieval_scores[i], -i))
-                if best not in candidates:
-                    candidates[-1] = best
-                    candidates = list(dict.fromkeys(candidates))
-            if self.reranker is not None and candidates:
-                query_ids = self.reranker_tokenizer(question, add_special_tokens=False, truncation=True, max_length=256)['input_ids']
-                short_query = self.reranker_tokenizer.decode(query_ids, skip_special_tokens=True)
-                pairs = [(short_query, chunks[i].text) for i in candidates]
-                reranked = []
-                for offset in range(0, len(pairs), 4):
-                    if time.monotonic() - start >= remaining_seconds:
-                        return [], {'mode': self.settings.mode, 'status': 'timeout', 'phase': 'rerank',
-                                    'scored_candidates': len(reranked)}
-                    encoded = self.reranker_tokenizer(pairs[offset:offset + 4], padding=True, truncation='only_second',
-                                                       max_length=2304, return_tensors='pt').to(self.settings.device)
-                    with self.torch.inference_mode():
-                        logits = self.reranker(**encoded).logits.view(-1).float().cpu().tolist()
-                    reranked.extend(logits)
-                rerank_scores = dict(zip(candidates, reranked))
-                candidates.sort(key=lambda i: (-rerank_scores[i], -retrieval_scores[i], i))
-            chosen = [chunks[i].to_dict() for i in candidates[:self.settings.context_k]]
-            if time.monotonic() - start >= remaining_seconds:
-                return [], {'mode': self.settings.mode, 'status': 'timeout', 'phase': 'search'}
-            return chosen, {'mode': self.settings.mode, 'status': 'ok', 'candidate_count': len(candidates),
-                            'selected_sources': [c['source'] for c in chosen],
-                            'seconds': round(time.monotonic() - start, 4)}
-        except RuntimeError as exc:
-            if 'out of memory' in str(exc).lower():
-                raise
-            return [], {'mode': self.settings.mode, 'status': 'fallback', 'error': str(exc)[:250]}
-        except (DataMateError, ValueError) as exc:
-            return [], {'mode': self.settings.mode, 'status': 'fallback', 'error': str(exc)[:250],
-                        'seconds': round(time.monotonic() - start, 4)}
+    def _check_closed(self):
+        if self._closed.is_set():
+            raise RetrievalFatalError('Retriever is closed')
 
     def close(self):
-        self.encoder = self.reranker = None
-        self.index.clear()
+        self._closed.set()  # Pending callers cannot reload while close waits.
+        with self.lock:
+            self.encoder.close()
+            self.index.clear()
 
 
 def build_retriever(settings, split):
     if settings.rag.mode == 'none':
         return NullRetriever()
-    return ContextRetriever(settings.rag, split)
+    return ContextRetriever(settings.rag, split, cache_dir=settings.cache_dir)

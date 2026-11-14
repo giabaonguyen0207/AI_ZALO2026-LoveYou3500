@@ -90,10 +90,6 @@ def answer_from_query(answer_type, result, columns=None, percent_places=None):
     if columns is not None:
         if not isinstance(columns, list) or not columns or len(set(columns))!=len(columns):
             raise DataMateError("columns cần list tên cột không trùng")
-        # The sole column of a verified scalar result needs no model-written
-        # column name; using the actual name avoids repeated projection errors.
-        if answer_type != 'table' and len(names) == 1 and len(rows) == 1 and len(columns) == 1:
-            columns = list(names)
         if len(set(names)) != len(names) or any(name not in names for name in columns):
             raise DataMateError("Tên cột chiếu không tồn tại hoặc query có tên cột trùng")
         indexes = [names.index(name) for name in columns]

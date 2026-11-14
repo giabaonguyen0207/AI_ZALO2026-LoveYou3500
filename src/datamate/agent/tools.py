@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import difflib
 import re
 import sqlite3
 import time
@@ -101,31 +100,6 @@ class BusinessTools:
             predicates = " AND ".join(f"search_key({quote(name)}) LIKE ? ESCAPE '\\'" for _ in tokens)
             escaped = ["%"+t.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%" for t in tokens]
             found = self.executor.execute(f"SELECT {quote(key)},{quote(identifier)},{quote(name)} FROM {relation} WHERE {quote(key)} IS NOT NULL AND ({predicates}) GROUP BY 1,2,3 ORDER BY 1 LIMIT ?",[*escaped,limit+1])
-        if not found['rows']:
-            # Fuzzy is an ambiguity-aware lookup aid. Never promote a nearest
-            # label into a filter or a final answer without a unique key.
-            # Some businesses have no dimension rows: names only occur in
-            # transaction lines. Preserve their normalized keys from facts.
-            sources = [f'SELECT {quote(key)},{quote(identifier)},{quote(name)} FROM dm_sales_all WHERE {quote(name)} IS NOT NULL']
-            if entity == 'customer':
-                sources.append(f'SELECT {quote(key)},{quote(identifier)},{quote(name)} FROM dm_orders_all WHERE {quote(name)} IS NOT NULL')
-            sources.append(f'SELECT NULL,{quote(identifier)},{quote(name)} FROM {dimension} WHERE {quote(name)} IS NOT NULL')
-            with sqlite3.connect(self.catalog.database.resolve().as_uri() + '?mode=ro', uri=True) as db:
-                rows = db.execute(' UNION '.join(sources) + ' LIMIT 20001').fetchall()
-            scored = []
-            for value_key, value_id, value_name in rows[:20000]:
-                folded_name = search_key(str(value_name))
-                similarity = difflib.SequenceMatcher(None, folded, folded_name).ratio()
-                if similarity >= 0.75:
-                    resolved_key = value_key if value_key is not None else str(value_id) if coded and value_id is not None else folded_name
-                    scored.append((similarity, resolved_key, value_id, value_name))
-            scored.sort(key=lambda item: (-item[0], item[1]))
-            candidates = [{"key":k,"id":value_id,"name":value_name,"similarity":round(score,3)}
-                          for score,k,value_id,value_name in scored[:limit]]
-            return {"entity":entity,"query":text,"candidates":candidates,
-                    "ambiguous":len({c['key'] for c in candidates})!=1,
-                    "truncated":len(rows)>20000 or len(scored)>limit,
-                    "match_kind":"fuzzy_candidates", "output_names_keep_diacritics":True}
         candidates = [{"key":k,"id":identifier,"name":n} for k,identifier,n in found["rows"][:limit]]
         return {"entity":entity,"query":text,"candidates":candidates,
                 "ambiguous":len({c['key'] for c in candidates})!=1, "truncated":found["truncated"] or len(found["rows"])>limit,
@@ -273,7 +247,7 @@ class BusinessTools:
                 raise DataMateError("Entity key không tồn tại")
             return key
         found = self.lookup(entity,value)
-        if found["ambiguous"] or found["truncated"] or found.get('match_kind') == 'fuzzy_candidates':
+        if found["ambiguous"] or found["truncated"]:
             raise DataMateError("Tên không có ứng viên duy nhất; dùng lookup và chọn key có bằng chứng, không đoán hoặc coi bằng 0")
         return found["candidates"][0]["key"]
 

@@ -9,30 +9,46 @@ from pathlib import Path
 from .agent.runner import Agent
 from .config import Settings
 from .data.split import DatasetSplit, ensure_outside_dataset, read_jsonl
+from .data.ingest import Ingestor
 from .domain import Answer, DataMateError, Question, RunResult, json_text
 from .debug_log import write_debug_log
 from .models.backends import build_backend
-from .models.registry import inventory_from_settings
+from .models.registry import inventory_from_settings, model_paths
 from .retrieval import build_retriever
 from .models.artifacts import sha256
 from .models.runtime import runtime_identity
 from .batching import run_questions
 
 
-def create_agent(settings: Settings, *, remaining_seconds=None) -> Agent:
+def create_agent(settings: Settings, *, business_ids=None, remaining_seconds=None) -> Agent:
+    started = time.monotonic()
     settings.validate()
+    deadline = started + (settings.wall_time_seconds if remaining_seconds is None else remaining_seconds)
     inventory_from_settings(settings)
     split = DatasetSplit(settings.split_root)
     # Check writable outputs before loading a large model.
     ensure_outside_dataset(settings.cache_dir, split.root)
     ensure_outside_dataset(settings.result_dir, split.root)
+    if settings.rag.index_dir:
+        ensure_outside_dataset(settings.rag.index_dir, split.root)
     retriever = build_retriever(settings, split)
-    backend = build_backend(settings, remaining_seconds=remaining_seconds) if settings.backend == 'vllm' else build_backend(settings)
+    backend = None
     try:
-        return Agent(settings, backend, split, retriever)
+        ingestor = Ingestor(split, settings.cache_dir)
+        if settings.rag.mode != 'none':
+            selected = sorted(set(business_ids if business_ids is not None else [q.business_id for q in split.questions()]))
+            retriever.prepare(selected, ingestor=ingestor, remaining_seconds=deadline-time.monotonic())
+        if time.monotonic() >= deadline:
+            raise DataMateError('Hết wall budget khi chuẩn bị RAG/model')
+        backend = (build_backend(settings, remaining_seconds=deadline-time.monotonic())
+                   if settings.backend == 'vllm' else build_backend(settings))
+        return Agent(settings, backend, split, retriever, ingestor=ingestor)
     except BaseException:
-        retriever.close()
-        backend.close()
+        try:
+            if backend is not None:
+                backend.close()
+        finally:
+            retriever.close()
         raise
 
 
@@ -68,8 +84,7 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
     identity["input_hashes"] = {p.relative_to(split.root).as_posix(): sha256(p) for p in input_files}
     if settings.backend != "demo":
         identity["artifact_manifests"] = {}
-        rag_folders = ([settings.rag.embedding_dir] if settings.rag.mode != 'none' else []) + ([settings.rag.reranker_dir] if settings.rag.mode == 'dense_rerank' else [])
-        for folder in (settings.model_dir, settings.assistant_dir, *rag_folders):
+        for folder in model_paths(settings).values():
             if folder:
                 manifest_path = Path(folder) / "artifact_manifest.json"
                 if not manifest_path.exists():
@@ -103,11 +118,14 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
             todo = []
         if todo:
             print('Đang nạp model và chuẩn bị dữ liệu...', flush=True)
-            agent = create_agent(settings, remaining_seconds=deadline-time.monotonic())
+            agent = create_agent(settings, business_ids=sorted({q.business_id for q in todo}),
+                                 remaining_seconds=deadline-time.monotonic())
             print(f'Model đã sẵn sàng sau {time.monotonic()-started:.1f}s; bắt đầu trả lời.', flush=True)
         loaded_seconds = time.monotonic()-started
         if agent and callable(getattr(agent.backend, 'runtime_info', None)):
             (result_dir / 'runtime.json').write_text(json_text(agent.backend.runtime_info(), indent=2), encoding='utf-8')
+        if agent and settings.rag.mode != 'none':
+            (result_dir / 'retrieval_runtime.json').write_text(json_text(agent.retriever.runtime_info(), indent=2), encoding='utf-8')
         with output.open('a' if resume else 'w', encoding='utf-8', newline='\n') as handle:
             runs = run_questions(agent, todo, settings.effective_workers, deadline, state) if agent else iter(())
             try:
