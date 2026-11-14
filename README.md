@@ -17,6 +17,7 @@ tests/              Kiểm thử bằng fixture; không cần full weights
 configs/            Preset model và cấu hình submission
 notebooks/
   DataMate_Colab_Inference.ipynb  Notebook GPU chính, chọn nền tảng ở ô đầu
+  DataMate_Colab_Finetuned_Compare.ipynb  Bảo: model stage2 hoàn tất, ba cấu hình đối chứng
   DataMate_Colab_Team200.ipynb    Benchmark 200 câu tùy chọn
   training/                     Notebook training
 tools/              Tạo notebook, kiểm dữ liệu, đánh giá và đóng gói
@@ -55,7 +56,7 @@ Không dùng môi trường này cho full-checkpoint inference. Dependency GPU �
 
 Đọc [hướng dẫn GPU](docs/run-gpu.md). Tạo gói source trên máy cá nhân:
 
-**Bảo chạy Colab Pro với checkpoint-198:** dùng [notebook đối chứng riêng](notebooks/DataMate_Colab_Checkpoint198_Compare.ipynb) và [hướng dẫn checkpoint](docs/colab-checkpoint198.md). Adapter được merge một lần trên Colab với đúng base đã train; cả baseline/vLLM/RAG dùng cùng full model đã seal. Chưa chạy model GPU trong đợt chuẩn bị này.
+**Bảo chạy Colab Pro với bản fine-tune stage 2 hoàn tất (1 + 0,5 epoch):** dùng [notebook đối chứng](notebooks/DataMate_Colab_Finetuned_Compare.ipynb) và [hướng dẫn đầy đủ](docs/colab-finetuned-compare.md). Nguồn là `qwen35-9b-sql-stage2-v1-full-01/adapter`, giữ report hoàn tất gốc. Merge một lần trên Colab với đúng base đã train; cả baseline/vLLM/RAG dùng cùng full model đã seal. Chưa có số đo inference GPU cho bản ghép. Notebook này thay bản checkpoint198 để có một đường chạy chính.
 
 ```powershell
 .\.venv\Scripts\python.exe tools/package_colab.py

@@ -1,0 +1,28 @@
+{
+  "source_kind": "completed_adapter",
+  "model_key": "qwen35-9b",
+  "expected_base_manifest_sha256": "f8b32a3f0b36609c4065a72af44938fa27ba68e4b2d70ef45a8d43b1cc37399e",
+  "source_global_step": 198,
+  "source_stage_epoch": 0.5003158559696779,
+  "source_training_report_sha256": "9a09f391253ab39dd520d5862758f33f52cd461ee4f7830379816b35ac6d3d85",
+  "verified_epoch_chain": [
+    {
+      "training_report_sha256": "fcc245948098d3f6786d136249e31c0ab28ce1978bc442604c5f666bb1e94bf7",
+      "global_step": 298,
+      "requested_epochs": 1,
+      "observed_epoch": 1.0
+    },
+    {
+      "training_report_sha256": "9a09f391253ab39dd520d5862758f33f52cd461ee4f7830379816b35ac6d3d85",
+      "global_step": 198,
+      "requested_epochs": 0.5,
+      "observed_epoch": 0.5003158559696779
+    }
+  ],
+  "total_epochs_independently_verified": true,
+  "verified_requested_total_epochs": 1.5,
+  "archive_sha256": "642a4c4c4454981e5706e462a61b7e055d05e574f2d38e435a4008359947b9c9",
+  "archive_name": "qwen35-9b-stage2-final-inference.zip",
+  "label": "qwen35-9b-sql-stage2-v1-full-01",
+  "adapter_sha256": "f346ad51cd37abe3ea5f9d127bd506f4c45f1341c836c8fbd54c86c6426a4ebe"
+}

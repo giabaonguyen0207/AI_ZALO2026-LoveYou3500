@@ -2,7 +2,7 @@
 
 Dùng cùng source và CLI trên Colab, Kaggle hoặc GPU thuê. Không copy vòng agent sang notebook. Đọc [README](../README.md) trước.
 
-Lựa chọn hiện tại của Bảo là **Colab Pro + checkpoint-198 đã fine-tune**: [notebook/hướng dẫn riêng](colab-checkpoint198.md), dùng cùng model merged cho cả ba cấu hình. Không truyền thư mục LoRA chưa merge vào `--model-dir`.
+Lựa chọn hiện tại của Bảo là **Colab Pro + adapter stage2 hoàn tất, đã đối chiếu chuỗi 1 + 0,5 epoch**: [notebook/hướng dẫn riêng](colab-finetuned-compare.md), dùng cùng model merged cho cả ba cấu hình. Không truyền thư mục LoRA chưa merge vào `--model-dir`. Các ví dụ generic dưới đây dùng preset model; khi chạy bản fine-tune bằng CLI phải trỏ `--model-dir` tới full model merged tương ứng.
 
 ## Chuẩn bị
 

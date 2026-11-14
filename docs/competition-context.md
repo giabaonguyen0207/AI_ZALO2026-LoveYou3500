@@ -6,7 +6,7 @@ Nguồn quy định bên dưới là bản tổng hợp người dùng cung cấ
 
 Quyết định dự án ngày 09/11/2026: code dùng chung modular monolith, hướng tích hợp Adapter + Strategy; Hải phụ trách vLLM, Thịnh phụ trách RAG. Mỗi người tự chọn benchmark, chạy baseline trước rồi so bản tích hợp trên cùng tập đã chọn. Không bắt buộc bộ 200 câu chung. Xem [kiến trúc](architecture.md) và [hai plan](plans/).
 
-Chạy full-checkpoint inference trên Colab/Kaggle/GPU thuê; máy local chỉ phát triển và kiểm thử CPU. Qwen 4B/local presets và web đã bỏ khỏi runtime. VLLM/RAG vẫn là đầu việc tích hợp, chưa triển khai trong đợt dọn này. Pipeline nghiệp vụ giữ phiên bản 6. Docker submission là bước đóng gói offline cuối cùng, base image chính thức còn cần đối chiếu guideline.
+Chạy full-checkpoint inference trên Colab/Kaggle/GPU thuê; máy local chỉ phát triển và kiểm thử CPU. Qwen 4B/local presets và web đã bỏ khỏi runtime. Sau hợp nhất ngày14/11, adapter vLLM/RAG đã ghép và kiểm bằng fixture CPU, chưa xác nhận inference GPU của bản ghép. Pipeline nghiệp vụ giữ phiên bản6. Docker submission là bước đóng gói offline cuối cùng, base image chính thức còn cần đối chiếu guideline.
 
 Lịch sử nguồn, các lần benchmark và rollback trước khi dọn được giữ tại [nhật ký cũ](history/competition-provenance-through-2026-11-09.md). Báo cáo số đo cũ không thay baseline cho thay đổi mới. Xem [báo cáo dọn bố cục](team-layout-2026-11-09.md).
 
@@ -441,3 +441,7 @@ Purpose: retain enough factual context for future work on the competition agent,
 ## 11. Internal engineering update — November 14, 2026
 
 Source: project owner's request, fetched team branches and local Hải benchmark logs; see [integration report](integration-vllm-rag-2026-11-14.md). Team decisions: Adapter + Strategy, independent generator backend/retrieval selection, three-arm current-source evaluation. Observed Hải timings are diagnostic 24-question evidence without labels, with deadline/answer differences; they do not establish quality or full private-test runtime. This integration has CPU fixture verification, not a full-checkpoint GPU/Docker result. No additional official organizer guideline or base-image requirement was independently established by this update.
+
+### Completed fine-tune artifact received November 14
+
+Source: owner supplied `outputs/runs/Bảo/qwen35-9b-sql-stage2-v1-full-01`. Its `adapter/training_report.json` (SHA256 `9a09f391…`) and saved adapter hashes were verified against the actual files. Stage2 step198/0.5 requested epoch links exactly to parent step298/1 requested epoch, with parent report SHA256 `fcc245948098…`. Both use the same pinned Qwen base manifest `f8b32a3f…`. Final weights match earlier checkpoint198 (`f346ad51…`); the completed original report is now used instead of a snapshot report. These artifacts support the reported training chain, not a claim of improved PA. Current engineering choice: Colab Pro; merge once on Colab and compare Torch/vLLM/Torch+RAG on the same selected set. The actual Drive base location and the three-arm GPU runtime remain to be checked on Colab; no official competition rule changed. See [workflow](colab-finetuned-compare.md).

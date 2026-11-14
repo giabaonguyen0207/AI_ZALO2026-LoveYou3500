@@ -1,5 +1,7 @@
 # Checkpoint 198 trên Colab Pro — Implementation Plan
 
+> Superseded về nguồn mặc định sau khi nhận kết quả hoàn tất: [plan stage2](2026-11-14-final-stage2-baseline.md), [workflow hiện hành](../colab-finetuned-compare.md). Snapshot command được giữ cho rollback; notebook chính đã đổi sang bản fine-tuned hoàn tất.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Dùng đúng adapter checkpoint-198 của Bảo làm baseline chung cho Torch, vLLM và Torch+RAG trên Colab Pro; giải phóng nhánh team khỏi worktree C.
