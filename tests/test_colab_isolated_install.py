@@ -52,9 +52,12 @@ def test_install_and_pip_check_target_private_runtime(tmp_path,monkeypatch,capsy
 
 def test_parent_pip_can_check_venv_without_ensurepip_or_downloads(tmp_path):
     envdir=tmp_path/'isolated'
-    subprocess.run([sys.executable,'-m','venv','--without-pip',str(envdir)],check=True,capture_output=True)
+    # The test runner may expose the editable project's egg-info via PYTHONPATH.
+    # This probe measures an empty isolated interpreter, not inherited project metadata.
+    clean_env={k:v for k,v in os.environ.items() if k not in {'PYTHONPATH','PYTHONHOME'}}
+    subprocess.run([sys.executable,'-m','venv','--without-pip',str(envdir)],env=clean_env,check=True,capture_output=True)
     python=envdir/('Scripts/python.exe' if os.name=='nt' else 'bin/python')
-    result=subprocess.run([sys.executable,'-m','pip','--python',str(python),'check'],capture_output=True,text=True)
+    result=subprocess.run([sys.executable,'-m','pip','--python',str(python),'check'],env=clean_env,capture_output=True,text=True)
     assert result.returncode==0,result.stdout+result.stderr
-    probe=subprocess.run([str(python),'-c','import sys; assert sys.prefix != sys.base_prefix'],capture_output=True,text=True)
+    probe=subprocess.run([str(python),'-c','import sys; assert sys.prefix != sys.base_prefix'],env=clean_env,capture_output=True,text=True)
     assert probe.returncode==0,probe.stderr

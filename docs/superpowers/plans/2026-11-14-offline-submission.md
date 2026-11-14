@@ -34,7 +34,7 @@ Files: README.md, docs/team-workflow.md, các notebook/tool cũ đã xác nhận
 
 - [x] Đọc guideline và ghi baseline hiện trạng: CPU suite474 passed,5 skipped,4 failed (notebook đã nghỉ2, UTF-8 test1, thiếu psutil dev1).
 - [x] Ghi inventory/reference trước khi retire; lưu hash/bản sao local của9file bỏ khỏi tree trong outputs/runs/Bảo/docker-release-20261114/retired-source. Không xóa archive/dataset/weights/frozen artifacts.
-- [ ] Kiểm suite CPU, commit worktree trên codex branch rồi fast-forward E với hash-before/after của mọi file dirty. Giữ source training E không thuộc đợt thay đổi.
+- [x] CPU505passed/5skipped; commit và fast-forward E với hash-before/after:18file dirty được giữ nguyên nội dung,5delete cũ đã trùng thay đổi upstream, còn13WIP training nguyên trạng; không push.
 
 ## Task2: Log và cấu hình vLLM+RAG theo guideline
 
@@ -59,8 +59,8 @@ Files: tools/package_solution.py, tools/training_evidence.py (new), docker/Docke
 Files: tools/export_solution.py, tools/verify_submission.py (new), docs/docker.md, docs/run-vast.md (new), docs/competition-context.md, release verification ledger.
 
 - [x] RED/GREEN: gzip export/MD5/SHA256, đọc toàn TAR/CRC, <=100GB, một linux/amd64 image/tag, từ chối hỏng/partial; không ghi GPU verified.
-- [ ] Full CPU suite + source imports/packaging + Docker CPU fixture offline với scoring entrypoint thật. GPU visibility và tiny model nếu môi trường4060 cho phép; ghi phạm vi kiểm chứng.
-- [ ] Một fresh-context review theo Superpowers, xử lý finding trước release.
+- [x] Full CPU505passed/5skipped + Docker CPU fixture offline/scoring entrypoint, gzip export thật. GPU visibility4060 có; không chạy tiny/full GPU, chủ dự án chọn thuê sau.
+- [x] Một fresh-context review,4Important RED→GREEN và full suite sau sửa; minor lịch sử ghi ledger.
 - [x] Hướng dẫn Vast Ubuntu VM/SSH/disk/GPU và hai lượt offline; lưu yêu cầu mới của chủ dự án: hoàn tất chuẩn bị trước, thuê khoảng1giờ sau, không tự thuê/tính phí.
 - [ ] Chỉ xuất image nộp sau đủ models/training/wheels, rehearsal offline và kiểm giới hạn. Nếu thiếu GPU hoặc merged model, hoàn thành source/context/runner và ghi đúng phần còn thiếu; không phát hành image dev như image thi.
 
@@ -87,3 +87,5 @@ Files: tools/export_solution.py, tools/verify_submission.py (new), docs/docker.m
 - Final: Ruling: SQL quality/training overlap — không đổi logic đáp án trong release; báo cáo100câu là development, nếu coi là private accuracy sẽ kết luận sai chất lượng.
 - Final: Ruling: retired notebook references trong release builders — giữ vì script sinh lại artifact, không phải runtime entrypoint; dùng sai script có thể mở workflow cũ, README hiện hành là điểm bắt đầu.
 - Final: minor (deferred): docs/sql-validation100-*.md và docs/sql100-mtp-export-fix.md còn hướng dẫn notebook đã retire; chưa dọn tiếp các tài liệu lịch sử, dùng docs/docker.md/colab-finetuned-compare.md hiện hành.
+- Handoff E: e0970b5 trên codex/team-gpu-layout, mọi byte của18file dirty trước merge được giữ;5notebook vốn đã xóa trùng upstream, còn13file WIP. Training evidence546file/861.481.479bytes copy về E và verify manifest93ccb49c... khớp. Chưa push.
+- E suite lần đầu:512passed/6skipped/1failed; failure của bài kiểm empty venv do PYTHONPATH test runner làm lộ editable egg-info vào child. Probe bỏ PYTHONPATH/PYTHONHOME đạt pip check; sửa test để đo đúng môi trường trống, không cài thư viện hoặc sửa training WIP để ép pass.
