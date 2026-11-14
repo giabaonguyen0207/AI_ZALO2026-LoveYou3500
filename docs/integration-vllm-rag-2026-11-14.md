@@ -53,6 +53,8 @@ Suite toàn repo cuối: **437 pass, 5 skip, 3 fail** (75,77s). Ba lỗi đều 
 
 Smoke được kiểm qua pipeline Demo thực sự trong worker process (3 ID, đúng submission/log, không load model); các test đóng gói fixture xác minh đủ encoder/reranker, rewrite config và dependency extra offline. Đã sinh notebook chính và gói Team200 mà không chạy full model. Chưa chạy Docker engine/GPU; kiểm packaging fixture không thay cho rehearsal image thật.
 
+Kiểm cuối gói source GPU phát hiện thiếu `.dockerignore` mà `package_solution` cần; đã thêm vào gói và kiểm hồi quy RED → GREEN. Nhóm source/artifact/package/benchmark sau bản vá: **42 pass, 1 skip**. Gói source có manifest SHA256, không chứa data/weights/cache.
+
 Cần GPU để xác nhận vLLM 0.33/Transformers/CUDA tương thích checkpoint, chất lượng PA, VRAM, cold startup, hiệu quả RAG và throughput. Dải version trong pyproject là ứng viên; chỉ `pip install` thành công không chứng minh stack chạy đúng. RAG thêm khoảng 1,1355B tham số; inventory tính đủ và chặn vượt 15B.
 
 CLI `run`/notebook chính có watchdog process; API in-process và notebook Team200 tương tác giữ giới hạn timeout phối hợp SDK, không tự cưỡng bức dừng thread bị chặn. Dùng entrypoint batch có giám sát để đo chính/nộp. Phần GPU/Docker thật được để lại có chủ ý vì máy hiện tại chỉ dev/test CPU; không đánh dấu đã kiểm chứng.

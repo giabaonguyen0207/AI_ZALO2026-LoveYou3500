@@ -6,7 +6,7 @@ import json
 import zipfile
 
 SOURCE_FOLDERS = {'src', 'configs', 'notebooks', 'docs', 'tools', 'tests', 'docker'}
-SOURCE_FILES = {'pyproject.toml', 'requirements.txt', 'requirements-dev.lock.txt',
+SOURCE_FILES = {'.dockerignore', 'pyproject.toml', 'requirements.txt', 'requirements-dev.lock.txt',
                 'requirements-colab.txt', 'README.md', 'AGENTS.md', 'predict.sh', 'huongdankaggle.md'}
 
 
@@ -28,8 +28,9 @@ def package(root, output):
     folders = ["src", "configs", "notebooks", "docs", "tools", "tests", "docker"]
     names = ["pyproject.toml", "requirements.txt", "requirements-dev.lock.txt",
              "requirements-colab.txt", "README.md", "AGENTS.md", "predict.sh"]
-    if (root / 'huongdankaggle.md').is_file():
-        names.append('huongdankaggle.md')
+    for optional in ('huongdankaggle.md','.dockerignore'):
+        if (root / optional).is_file():
+            names.append(optional)
     files = [root / name for name in names]
     for folder in folders:
         for path in sorted((root / folder).rglob("*")):
