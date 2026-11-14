@@ -2,6 +2,21 @@
 
 Repo hiện tại: [AI_ZALO2026-LoveYou3500](https://github.com/giabaonguyen0207/AI_ZALO2026-LoveYou3500). Nhánh chuẩn bị bố cục là `codex/team-gpu-layout`. Phần đưa bố cục lên `main` bên dưới chỉ thực hiện nếu PR đó chưa merge; nếu đã merge, chuyển tới phần cập nhật nhánh của Hải/Thịnh.
 
+## Nếu Git báo branch đang dùng bởi worktree
+
+Git chỉ cho một branch được checkout tại một working tree. Worktree tích hợp ở `C:/Users/Windows/.codex/worktrees/vllm-rag-integration/ZALO_AI_2026` đã được tách khỏi `codex/team-gpu-layout` để giải phóng nhánh. Nếu gặp lại, dùng `git worktree list` để xác định nơi giữ branch; chỉ detach worktree đó khi source đã commit/sạch. Không xóa worktree đang có việc chưa lưu hoặc dùng force checkout để mở hai nơi cùng branch.
+
+Checkout `E:` đang có training/notebook chưa commit trên `rag`. Để lưu tạm tất cả phần đó trước khi chuyển (stash không lấy model/data/output đã gitignore):
+
+```powershell
+git status --short
+git stash push -u -m "WIP rag/training truoc khi chuyen nhanh"
+git switch codex/team-gpu-layout
+git log -1 --oneline
+```
+
+Giữ stash để xử lý riêng trên nhánh training phù hợp; không tự `stash pop` vào nhánh tích hợp. Agent không chạy stash/switch trên checkout E. Các lệnh PowerShell trên không cần dấu `\` ở cuối.
+
 ## Chủ dự án: đưa bố cục lên main
 
 Trong PowerShell tại thư mục dự án, kiểm nhánh và diff rồi commit:

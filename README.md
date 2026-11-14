@@ -55,6 +55,8 @@ Không dùng môi trường này cho full-checkpoint inference. Dependency GPU �
 
 Đọc [hướng dẫn GPU](docs/run-gpu.md). Tạo gói source trên máy cá nhân:
 
+**Bảo chạy Colab Pro với checkpoint-198:** dùng [notebook đối chứng riêng](notebooks/DataMate_Colab_Checkpoint198_Compare.ipynb) và [hướng dẫn checkpoint](docs/colab-checkpoint198.md). Adapter được merge một lần trên Colab với đúng base đã train; cả baseline/vLLM/RAG dùng cùng full model đã seal. Chưa chạy model GPU trong đợt chuẩn bị này.
+
 ```powershell
 .\.venv\Scripts\python.exe tools/package_colab.py
 ```
