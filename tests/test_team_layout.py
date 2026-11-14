@@ -53,7 +53,8 @@ def test_gpu_setup_separates_source_versions_and_rejects_stale_kernel(tmp_path, 
     packet = tmp_path / 'source.zip'
     data = tmp_path / 'data'
     data.mkdir()
-    code = SETUP.replace('PLATFORM = "colab"', 'PLATFORM = "gpu"')
+    monkeypatch.setenv('DATAMATE_PLATFORM','gpu')
+    code = SETUP
     replacements = {'/work/datamate': tmp_path / 'runtime', '/work/datamate-results': tmp_path / 'saved',
                     '/work/inputs/datamate-colab-source.zip': packet, '/work/data/train': data}
     for original, value in replacements.items():

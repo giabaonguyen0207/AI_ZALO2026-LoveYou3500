@@ -133,11 +133,14 @@ class ContextRetriever:
         business_root = self.split.business_path(business_id)
         metadata = {'split_fingerprint': catalog.fingerprint}
         result = []
+        digests = {}
 
         def document(text, path, scope, extra):
+            if path not in digests:
+                digests[path] = sha256(path)
             result.extend(sections(text, path.relative_to(root).as_posix(), scope,
                 tokenizer=self.encoder.tokenizer, chunk_tokens=self.settings.chunk_tokens,
-                overlap=self.settings.chunk_overlap, source_sha256=sha256(path),
+                overlap=self.settings.chunk_overlap, source_sha256=digests[path],
                 metadata={**metadata, **extra}))
 
         self.encoder.load()

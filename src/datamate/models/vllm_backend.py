@@ -33,7 +33,7 @@ def engine_options(settings):
                    pipeline_parallel_size=v.pipeline_parallel_size,
                    gpu_memory_utilization=v.gpu_memory_utilization, max_num_seqs=v.max_num_seqs,
                    enable_prefix_caching=v.enable_prefix_caching, enable_chunked_prefill=v.enable_chunked_prefill,
-                   dtype=v.dtype, kv_cache_dtype=v.kv_cache_dtype,
+                   dtype=settings.dtype if settings.dtype != 'auto' else v.dtype, kv_cache_dtype=v.kv_cache_dtype,
                    quantization=None if v.quantization == 'none' else v.quantization,
                    load_format=v.load_format, enforce_eager=v.enforce_eager,
                    cpu_offload_gb=v.cpu_offload_gb)

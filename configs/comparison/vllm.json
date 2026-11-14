@@ -1,0 +1,17 @@
+{
+  "backend": "vllm",
+  "model_key": "qwen35-9b",
+  "model_dir": "models/qwen35-9b",
+  "split_root": "train/train",
+  "result_dir": "outputs/runs/comparison/vllm",
+  "mode": "self_review",
+  "quantization": "none",
+  "dtype": "float16",
+  "question_workers": 1,
+  "max_steps": 6,
+  "max_context_tokens": 16384,
+  "max_new_tokens": 768,
+  "question_timeout_seconds": 90,
+  "vllm": {"dtype": "float16", "init_timeout_seconds": 1200, "max_num_seqs": 1},
+  "rag": {"mode": "none"}
+}

@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from dataclasses import fields
 from pathlib import Path
 
-from .config import Settings, VLLMSettings, parse_option
+from .config import Settings, VLLMSettings, RAGSettings, parse_option
 from .domain import DataMateError, Question, json_text
 
 
@@ -14,9 +15,9 @@ def add_config(parser):
     parser.add_argument("--config")
     parser.add_argument("--split-root")
     parser.add_argument("--result-dir")
-    parser.add_argument("--backend", choices=["demo", "transformers", "vllm"])
+    parser.add_argument("--backend", choices=["demo", "torch", "transformers", "vllm"])
     for f in fields(Settings):
-        if f.name in {'split_root', 'result_dir', 'backend', 'vllm'}:
+        if f.name in {'split_root', 'result_dir', 'backend', 'vllm', 'rag'}:
             continue
         flags = ['--' + f.name.replace('_', '-')]
         if f.name == 'question_workers':
@@ -31,13 +32,15 @@ def add_config(parser):
         if type(getattr(VLLMSettings(), f.name)) is bool:
             options['action'] = argparse.BooleanOptionalAction
         parser.add_argument('--vllm-' + f.name.replace('_', '-'), **options)
+    for f in fields(RAGSettings):
+        parser.add_argument('--rag-' + f.name.replace('_', '-'), dest='rag_' + f.name, default=None)
 
 
-def load_settings(args):
-    overrides, nested = {}, {}
-    for cls, prefix, target in ((Settings, '', overrides), (VLLMSettings, 'vllm_', nested)):
+def load_settings(args, *, use_env=True):
+    overrides, nested, rag = {}, {}, {}
+    for cls, prefix, target in ((Settings, '', overrides), (VLLMSettings, 'vllm_', nested), (RAGSettings, 'rag_', rag)):
         for f in fields(cls):
-            if cls is Settings and f.name == 'vllm':
+            if cls is Settings and f.name in {'vllm', 'rag'}:
                 continue
             value = getattr(args, prefix + f.name, None)
             if value is not None:
@@ -45,7 +48,9 @@ def load_settings(args):
                 target[f.name] = value if type(value) is bool or f.name in {'assistant_key', 'assistant_dir'} else parse_option(value, default, prefix + f.name)
     if nested:
         overrides['vllm'] = nested
-    return Settings.load(getattr(args, 'config', None), **overrides)
+    if rag:
+        overrides['rag'] = rag
+    return Settings.load(getattr(args, 'config', None), use_env=use_env, **overrides)
 
 
 def parser():
@@ -118,13 +123,20 @@ def main():
             result = stage_model(args.model, args.output)
             result = {"output": args.output, "source": result["source"], "files_verified": len(result["files"])}
         elif args.command == "run":
-            from .application import run_batch
             ids = set(json.loads(Path(args.ids).read_text(encoding="utf-8"))) if args.ids else None
-            result = run_batch(load_settings(args), ids, args.limit, args.resume)
+            worker = os.environ.get('DATAMATE_INFERENCE_WORKER') == '1'
+            settings = load_settings(args, use_env=not worker)
+            if worker:
+                from .application import run_batch
+                result = run_batch(settings, ids, args.limit, args.resume)
+            else:
+                from .execution import run_isolated
+                result = run_isolated(settings, ids, args.limit, args.resume)
         elif args.command == "ask":
             from .application import create_agent
             question = Question("interactive", args.business, args.question, args.as_of)
-            agent = create_agent(load_settings(args))
+            settings = load_settings(args)
+            agent = create_agent(settings, business_ids=[args.business], remaining_seconds=settings.wall_time_seconds)
             try:
                 result = agent.run(question).to_dict(question.id)
             finally:
@@ -149,7 +161,8 @@ def main():
         elif args.command == "compare":
             from .evaluation.experiments import compare
             result = compare(args.configs, args.ids, args.references, args.output)
-        print(json_text(result, indent=2))
+        if not (args.command == 'run' and os.environ.get('DATAMATE_INFERENCE_WORKER') == '1'):
+            print(json_text(result, indent=2))
     except (DataMateError, FileNotFoundError, ValueError) as exc:
         print(f"DataMate: {exc}", file=sys.stderr)
         raise SystemExit(2)

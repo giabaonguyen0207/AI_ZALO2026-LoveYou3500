@@ -106,7 +106,36 @@ def positive_ratio(numerator, denominator):
     return numerator/denominator
 
 
-def compare(baseline, candidate, *, references=None):
+CRITICAL_SOURCE = ('agent/planning.py','agent/protocol.py','agent/tools.py',
+                   'agent/verification.py','data/rules.py','evaluation/scoring.py')
+
+
+def retrieval_config(identity):
+    config = identity['settings'].get('rag') or {'mode':'none'}
+    if config.get('mode','none') == 'none':
+        return {'mode':'none'}
+    return {k:v for k,v in config.items() if k not in {'embedding_dir','reranker_dir','index_dir'}}
+
+
+def artifact_evidence(identity):
+    models = identity.get('inventory',{}).get('models',[])
+    manifests = identity.get('artifact_manifests',{})
+    keys = {m.get('key') for m in models}
+    rag = retrieval_config(identity)
+    required = {identity['settings'].get('model_key')}
+    if rag.get('mode') != 'none':
+        required.add(rag.get('embedding_key'))
+    if rag.get('mode') == 'dense_rerank':
+        required.add(rag.get('reranker_key'))
+    total = sum(m.get('parameters',0) for m in models)
+    return (bool(models) and len(keys)==len(models) and None not in keys and required <= keys
+            and all(manifests.get(k) for k in keys)
+            and 0 < total <= 15_000_000_000 and identity['inventory'].get('total_parameters')==total)
+
+
+def compare(baseline, candidate, *, references=None, comparison_mode='backend'):
+    if comparison_mode not in {'backend','rag'}:
+        raise ValueError('comparison_mode must be backend or rag')
     baseline, candidate = Path(baseline), Path(candidate)
     identities = [read(p/'benchmark_identity.json') for p in (baseline,candidate)]
     metrics = [read(p/'benchmark_metrics.json') for p in (baseline,candidate)]
@@ -114,7 +143,7 @@ def compare(baseline, candidate, *, references=None):
     calls = [lines(p/'model_calls.jsonl') for p in (baseline,candidate)]
     inputs = [read(p/'run_identity.json') for p in (baseline,candidate)]
     left,right = identities
-    common = ('model_key','mode','quantization','max_steps','max_repeated_actions','max_context_tokens','max_new_tokens','seed',
+    common = ('model_key','mode','quantization','dtype','max_steps','max_repeated_actions','max_context_tokens','max_new_tokens','seed',
               'question_timeout_seconds','sql_timeout_seconds','max_result_rows','schema_mode','adaptive_preparation',
               'require_plan','auto_execute_plan','schema_repair_timeout_seconds','schema_repair_max_new_tokens',
               'preparation_timeout_seconds','preparation_max_attempts','preparation_max_new_tokens')
@@ -131,7 +160,7 @@ def compare(baseline, candidate, *, references=None):
         first.append(mapping)
     mismatched_prompts = [qid for qid in sorted(expected_ids) if first[0].get(qid)!=first[1].get(qid)
                           or first[0].get(qid) is None]
-    runtime_packages = ('torch','transformers','tokenizers','accelerate','bitsandbytes')
+    runtime_packages = ('torch','transformers','tokenizers','accelerate','bitsandbytes','numpy')
     package_differences = {key:[left['packages'].get(key),right['packages'].get(key)] for key in runtime_packages
                            if left['packages'].get(key)!=right['packages'].get(key)}
     hardware = [{(v['name'],v['total_mib']) for v in m['gpu_hardware'].values()} for m in metrics]
@@ -142,23 +171,49 @@ def compare(baseline, candidate, *, references=None):
     precisions=[]
     for m in metrics:
         info=m.get('backend_info',{})
-        dtype=info.get('model_dtype') or info.get('runtime',{}).get('engine_args',{}).get('dtype')
+        dtype=info.get('model_dtype') or info.get('runtime',{}).get('resolved_dtype') or info.get('runtime',{}).get('engine_args',{}).get('dtype')
         precisions.append(str(dtype).removeprefix('torch.').replace('half','float16'))
+    retrieval = [retrieval_config(i) for i in identities]
+    sources = [i.get('source_hashes',{}) for i in identities]
+    source_equal = all(sources[0].get('datamate/'+name) and sources[0].get('datamate/'+name)==sources[1].get('datamate/'+name)
+                       for name in CRITICAL_SOURCE)
+    if comparison_mode == 'rag':
+        source_equal = source_equal and sources[0]==sources[1]
+    baseline_prompts = []
+    for folder in (baseline,candidate):
+        path = folder/'question_timing.jsonl'
+        baseline_prompts.append({r['id']:r.get('baseline_messages_sha256') for r in lines(path)} if path.is_file() else {})
+    baseline_prompt_equal = all(baseline_prompts[0].get(qid) and baseline_prompts[0].get(qid)==baseline_prompts[1].get(qid)
+                                for qid in expected_ids)
+    backend_pair = (left['settings'].get('backend')=='transformers' and right['settings'].get('backend')=='vllm'
+                    and metrics[0].get('backend_info',{}).get('class')=='TransformersBackend'
+                    and metrics[1].get('backend_info',{}).get('class')=='VLLMBackend')
+    if comparison_mode == 'rag':
+        backend_pair = (left['settings'].get('backend')==right['settings'].get('backend')
+                        and metrics[0].get('backend_info',{}).get('class')==metrics[1].get('backend_info',{}).get('class'))
     gates = {'same_ids_complete':ids_equal,'same_model_manifest':model_equal,
-             'expected_backend_pair':left['settings'].get('backend')=='transformers' and right['settings'].get('backend')=='vllm'
-                                     and metrics[0].get('backend_info',{}).get('class')=='TransformersBackend'
-                                     and metrics[1].get('backend_info',{}).get('class')=='VLLMBackend',
+             'expected_backend_pair':backend_pair,
+             'same_business_logic_source':bool(source_equal),
+             'complete_model_evidence':all(artifact_evidence(i) for i in identities),
              'token_metadata_complete':all(m.get('token_metadata_complete',False) for m in metrics),
-             'same_explicit_float16_precision':precisions==['float16','float16'],
+             'same_resolved_precision':precisions[0] in {'float16','bfloat16','float32'} and precisions[0]==precisions[1],
              'same_dataset_hashes':all(inputs[0].get(k) is not None and inputs[0].get(k)==inputs[1].get(k)
                                       for k in ('rulebook_sha256','questions_sha256','input_hashes')),
              'same_visible_devices':left.get('cuda_visible_devices')==right.get('cuda_visible_devices'),
-             'same_pipeline_settings':not config_differences,'same_initial_requests':not mismatched_prompts,
+             'same_pipeline_settings':not config_differences,
              'same_runtime_libraries':not package_differences,'same_gpu_type_count':hardware_equal,
              'both_runs_valid':all(m['valid_complete_run'] for m in metrics),
              'nonquantized_primary':left['settings']['quantization']=='none' and right['settings']['quantization']=='none'
                                     and right['settings'].get('vllm',{}).get('quantization','none')=='none',
              'not_all_abstain':all(any(r['type']!='abstain' for r in rows) for rows in predictions)}
+    if comparison_mode == 'backend':
+        gates.update(same_initial_requests=not mismatched_prompts,
+                     same_retrieval_configuration=retrieval[0]==retrieval[1],
+                     same_full_model_inventory=left.get('inventory')==right.get('inventory'),
+                     same_all_artifacts=left.get('artifact_manifests')==right.get('artifact_manifests'))
+    else:
+        gates.update(same_baseline_prompt=baseline_prompt_equal,
+                     expected_retrieval_pair=retrieval[0].get('mode')=='none' and retrieval[1].get('mode') in {'dense','dense_rerank'})
     scores = None
     if references is not None:
         sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
@@ -200,8 +255,8 @@ def compare(baseline, candidate, *, references=None):
             'first_feedback_difference':first_feedback_difference(*pair) if different and not missing else None})
     outcomes=[dict(Counter(r['outcome'] for r in side.values())) for side in evidence]
     succeeded=[{qid for qid,r in side.items() if r['outcome']=='answered'} for side in evidence]
-    quality = None if scores is None else scores[1]['penalized_accuracy']>=scores[0]['penalized_accuracy']
-    return {'format_version':2,'comparison_kind':'pipeline_deployment',
+    quality = None if scores is None or not (identity_compatible and complete and no_infrastructure) else scores[1]['penalized_accuracy']>=scores[0]['penalized_accuracy']
+    return {'format_version':3,'comparison_kind':'rag_augmentation' if comparison_mode=='rag' else 'pipeline_deployment',
             'execution_complete_both':complete,'identity_compatible':identity_compatible,
             'paired_comparison_valid':valid,'gates':gates,'inference_speedup':speedup,'cold_speedup':cold_speedup,
             'observed_inference_time_ratio':observed_ratio,'observed_cold_time_ratio':observed_cold_ratio,
@@ -216,7 +271,7 @@ def compare(baseline, candidate, *, references=None):
             'scores_baseline_candidate':scores,'quality_not_worse_on_this_subset':quality,
             'evidence':('paired timing only; quality unverified without references' if scores is None else 'local subset timing and local evaluator; not official/private-test accuracy'),
             'baseline':metrics[0],'candidate':metrics[1],
-            'warning':'24 diagnostic questions are not a statistical proof for all tasks. Repeat/extend a fixed sample when differences are small; never drop slow/failed questions.'}
+            'warning':'A chosen subset is not proof for all tasks. Repeat/extend a fixed sample when differences are small; never drop slow/failed questions.'}
 
 
 def main():
@@ -224,9 +279,10 @@ def main():
     parser.add_argument('--baseline',type=Path,required=True)
     parser.add_argument('--candidate',type=Path,required=True)
     parser.add_argument('--references',type=Path)
+    parser.add_argument('--comparison-mode',choices=['backend','rag'],default='backend')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
-    report=compare(args.baseline,args.candidate,references=args.references)
+    report=compare(args.baseline,args.candidate,references=args.references,comparison_mode=args.comparison_mode)
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     display={k:v for k,v in report.items() if k not in {'baseline','candidate','per_question'}}

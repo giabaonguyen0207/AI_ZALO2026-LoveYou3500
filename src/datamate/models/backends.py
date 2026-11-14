@@ -77,6 +77,8 @@ class TransformersBackend:
         if settings.quantization != "none" and not cuda:
             raise DataMateError("4bit/8bit trong cấu hình này cần CUDA; chọn none để thử CPU")
         dtype = torch.bfloat16 if cuda and torch.cuda.is_bf16_supported() else (torch.float16 if cuda else torch.float32)
+        if settings.dtype != 'auto':
+            dtype = getattr(torch, settings.dtype)
         kwargs = {"local_files_only": True, "trust_remote_code": False, "device_map": "auto",
                   "dtype": dtype, "attn_implementation": "sdpa"}
         if settings.quantization != "none":

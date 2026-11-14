@@ -6,6 +6,7 @@ import uuid
 
 from ..models.artifacts import sha256
 from .encoders import validate_vectors
+from ..domain import DataMateError
 
 
 def fingerprint(value):
@@ -26,7 +27,7 @@ def load(directory, identity, chunks):
         if actual != [c.to_dict() for c in chunks]:
             return None
         return validate_vectors(np.load(directory / 'vectors.npy', allow_pickle=False), expected_rows=len(chunks))
-    except (OSError, ValueError, KeyError, TypeError):
+    except (OSError, ValueError, KeyError, TypeError, DataMateError):
         return None
 
 

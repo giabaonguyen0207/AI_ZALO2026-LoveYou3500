@@ -20,7 +20,7 @@ def runtime_identity(settings):
     return {
         'backend': settings.backend, 'contract_version': CONTRACT_VERSION,
         'generation': {k: settings.to_dict()[k] for k in (
-            'model_key', 'assistant_key', 'mode', 'quantization', 'seed',
+            'model_key', 'assistant_key', 'mode', 'quantization', 'dtype', 'seed',
             'max_context_tokens', 'max_new_tokens', 'question_workers', 'vllm')},
         'retrieval': settings.to_dict()['rag'],
         'packages': {name: package_version(name) for name in (

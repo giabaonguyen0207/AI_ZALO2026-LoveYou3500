@@ -144,6 +144,7 @@ class Agent:
             prompt_args = (question, self.split.rulebook, self.split.readme(question.business_id), catalog.summary(), request_contract)
             prefix = self.settings.backend == 'vllm' and self.settings.vllm.cache_prompt_prefix
             messages = initial_messages(*prompt_args, cache_prefix=prefix)
+            baseline_messages_sha256 = hashlib.sha256(json_text(messages,sort_keys=True).encode()).hexdigest()
             selected = []
             if self.settings.rag.mode != 'none':
                 chunks, retrieval = self.retriever.retrieve(question.question, question.business_id,
@@ -152,7 +153,8 @@ class Agent:
                 messages, selected, packed = fit_context(chunks,
                     build_messages=lambda context: initial_messages(*prompt_args, cache_prefix=prefix, retrieved_context=context),
                     backend=self.backend, settings=self.settings)
-                trace.append({'phase':'retrieval', **retrieval, **packed, 'selected': [c['source'] for c in selected]})
+                trace.append({'phase':'retrieval', **retrieval, **packed, 'selected': [c['source'] for c in selected],
+                              'baseline_messages_sha256':baseline_messages_sha256})
             prompt_snapshot=deepcopy(messages)
             for step in range(self.settings.max_steps):
                 remaining = deadline - time.monotonic()

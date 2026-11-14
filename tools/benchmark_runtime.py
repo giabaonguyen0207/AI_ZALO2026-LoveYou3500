@@ -34,7 +34,7 @@ def percentile(values, fraction):
 
 def package_versions():
     result = {}
-    for name in ('torch','transformers','vllm','accelerate','bitsandbytes','tokenizers','psutil'):
+    for name in ('torch','transformers','vllm','accelerate','bitsandbytes','tokenizers','numpy','psutil'):
         try:
             result[name] = version(name)
         except PackageNotFoundError:
@@ -186,6 +186,11 @@ class Observer:
                        'answer_type':getattr(getattr(result,'answer',None),'type',None),'error':error,
                        'answer_reason':getattr(getattr(result,'answer',None),'reason',None),
                        'question_timeout_seconds':getattr(getattr(agent,'settings',None),'question_timeout_seconds',None)}
+                baseline_hash = next((e['baseline_messages_sha256'] for e in getattr(result,'trace',[])
+                                      if e.get('phase')=='retrieval' and e.get('baseline_messages_sha256')),None)
+                if baseline_hash is None and getattr(result,'initial_messages',None):
+                    baseline_hash = hashlib.sha256(json.dumps(result.initial_messages,ensure_ascii=False,sort_keys=True).encode()).hexdigest()
+                row['baseline_messages_sha256'] = baseline_hash
                 with self.lock:
                     calls = [r for r in self.calls if r['id']==question.id]
                     row['first_model_delay_seconds'] = min((r['start_seconds'] for r in calls),default=None)
@@ -269,6 +274,11 @@ def run(project, config, ids_path, output, *, interval=1.0, transformers_dtype=N
                 'packages':package_versions(),'python':sys.version,
                 'cuda_visible_devices':os.environ.get('CUDA_VISIBLE_DEVICES'),
                 'source_hashes':{p.relative_to(project/'src').as_posix():sha256(p) for p in sorted((project/'src/datamate').rglob('*.py'))}}
+    from datamate.models import registry
+    if settings.backend != 'demo' and hasattr(registry,'model_paths'):
+        identity['inventory'] = registry.inventory_from_settings(settings)
+        identity['artifact_manifests'] = {key:sha256(Path(path)/'artifact_manifest.json')
+                                         for key,path in registry.model_paths(settings).items()}
     (output/'benchmark_identity.json').write_text(json.dumps(identity,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     original_build, original_create, original_run = application.build_backend, application.create_agent, application.Agent.run
     original_load = override_loader_dtype(backends,transformers_dtype) if transformers_dtype and settings.backend=='transformers' else None

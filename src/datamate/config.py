@@ -135,6 +135,7 @@ class Settings:
     assistant_key: str | None = None
     assistant_dir: str | None = None
     quantization: str = "none"
+    dtype: str = 'auto'
     max_steps: int = 10
     max_repeated_actions: int = 2
     max_new_tokens: int = 1024
@@ -204,6 +205,11 @@ class Settings:
             raise DataMateError("mode phải là single, self_review hoặc speculative")
         if self.quantization not in {"none", "4bit", "8bit"}:
             raise DataMateError("quantization phải là none, 4bit hoặc 8bit")
+        if self.dtype not in {'auto', 'float16', 'bfloat16', 'float32'}:
+            raise DataMateError('dtype phải là auto, float16, bfloat16 hoặc float32')
+        configured_dtype = {'half': 'float16', 'float': 'float32'}.get(self.vllm.dtype, self.vllm.dtype)
+        if self.backend == 'vllm' and self.dtype != 'auto' and configured_dtype not in {'auto', self.dtype}:
+            raise DataMateError('dtype và vllm.dtype mâu thuẫn; chọn một precision chung')
         if self.mode == "speculative" and (not self.assistant_key or not self.assistant_dir):
             raise DataMateError("Chế độ speculative cần assistant_key và assistant_dir")
         if self.mode != "speculative" and (self.assistant_key or self.assistant_dir):
@@ -283,6 +289,8 @@ def parse_option(value, default, name):
     """Parse CLI/environment values without guessing paths/model names as JSON."""
     if isinstance(default, str):
         return value
+    if default is None and name.lower().endswith(('_dir', '_key')):
+        return None if value == 'null' else value
     try:
         parsed = json.loads(value)
     except (ValueError, TypeError) as exc:

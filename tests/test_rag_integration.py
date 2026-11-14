@@ -116,6 +116,24 @@ def test_nested_schema_provenance_is_real_source_bytes(split_root, tmp_path, mon
     obj.close()
 
 
+def test_corrupted_cached_vectors_rebuild_instead_of_failing_startup(split_root, tmp_path, monkeypatch):
+    from datamate.models.artifacts import sha256
+    obj, ingestor = retriever(tmp_path,split_root,monkeypatch)
+    obj.prepare(['shop_a'],ingestor=ingestor,remaining_seconds=10)
+    obj.close()
+    manifest = next((tmp_path/'cache').rglob('index_manifest.json'))
+    vector_file = manifest.parent/'vectors.npy'
+    np.save(vector_file,np.zeros((1,512)),allow_pickle=False)
+    data = json.loads(manifest.read_text())
+    data['files']['vectors.npy'] = sha256(vector_file)
+    manifest.write_text(json.dumps(data))
+    encoder = Encoder()
+    obj, ingestor = retriever(tmp_path,split_root,monkeypatch,encoder)
+    obj.prepare(['shop_a'],ingestor=ingestor,remaining_seconds=10)
+    assert encoder.calls and obj.runtime_info()['cache_builds']==1
+    obj.close()
+
+
 def test_closed_retriever_cannot_reload_or_serve_requests(split_root, tmp_path, monkeypatch):
     from datamate.retrieval.contracts import RetrievalFatalError
     obj, ingestor = retriever(tmp_path, split_root, monkeypatch)

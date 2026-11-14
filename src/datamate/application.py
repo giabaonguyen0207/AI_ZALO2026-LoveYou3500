@@ -20,7 +20,7 @@ from .models.runtime import runtime_identity
 from .batching import run_questions
 
 
-def create_agent(settings: Settings, *, business_ids=None, remaining_seconds=None) -> Agent:
+def create_agent(settings: Settings, *, business_ids=None, remaining_seconds=None, progress=None) -> Agent:
     started = time.monotonic()
     settings.validate()
     deadline = started + (settings.wall_time_seconds if remaining_seconds is None else remaining_seconds)
@@ -36,13 +36,21 @@ def create_agent(settings: Settings, *, business_ids=None, remaining_seconds=Non
     try:
         ingestor = Ingestor(split, settings.cache_dir)
         if settings.rag.mode != 'none':
+            if progress:
+                progress('retrieval_prepare', deadline-time.monotonic())
             selected = sorted(set(business_ids if business_ids is not None else [q.business_id for q in split.questions()]))
             retriever.prepare(selected, ingestor=ingestor, remaining_seconds=deadline-time.monotonic())
         if time.monotonic() >= deadline:
             raise DataMateError('Hết wall budget khi chuẩn bị RAG/model')
+        if progress:
+            progress('generator_init', min(deadline-time.monotonic(), settings.vllm.init_timeout_seconds)
+                     if settings.backend == 'vllm' else deadline-time.monotonic())
         backend = (build_backend(settings, remaining_seconds=deadline-time.monotonic())
                    if settings.backend == 'vllm' else build_backend(settings))
-        return Agent(settings, backend, split, retriever, ingestor=ingestor)
+        agent = Agent(settings, backend, split, retriever, ingestor=ingestor)
+        if progress:
+            progress('ready', deadline-time.monotonic())
+        return agent
     except BaseException:
         try:
             if backend is not None:
@@ -68,6 +76,12 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
         questions = questions[:limit]
     result_dir = ensure_outside_dataset(settings.result_dir, split.root)
     result_dir.mkdir(parents=True, exist_ok=True)
+    def progress(phase, timeout):
+        path = result_dir / 'startup_progress.json'
+        temporary = path.with_suffix('.tmp')
+        temporary.write_text(json_text({'phase': phase, 'monotonic_started': time.monotonic(),
+                                        'timeout_seconds': max(0, timeout)}), encoding='utf-8')
+        temporary.replace(path)
     logs = result_dir / "logs"
     logs.mkdir(exist_ok=True)
     output = result_dir / "submission.jsonl"
@@ -119,7 +133,7 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
         if todo:
             print('Đang nạp model và chuẩn bị dữ liệu...', flush=True)
             agent = create_agent(settings, business_ids=sorted({q.business_id for q in todo}),
-                                 remaining_seconds=deadline-time.monotonic())
+                                 remaining_seconds=deadline-time.monotonic(), progress=progress)
             print(f'Model đã sẵn sàng sau {time.monotonic()-started:.1f}s; bắt đầu trả lời.', flush=True)
         loaded_seconds = time.monotonic()-started
         if agent and callable(getattr(agent.backend, 'runtime_info', None)):

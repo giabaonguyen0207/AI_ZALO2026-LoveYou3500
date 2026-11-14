@@ -62,24 +62,33 @@ def unpack(archive, destination):
     return destination
 
 
-def stop_process(process):
-    if process.poll() is not None:
-        return
+def stop_process(process, grace_seconds=2.0):
     if os.name == 'posix':
+        def alive():
+            try:
+                os.killpg(process.pid,0)
+                return True
+            except ProcessLookupError:
+                return False
         try:
-            os.killpg(process.pid, signal.SIGTERM)
+            if alive():
+                os.killpg(process.pid,signal.SIGTERM)
+                deadline = time.monotonic()+grace_seconds
+                while alive() and time.monotonic()<deadline:
+                    process.poll()
+                    time.sleep(.02)
+                if alive():
+                    os.killpg(process.pid,signal.SIGKILL)
         except ProcessLookupError:
-            return
-    else:
-        process.terminate()
+            pass
+    elif process.poll() is None:
+        subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'],
+                       stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
     try:
-        process.wait(timeout=15)
+        process.wait(timeout=max(1,grace_seconds))
     except subprocess.TimeoutExpired:
-        if os.name == 'posix':
-            os.killpg(process.pid, signal.SIGKILL)
-        else:
-            process.kill()
-        process.wait()
+        process.kill()
+        process.wait(timeout=2)
 
 
 class SavedRun:

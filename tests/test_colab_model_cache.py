@@ -81,6 +81,7 @@ def test_gpu_notebook_prepares_without_loading_then_runs_shared_batch_once(model
     import runpy
     import sys
     import datamate.application
+    import datamate.execution
     root=Path(__file__).resolve().parents[1]
     notebook=json.loads((root/'notebooks/DataMate_Colab_Inference.ipynb').read_text(encoding='utf-8'))
     from tools.create_inference_notebook import PREPARE, RUN
@@ -92,7 +93,7 @@ def test_gpu_notebook_prepares_without_loading_then_runs_shared_batch_once(model
         assert Path(settings.model_dir).is_relative_to(tmp_path/'local')
         verify_artifact(settings.model_dir, settings.model_key)
         return {'written': 1}
-    monkeypatch.setattr(datamate.application, 'run_batch', batch)
+    monkeypatch.setattr(datamate.execution, 'run_isolated', batch)
     real_run_path=runpy.run_path
     monkeypatch.setattr(runpy, 'run_path', lambda path: real_run_path(path) if Path(path).name=='colab_runtime_check.py' else
                         {'prepare_local_model':lambda src, cache, key:prepare_local_model(src, tmp_path/'local', key)})

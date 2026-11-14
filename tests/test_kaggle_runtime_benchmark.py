@@ -109,7 +109,9 @@ def test_dtype_override_changes_only_loader_configuration(monkeypatch):
 def comparison_fixture(root,backend='transformers'):
     root.mkdir()
     save(root/'benchmark_identity.json',{'ids':['q1'],'model_manifest_sha256':'same',
-         'settings':{'backend':backend,'quantization':'none','model_key':'fixture'},'packages':{},'cuda_visible_devices':'0,1'})
+         'settings':{'backend':backend,'quantization':'none','model_key':'fixture'},'packages':{},'cuda_visible_devices':'0,1',
+         'source_hashes':{'datamate/'+p:'f'*64 for p in ('agent/planning.py','agent/protocol.py','agent/tools.py','agent/verification.py','data/rules.py','evaluation/scoring.py')},
+         'inventory':{'models':[{'key':'fixture','parameters':3}],'total_parameters':3},'artifact_manifests':{'fixture':'same'}})
     save(root/'benchmark_metrics.json',{'valid_complete_run':True,'inference_seconds':10,'cold_total_seconds':20,
          'token_metadata_complete':True,
          'backend_info':{'model_dtype':'torch.float16','class':'TransformersBackend' if backend=='transformers' else 'VLLMBackend'},
@@ -144,7 +146,7 @@ def test_comparison_rejects_accidental_bfloat16_baseline(tmp_path):
     metrics['backend_info']['model_dtype']='torch.bfloat16'
     save(left/'benchmark_metrics.json',metrics)
     result=compare(left,right)
-    assert not result['gates']['same_explicit_float16_precision'] and result['inference_speedup'] is None
+    assert not result['gates']['same_resolved_precision'] and result['inference_speedup'] is None
 
 
 def test_observer_separates_time_before_generation_without_changing_the_call(tmp_path,monkeypatch):
