@@ -58,6 +58,8 @@ Không dùng môi trường này cho full-checkpoint inference. Dependency GPU �
 
 **Bảo chạy Colab Pro với bản fine-tune stage 2 hoàn tất (1 + 0,5 epoch):** dùng [notebook đối chứng](notebooks/DataMate_Colab_Finetuned_Compare.ipynb) và [hướng dẫn đầy đủ](docs/colab-finetuned-compare.md). Nguồn là `qwen35-9b-sql-stage2-v1-full-01/adapter`, giữ report hoàn tất gốc. Merge một lần trên Colab với đúng base đã train; cả baseline/vLLM/RAG dùng cùng full model đã seal. Chưa có số đo inference GPU cho bản ghép. Notebook này thay bản checkpoint198 để có một đường chạy chính.
 
+Notebook fine-tuned dùng **venv inference riêng**, tránh xung đột requests/Pillow giữa vLLM và thư viện kernel Colab. Kết quả `pip check` và freeze được lưu trên Drive; tất cả process inference dùng cùng Python trong venv.
+
 ```powershell
 .\.venv\Scripts\python.exe tools/package_colab.py
 ```

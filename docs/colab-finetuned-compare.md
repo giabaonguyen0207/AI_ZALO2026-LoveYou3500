@@ -53,13 +53,21 @@ print(hashlib.sha256(p.read_bytes()).hexdigest())
 ## Chạy bốn ô
 
 - **Setup:** mount Drive, giải nén source theo hash, đặt đường dẫn và RUN_NAME mới.
-- **Install:** một stack chung Torch/vLLM/RAG/PEFT trước baseline. Nếu pip đổi thư viện đã import, restart kernel rồi chạy lại. Colab Pro GPU/High RAM tùy khả dụng và credit: [Google FAQ](https://research.google.com/colaboratory/faq.html).
+- **Install:** tạo venv riêng dưới `/content/datamate-envs/`, cài một stack chung Torch/vLLM/RAG/PEFT trước baseline. Pip dùng `--python` để cài vào đúng venv, không cài stack inference vào kernel Colab. Merge/stage/compare đều dùng `RUNTIME_PYTHON` và environment riêng. Colab Pro GPU/High RAM tùy khả dụng và credit: [Google FAQ](https://research.google.com/colaboratory/faq.html).
 - **Prepare:** xác minh ZIP/report/IDs/base, merge một lần bằng CPU child **trên Colab**, giữ tensor MTP và seal inventory. Policy merge Qwen9B cần tối thiểu 32GiB RAM hệ thống còn trống; preflight kiểm RAM trước load. Không merge full model trên laptop. RAG stage online chỉ ở ô này.
 - **Compare:** `compare_system.py` chạy **Torch baseline → vLLM → Torch+RAG**, cùng generator merged, source, IDs, dtype và budget; gold chỉ được đọc khi mọi inference xong. `DTYPE='float16'` mặc định cho cả ba; có thể chọn `bfloat16` cho cả ba nếu GPU hỗ trợ, trước khi đo baseline.
 
 Model merged mới lưu ở `MyDrive/DataMateSQLSFT/models/qwen35-9b-stage2-comparison-merged`. Lineage pin **toàn gói inference**, gồm tokenizer/template, ngoài report và base. Bản merge cũ chưa có pin gói sẽ không được tự coi là cache đúng; giữ nguyên bản đó và dùng thư mục output mới. Khởi động lại kernel có thể dùng lại bản merged mới đã kiểm.
 
 Kết quả ở `MyDrive/DataMate/runs/Bảo/stage2-<thời-gian>/comparison/`; các log gồm `prepare-merge.log`, `preparation.json`, ba thư mục arm và `comparisons.json`. Thời gian ô Prepare tách riêng; cài pip/giải nén source cũng tách riêng. Startup model/index/engine vẫn tính trong từng lượt inference. Khi đóng Docker cuối, copy full model merged và thư viện đã chuẩn bị, không merge/cài/tải trong inference BTC.
+
+## Nếu bản notebook cũ lỗi tại pip check
+
+Log Colab ngày14/11 cho thấy các xung đột có sẵn/sau cài stack giữa google-colab, Gradio, RAPIDS, google-adk và runtime mới. Có hai ràng buộc không thể đồng thời thỏa trong cùng environment: google-colab yêu cầu requests2.32.4 trong khi vLLM0.33 yêu cầu requests>=2.33; Gradio yêu cầu Pillow<13 trong khi vLLM yêu cầu Pillow>=13. Nguồn: [requirements vLLM0.33](https://github.com/vllm-project/vllm/blob/v0.33.0/requirements/common.txt).
+
+Bản đã sửa tách môi trường inference khỏi các package kernel. `pip check` vẫn phải đạt trong venv; nếu còn lỗi, thông báo đầy đủ được in trực tiếp và lưu `SAVE/pip-check.txt`. Phiên bản runtime lưu tại `SAVE/runtime-freeze.txt`. Không bỏ kiểm tra dependency và không hạ requests/Pillow của runtime để chạy theo package không dùng trong inference.
+
+Để cập nhật: dùng notebook và source ZIP mới, giữ lại các đường dẫn bạn đã sửa ở ô1, rồi chạy1→4. Không cần upload lại ZIP adapter hoặc train/merge lại nếu đã có model merged đúng gói. Venv và pip cache nằm trên ổ local, dùng lại khi chạy lại cùng cấu hình dependency. Cách bootstrap venv không cần ensurepip: [pip --python](https://pip.pypa.io/en/stable/topics/python-option/).
 
 ## Tạo lại gói từ kết quả đã hoàn tất
 

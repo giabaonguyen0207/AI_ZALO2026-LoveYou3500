@@ -28,7 +28,7 @@ def test_comparison_cell_passes_only_merged_checkpoint_to_shared_runner(tmp_path
     settings=tmp_path/'settings.json'
     settings.write_text(json.dumps({'model_key':'qwen35-9b'}))
     calls=[]
-    namespace={'WORK':Path(__file__).resolve().parents[1],'sys':sys,
+    namespace={'WORK':Path(__file__).resolve().parents[1],'sys':sys,'RUNTIME_PYTHON':'/private-env/bin/python','RUNTIME_ENV':{},
         'subprocess':SimpleNamespace(run=lambda cmd,**kw:calls.append((cmd,kw))),
         'IDS_FILE':ids,'REFERENCES_FILE':None,'TRAIN_ROOT':tmp_path/'split',
         'MODEL_DIR':tmp_path/'local-merged','EMBEDDING_DIR':tmp_path/'embedding','RERANKER_DIR':tmp_path/'reranker',
@@ -36,6 +36,7 @@ def test_comparison_cell_passes_only_merged_checkpoint_to_shared_runner(tmp_path
     exec(compile(COMPARE,'compare','exec'),namespace)
     assert len(calls)==1
     command,options=calls[0]
+    assert command[0]=='/private-env/bin/python' and options['env']=={}
     assert command[command.index('--model-dir')+1]==str(namespace['MODEL_DIR'])
     assert command[2].endswith('tools/compare_system.py') or command[2].endswith('tools\\compare_system.py')
     assert '--references' not in command
@@ -95,7 +96,7 @@ def test_prepare_and_compare_use_one_completed_merged_artifact(completed,tmp_pat
        'EXPECTED_TRAINING_REPORT_SHA256':manifest['source_training_report_sha256'],
        'WORK':tmp_path/'work','BASE_SOURCE_DIR':tmp_path/'missing-base',
        'MERGED_STORE':merged,'SAVE':save,'STORAGE':storage,'time':time,'json':json,
-       'sys':sys,'Path':Path,'subprocess':SimpleNamespace(STDOUT=-2,run=lambda cmd,**kw:commands.append(cmd)),
+       'sys':sys,'RUNTIME_PYTHON':sys.executable,'RUNTIME_ENV':{},'Path':Path,'subprocess':SimpleNamespace(STDOUT=-2,run=lambda cmd,**kw:commands.append(cmd)),
        'IDS_FILE':ids,'REFERENCES_FILE':None,'TRAIN_ROOT':split_root,
        'DTYPE':'float16','COMPARE_OUTPUT':save/'comparison'}
     exec(compile(PREPARE,'prepare','exec'),namespace)

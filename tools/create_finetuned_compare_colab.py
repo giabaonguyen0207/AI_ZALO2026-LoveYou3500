@@ -69,19 +69,33 @@ COMPARE_OUTPUT = SAVE / "comparison"  # Keep fresh; preparation logs stay outsid
 DTYPE = "float16"  # Common generator precision for all three arms.
 '''
 
-INSTALL = '''from importlib.metadata import version,PackageNotFoundError
-def installed(name):
-    try: return version(name)
-    except PackageNotFoundError: return None
-loaded = {n:installed(n) for n in ("torch","transformers","tokenizers","numpy","peft","vllm") if n in sys.modules}
-subprocess.run([sys.executable,"-m","pip","install","-e",".[llm,vllm,rag]","peft==0.21.2","psutil>=5"],cwd=WORK,check=True)
-changed = [n for n,before in loaded.items() if installed(n)!=before]
-if changed:
-    raise RuntimeError("Restart kernel before inference; loaded packages changed: " + str(changed))
-subprocess.run([sys.executable,"-m","pip","check"],check=True)
+INSTALL = '''# Keep Colab's kernel packages separate from the inference stack.
+runtime_key = hashlib.sha256((WORK / "pyproject.toml").read_bytes()
+    + b"peft==0.21.2|psutil>=5" + str(sys.version_info[:2]).encode()).hexdigest()[:16]
+runtime_dir = Path(os.environ.get("DATAMATE_RUNTIME_DIR", "/content/datamate-envs/" + runtime_key))
+RUNTIME_PYTHON = str(runtime_dir / "bin/python")
+RUNTIME_ENV = {**os.environ,"PYTHONNOUSERSITE":"1",
+    "PYTHONPATH":str(WORK / "src") + os.pathsep + str(WORK)}
+RUNTIME_ENV.pop("PYTHONHOME",None)
+if not Path(RUNTIME_PYTHON).is_file():
+    subprocess.run([sys.executable,"-m","venv","--without-pip",str(runtime_dir)],env=RUNTIME_ENV,check=True)
+if "include-system-site-packages = false" not in (runtime_dir / "pyvenv.cfg").read_text().lower():
+    raise RuntimeError("Runtime must be an isolated venv; choose a new DATAMATE_RUNTIME_DIR")
+print("Installing/checking private runtime:",RUNTIME_PYTHON,flush=True)
+# pip --python works even when Debian/Colab venv has no ensurepip.
+subprocess.run([sys.executable,"-m","pip","--python",RUNTIME_PYTHON,"install","pip",
+    "-e",".[llm,vllm,rag]","peft==0.21.2","psutil>=5"],cwd=WORK,env=RUNTIME_ENV,check=True)
+checked = subprocess.run([RUNTIME_PYTHON,"-m","pip","check"],env=RUNTIME_ENV,capture_output=True,text=True)
+check_output = (checked.stdout or "") + (checked.stderr or "")
+print(check_output,flush=True)
+(SAVE / "pip-check.txt").write_text(check_output,encoding="utf-8")
+if checked.returncode:
+    raise RuntimeError("Private inference runtime has dependency conflicts:\\n" + check_output)
+frozen = subprocess.run([RUNTIME_PYTHON,"-m","pip","freeze"],env=RUNTIME_ENV,capture_output=True,text=True,check=True)
+(SAVE / "runtime-freeze.txt").write_text(frozen.stdout,encoding="utf-8")
 subprocess.run(["nvidia-smi","--query-gpu=name,memory.total,driver_version","--format=csv"],check=True)
 sys.path.insert(0,str(WORK / "src"))
-print("Common stack installed. Model merge runs in a fresh CPU child; inference in fresh GPU workers.")
+print("Runtime ready. All three arms use:",RUNTIME_PYTHON)
 '''
 
 PREPARE = '''started = time.monotonic()
@@ -117,9 +131,9 @@ if not (MERGED_STORE / "artifact_manifest.json").is_file():
     base = prepare_local_model(base,WORK / ".cache/models","qwen35-9b")
 print("Merging/reusing completed stage2 adapter on Colab; output:",MERGED_STORE,flush=True)
 with (SAVE / "prepare-merge.log").open("w",encoding="utf-8") as log:
-    subprocess.run([sys.executable,"-u",str(WORK / "tools/checkpoint_inference.py"),"merge",
+    subprocess.run([RUNTIME_PYTHON,"-u",str(WORK / "tools/checkpoint_inference.py"),"merge",
         "--package-root",str(package_root),"--base",str(base),"--output",str(MERGED_STORE)],
-        cwd=WORK,check=True,stdout=log,stderr=subprocess.STDOUT)
+        cwd=WORK,env=RUNTIME_ENV,check=True,stdout=log,stderr=subprocess.STDOUT)
 verify_artifact(MERGED_STORE,"qwen35-9b")
 MODEL_DIR = prepare_local_model(MERGED_STORE,WORK / ".cache/models","qwen35-9b")
 paths = {}
@@ -127,8 +141,8 @@ for key in ("vietnamese-embedding","vietnamese-reranker"):
     source = STORAGE / "models" / key
     if not (source / "artifact_manifest.json").is_file():
         # Explicit ONLINE preparation only, never inside benchmark inference.
-        env = {**os.environ,"HF_HUB_OFFLINE":"0","TRANSFORMERS_OFFLINE":"0"}
-        subprocess.run([sys.executable,"-m","datamate","stage-model","--model",key,"--output",str(source)],
+        env = {**RUNTIME_ENV,"HF_HUB_OFFLINE":"0","TRANSFORMERS_OFFLINE":"0"}
+        subprocess.run([RUNTIME_PYTHON,"-m","datamate","stage-model","--model",key,"--output",str(source)],
                        cwd=WORK,env=env,check=True)
     verify_artifact(source,key)
     paths[key] = prepare_local_model(source,WORK / ".cache/models",key)
@@ -140,14 +154,14 @@ EMBEDDING_DIR,RERANKER_DIR = paths["vietnamese-embedding"],paths["vietnamese-rer
 print("All arms will use this merged artifact:",MODEL_DIR)
 '''
 
-COMPARE = '''command = [sys.executable,"-u",str(WORK / "tools/compare_system.py"),
+COMPARE = '''command = [RUNTIME_PYTHON,"-u",str(WORK / "tools/compare_system.py"),
     "--config",str(WORK / "configs/comparison/baseline.json"),"--ids",str(IDS_FILE),
     "--split-root",str(TRAIN_ROOT),"--model-dir",str(MODEL_DIR),
     "--embedding-dir",str(EMBEDDING_DIR),"--reranker-dir",str(RERANKER_DIR),
     "--dtype",DTYPE,"--output",str(COMPARE_OUTPUT)]
 if REFERENCES_FILE is not None:
     command += ["--references",str(REFERENCES_FILE)]
-subprocess.run(command,cwd=WORK,check=True)
+subprocess.run(command,cwd=WORK,env=RUNTIME_ENV,check=True)
 print("Results:",COMPARE_OUTPUT / "comparisons.json")
 '''
 
@@ -166,7 +180,7 @@ def build(root=None):
              'Baseline là model đã fine-tune, RAG tắt. Không load/thử full model trên laptop. '
              'Xem docs/colab-finetuned-compare.md.\n','finetuned-intro'),
         cell('code',SETUP,'finetuned-setup'),
-        cell('markdown','## Cài stack chung trước baseline\nNếu đã import thư viện rồi pip đổi phiên bản, restart kernel và chạy lại.\n','finetuned-install-help'),
+        cell('markdown','## Cài môi trường inference riêng\nTorch/vLLM/RAG dùng chung một venv sạch, tách khỏi thư viện có sẵn của Colab. Kết quả pip check và pip freeze được lưu trên Drive.\n','finetuned-install-help'),
         cell('code',INSTALL,'finetuned-install'),
         cell('markdown','## Chuẩn bị adapter và model\nKhông train thêm. CPU merge cần RAM còn trống theo preflight; xem prepare-merge.log trên Drive nếu lỗi.\n','finetuned-prepare-help'),
         cell('code',PREPARE,'finetuned-prepare'),
