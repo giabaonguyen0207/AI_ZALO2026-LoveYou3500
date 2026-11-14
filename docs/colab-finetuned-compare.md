@@ -69,6 +69,43 @@ Bản đã sửa tách môi trường inference khỏi các package kernel. `pip
 
 Để cập nhật: dùng notebook và source ZIP mới, giữ lại các đường dẫn bạn đã sửa ở ô1, rồi chạy1→4. Không cần upload lại ZIP adapter hoặc train/merge lại nếu đã có model merged đúng gói. Venv và pip cache nằm trên ổ local, dùng lại khi chạy lại cùng cấu hình dependency. Cách bootstrap venv không cần ensurepip: [pip --python](https://pip.pypa.io/en/stable/topics/python-option/).
 
+## Nếu baseline xong nhưng vLLM lỗi image processor
+
+Log chủ dự án cung cấp ngày14/11/2026: trên A10040GB, baseline kết thúc process sau3362,8s; vLLM dừng ở startup sau94,9s, chưa gọi model. Lỗi gốc là thiếu `preprocessor_config.json` trong đường chạy khởi tạo processor ảnh của Qwen, không phải OOM. Đây là bằng chứng chẩn đoán một lượt, chưa xác nhận chất lượng baseline hoặc hiệu năng vLLM.
+
+Adapter chỉ gửi token văn bản. Bản source mới đặt `language_model_only=True` khi tạo engine, tránh khởi tạo xử lý ảnh/video. vLLM0.33 có tùy chọn này: [MultiModalConfig](https://docs.vllm.ai/en/v0.33.0/api/vllm/config/multimodal/#vllm.config.multimodal.MultiModalConfig.language_model_only).
+
+Nếu giữ baseline cũ, **giữ nguyên source WORK cũ**, không chép source mới đè lên nó: phép so kiểm hash toàn bộ source. Upload riêng `tools/continue_system_comparison.py` vào `/content/continue_system_comparison.py`, rồi gọi bằng Python trong venv cũ:
+
+```python
+command = [RUNTIME_PYTHON, '-u', '/content/continue_system_comparison.py',
+           '--project-root', str(WORK), '--comparison-dir', str(COMPARE_OUTPUT)]
+if REFERENCES_FILE is not None:
+    command += ['--references', str(REFERENCES_FILE)]
+process = subprocess.Popen(command, cwd=WORK, env=RUNTIME_ENV,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                           text=True, encoding='utf-8', errors='replace', bufsize=1)
+try:
+    for line in process.stdout:
+        print(line, end='', flush=True)
+    if process.wait() != 0:
+        raise RuntimeError('Recovery failed; see the error above and the new recovery log')
+finally:
+    if process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+```
+
+Tool kiểm baseline đã hoàn tất/đủ ID, source/model manifest và phiên bản thư viện; không giả định hoàn tất đồng nghĩa chất lượng tốt. Nó truyền chế độ text-only qua `extra_engine_args` đã được source cũ hỗ trợ, không sửa weights/manifest/source cũ, không chạy lại baseline. Mỗi lần tạo thư mục `comparison.../recovery-.../` mới, giữ cả log lỗi trước, dùng cache riêng, giữ watchdog và in log trực tiếp. Mặc định chạy vLLM rồi Torch+RAG trên đúng ID/dtype/budget đã ghi trong baseline, sau đó tạo `comparisons.json` so với baseline gốc. Chỉ đọc gold sau toàn bộ lượt yêu cầu. Có thể thêm `--arms rag` để chỉ chạy RAG hoặc `--arms vllm` để chỉ chạy vLLM; các kết quả nằm ở recovery riêng, không tự ghép hai recovery.
+
+Chưa kiểm fix bằng full model trên GPU; phải chạy lại vLLM để xác nhận startup/inference thực tế. Không tải một processor ngẫu nhiên hoặc sửa config/manifest model đã seal để bỏ lỗi.
+
+Log recovery tiếp theo xác nhận đã qua lỗi processor nhưng dừng ở FlashInfer JIT vì không tìm thấy `ninja`. Venv cần có Ninja và thư mục `bin` trong `PATH` của worker; gọi riêng Python venv không tự kích hoạt PATH. Bản notebook mới sửa environment và extra vLLM có Ninja. Với session cũ, sửa `RUNTIME_ENV` và cài riêng Ninja nếu chưa tìm thấy, kiểm CUDA/C++ compiler trước khi chạy lại recovery; giữ runtime/source/baseline cũ. Xem [nhật ký lỗi và yêu cầu Docker](runtime-issues-2026-11-14.md#3-filenotfounderror--ninja-khi-warmup-sampler).
+
 ## Tạo lại gói từ kết quả đã hoàn tất
 
 Chọn output ZIP mới nếu file cũ đã có:

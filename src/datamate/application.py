@@ -18,6 +18,7 @@ from .retrieval import build_retriever
 from .models.artifacts import sha256
 from .models.runtime import runtime_identity
 from .batching import run_questions
+from .competition_log import competition_fields
 
 
 def create_agent(settings: Settings, *, business_ids=None, remaining_seconds=None, progress=None) -> Agent:
@@ -84,6 +85,8 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
         temporary.replace(path)
     logs = result_dir / "logs"
     logs.mkdir(exist_ok=True)
+    debug = result_dir / 'debug'
+    debug.mkdir(exist_ok=True)
     output = result_dir / "submission.jsonl"
     identity = {"settings": settings.to_dict(), "rulebook_sha256": split.rulebook_hash,
                 "questions_sha256": hashlib.sha256((split.root / "questions.jsonl").read_bytes()).hexdigest(),
@@ -147,15 +150,15 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
                     name = hashlib.sha256(question.id.encode()).hexdigest()[:24] + '.json'
                     payload = {'id': question.id, 'business_id': question.business_id,
                                **question.prompt_dict(), 'rulebook_sha256': split.rulebook_hash,
-                               **run.to_dict(question.id)}
+                               **run.to_dict(question.id), **competition_fields(run)}
                     temporary = logs / (name + '.tmp')
-                    temporary.write_text(json_text(payload, indent=2), encoding='utf-8')
+                    temporary.write_text(json_text(payload) + '\n', encoding='utf-8')
                     temporary.replace(logs / name)
                     handle.write(json_text(run.answer.to_dict(question.id)) + '\n')
                     handle.flush()
                     os.fsync(handle.fileno())
                     written += 1
-                    write_debug_log((logs / name).with_suffix('.md'), payload)
+                    write_debug_log((debug / name).with_suffix('.md'), payload)
                     error = any(item.get('error_kind') in {'runtime', 'generation'} for item in run.trace)
                     outcome = 'LỖI XỬ LÝ' if error else 'ĐÃ LƯU'
                     print(f'[{len(completed)+written}/{len(questions)}] {outcome} {question.id} | '
@@ -166,7 +169,7 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
                     close_runs()
     except BaseException as exc:
         failure = f'{type(exc).__name__}: {exc}'
-        (logs / 'runtime-error.json').write_text(json_text({
+        (result_dir / 'runtime-error.json').write_text(json_text({
             'id': getattr(exc, 'question_id', None), 'error': failure,
             'elapsed_seconds': time.monotonic()-started, 'submission': {'type': 'abstain'}}, indent=2), encoding='utf-8')
         raise
@@ -178,7 +181,7 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
                     (result_dir / 'runtime.json').write_text(json_text(agent.backend.runtime_info(), indent=2), encoding='utf-8')
         except BaseException as exc:
             cleanup_error = f'{type(exc).__name__}: {exc}'
-            (logs / 'shutdown-error.json').write_text(json_text({'error': cleanup_error,
+            (result_dir / 'shutdown-error.json').write_text(json_text({'error': cleanup_error,
                 'elapsed_seconds': time.monotonic()-started}, indent=2), encoding='utf-8')
             if failure is None:
                 failure = cleanup_error

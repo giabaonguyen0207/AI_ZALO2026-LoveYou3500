@@ -6,7 +6,7 @@ Repo hiện tại: [AI_ZALO2026-LoveYou3500](https://github.com/giabaonguyen0207
 
 Git chỉ cho một branch được checkout tại một working tree. Worktree tích hợp ở `C:/Users/Windows/.codex/worktrees/vllm-rag-integration/ZALO_AI_2026` đã được tách khỏi `codex/team-gpu-layout` để giải phóng nhánh. Nếu gặp lại, dùng `git worktree list` để xác định nơi giữ branch; chỉ detach worktree đó khi source đã commit/sạch. Không xóa worktree đang có việc chưa lưu hoặc dùng force checkout để mở hai nơi cùng branch.
 
-Checkout `E:` đang có training/notebook chưa commit trên `rag`. Để lưu tạm tất cả phần đó trước khi chuyển (stash không lấy model/data/output đã gitignore):
+Checkout `E:` đang ở `codex/team-gpu-layout`, có thay đổi training chưa commit cần giữ. Bản release được fast-forward từ nhánh Codex riêng sau khi kiểm hash các file dirty; không stash/reset/switch hoặc chép đè training của chủ dự án. Nếu sau này tự chuyển nhánh và có WIP, có thể lưu tạm như sau (stash không lấy model/data/output đã gitignore):
 
 ```powershell
 git status --short

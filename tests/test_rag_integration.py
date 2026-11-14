@@ -17,6 +17,16 @@ class Tokenizer:
         return list(text.encode('utf-8'))
 
 
+def test_schema_chunks_from_different_sheets_have_distinct_provenance_ids():
+    from datamate.retrieval.core import sections
+    options = dict(source='data/shop/book.xlsx', scope='shop', tokenizer=Tokenizer(),
+                   source_sha256='same-file-hash')
+    first = sections('Table s04 month04', metadata={'table': 's04'}, **options)[0]
+    second = sections('Table s05 month05', metadata={'table': 's05'}, **options)[0]
+    assert first.text != second.text
+    assert first.metadata['chunk_id'] != second.metadata['chunk_id']
+
+
 class Encoder:
     tokenizer = Tokenizer()
 
@@ -124,7 +134,7 @@ def test_corrupted_cached_vectors_rebuild_instead_of_failing_startup(split_root,
     manifest = next((tmp_path/'cache').rglob('index_manifest.json'))
     vector_file = manifest.parent/'vectors.npy'
     np.save(vector_file,np.zeros((1,512)),allow_pickle=False)
-    data = json.loads(manifest.read_text())
+    data = json.loads(manifest.read_text(encoding='utf-8'))
     data['files']['vectors.npy'] = sha256(vector_file)
     manifest.write_text(json.dumps(data))
     encoder = Encoder()

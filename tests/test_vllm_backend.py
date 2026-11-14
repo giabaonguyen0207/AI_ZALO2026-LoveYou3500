@@ -200,6 +200,7 @@ def test_engine_options_are_supplied_and_local_model_is_not_loaded_twice(make_ba
     assert options['max_model_len'] == backend.settings.max_context_tokens
     assert options['max_num_batched_tokens'] == 2048 and options['enable_prefix_caching'] is False
     assert options['trust_remote_code'] is False and options['disable_log_stats'] is True
+    assert options['language_model_only'] is True
 
 
 def test_optional_sampling_arguments_reach_engine_and_logs(make_backend):

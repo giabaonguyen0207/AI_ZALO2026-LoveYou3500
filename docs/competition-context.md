@@ -2,11 +2,11 @@
 
 ## Nguồn và trạng thái hiện tại
 
-Nguồn quy định bên dưới là bản tổng hợp người dùng cung cấp ngày 30/10/2026; chưa xác minh độc lập toàn bộ guideline chính thức. Phần quy định được giữ nguyên khi dọn bố cục ngày 09/11/2026. Các điểm chưa rõ phải kiểm lại bằng tài liệu BTC.
+Nguồn ban đầu là bản tổng hợp người dùng cung cấp ngày30/10/2026. **Cập nhật14/11:** đã đọc đủ10trang PDF chính thức `E:/Bảo Lập Trình AI/zac2026_DataMate_docker_guideline_final.pdf` và inspect các trang interface/hardware/log/build. Hash/bản trích nằm trong outputs/runs/Bảo/docker-release-20261114; [Docker guide dự án](docker.md) ghi các yêu cầu đã xác minh và phần còn chưa rõ.
 
 Quyết định dự án ngày 09/11/2026: code dùng chung modular monolith, hướng tích hợp Adapter + Strategy; Hải phụ trách vLLM, Thịnh phụ trách RAG. Mỗi người tự chọn benchmark, chạy baseline trước rồi so bản tích hợp trên cùng tập đã chọn. Không bắt buộc bộ 200 câu chung. Xem [kiến trúc](architecture.md) và [hai plan](plans/).
 
-Chạy full-checkpoint inference trên Colab/Kaggle/GPU thuê; máy local chỉ phát triển và kiểm thử CPU. Qwen 4B/local presets và web đã bỏ khỏi runtime. Sau hợp nhất ngày14/11, adapter vLLM/RAG đã ghép và kiểm bằng fixture CPU, chưa xác nhận inference GPU của bản ghép. Pipeline nghiệp vụ giữ phiên bản6. Docker submission là bước đóng gói offline cuối cùng, base image chính thức còn cần đối chiếu guideline.
+Chạy full-checkpoint inference trên Colab/Kaggle/GPU thuê; máy local phát triển/test CPU, chủ dự án cho phép tiny GPU smoke trên4060 khi phù hợp. Qwen4B/local presets và web đã bỏ khỏi runtime. Sau hợp nhất ngày14/11, adapter vLLM/RAG đã ghép và có [đối chiếu100 câu phát triển trên A100](comparison-100-review-2026-11-14.md); kết quả có training overlap, deadline và thiếu metrics vLLM sau ngắt shutdown, chưa chứng nhận private-test/Docker. Pipeline nghiệp vụ giữ phiên bản6. PDF recommended vLLM0.10.1.1/cu128 và cho phép alternative hỗ trợ5090/SM120; stack0.33 ứng viên dùng CUDA13, driver máy BTC chưa xác nhận đủ mới.
 
 Lịch sử nguồn, các lần benchmark và rollback trước khi dọn được giữ tại [nhật ký cũ](history/competition-provenance-through-2026-11-09.md). Báo cáo số đo cũ không thay baseline cho thay đổi mới. Xem [báo cáo dọn bố cục](team-layout-2026-11-09.md).
 
@@ -315,7 +315,7 @@ Prohibited:
 - 32 GB VRAM per GPU; 64 GB total VRAM.
 - 512 GB system RAM.
 
-According to the supplied summary, Blackwell GPUs require CUDA 12.8 or newer and compatible PyTorch/vLLM builds. Verify software compatibility against the official Docker guideline before implementation. The official guideline specifies the base image; its identity has not been provided here.
+The official PDF received14/11 confirms CUDA>=12.8 and matching PyTorch/vLLM with SM120 support, two RTX5090/32GB each and512GB RAM. Its recommended sample base is vllm/vllm-openai:v0.10.1.1 (Torch2.7.1cu128); alternatives supporting the hardware are allowed. The exact scoring driver is still unknown; the guide states R570-or-newer.
 
 ### 6.8 Runtime
 

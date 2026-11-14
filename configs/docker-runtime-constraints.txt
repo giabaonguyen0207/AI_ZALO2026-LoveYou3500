@@ -1,0 +1,5 @@
+# Candidate stack observed in Colab inference; the final image still needs GPU rehearsal.
+vllm==0.33.0
+torch==2.14.0
+transformers==5.20.2
+numpy==2.4.6

@@ -75,7 +75,9 @@ runtime_key = hashlib.sha256((WORK / "pyproject.toml").read_bytes()
 runtime_dir = Path(os.environ.get("DATAMATE_RUNTIME_DIR", "/content/datamate-envs/" + runtime_key))
 RUNTIME_PYTHON = str(runtime_dir / "bin/python")
 RUNTIME_ENV = {**os.environ,"PYTHONNOUSERSITE":"1",
-    "PYTHONPATH":str(WORK / "src") + os.pathsep + str(WORK)}
+    "PYTHONPATH":str(WORK / "src") + os.pathsep + str(WORK),
+    "VIRTUAL_ENV":str(runtime_dir),
+    "PATH":str(runtime_dir / "bin") + os.pathsep + os.environ.get("PATH","")}
 RUNTIME_ENV.pop("PYTHONHOME",None)
 if not Path(RUNTIME_PYTHON).is_file():
     subprocess.run([sys.executable,"-m","venv","--without-pip",str(runtime_dir)],env=RUNTIME_ENV,check=True)

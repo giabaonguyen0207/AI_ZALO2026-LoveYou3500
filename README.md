@@ -1,6 +1,6 @@
 # DataMate · Làm việc nhóm trên GPU
 
-DataMate là ứng dụng Python dùng chung cho **Colab, Kaggle, GPU thuê và Docker**. Máy cá nhân dùng để viết code và kiểm thử CPU. **Pipeline 6** giữ Transformers làm baseline; đã ghép adapter vLLM và RAG, chọn độc lập qua config/CLI. Bản ghép cần chạy đối chứng GPU; chưa có kết luận chất lượng mới.
+DataMate là ứng dụng Python dùng chung cho **Colab, Kaggle, GPU thuê và Docker**. Máy cá nhân dùng để viết code và kiểm thử CPU. **Pipeline 6** giữ Transformers làm baseline; đã ghép adapter vLLM và RAG, chọn độc lập qua config/CLI. Đã có [đối chiếu GPU100 câu phát triển ngày14/11](docs/comparison-100-review-2026-11-14.md); báo cáo nêu rõ training overlap, deadline và metrics thiếu. Chưa xác nhận image thi/private-test.
 
 | Người | Nhánh riêng | Phần phụ trách / kế hoạch |
 |---|---|---|
@@ -19,7 +19,7 @@ notebooks/
   DataMate_Colab_Inference.ipynb  Notebook GPU chính, chọn nền tảng ở ô đầu
   DataMate_Colab_Finetuned_Compare.ipynb  Bảo: model stage2 hoàn tất, ba cấu hình đối chứng
   DataMate_Colab_Team200.ipynb    Benchmark 200 câu tùy chọn
-  training/                     Notebook training
+  training/                     Ghi chú training; notebook thử cũ giữ trong artifact frozen
 tools/              Tạo notebook, kiểm dữ liệu, đánh giá và đóng gói
 docker/             Docker dev và Docker competition
 docs/               Hướng dẫn hiện hành, plans/, history/, references/, research/
@@ -56,9 +56,11 @@ Không dùng môi trường này cho full-checkpoint inference. Dependency GPU �
 
 Đọc [hướng dẫn GPU](docs/run-gpu.md). Tạo gói source trên máy cá nhân:
 
-**Bảo chạy Colab Pro với bản fine-tune stage 2 hoàn tất (1 + 0,5 epoch):** dùng [notebook đối chứng](notebooks/DataMate_Colab_Finetuned_Compare.ipynb) và [hướng dẫn đầy đủ](docs/colab-finetuned-compare.md). Nguồn là `qwen35-9b-sql-stage2-v1-full-01/adapter`, giữ report hoàn tất gốc. Merge một lần trên Colab với đúng base đã train; cả baseline/vLLM/RAG dùng cùng full model đã seal. Chưa có số đo inference GPU cho bản ghép. Notebook này thay bản checkpoint198 để có một đường chạy chính.
+**Bảo chạy Colab Pro với bản fine-tune stage 2 hoàn tất (1 + 0,5 epoch):** dùng [notebook đối chứng](notebooks/DataMate_Colab_Finetuned_Compare.ipynb) và [hướng dẫn đầy đủ](docs/colab-finetuned-compare.md). Nguồn là `qwen35-9b-sql-stage2-v1-full-01/adapter`, giữ report hoàn tất gốc. Merge một lần trên Colab với đúng base đã train; cả baseline/vLLM/RAG dùng cùng full model đã seal. Kết quả100 câu và giới hạn được lưu trong báo cáo ngày14/11 phía trên. Notebook này thay bản checkpoint198 để có một đường chạy chính.
 
 Notebook fine-tuned dùng **venv inference riêng**, tránh xung đột requests/Pillow giữa vLLM và thư viện kernel Colab. Kết quả `pip check` và freeze được lưu trên Drive; tất cả process inference dùng cùng Python trong venv.
+
+Nếu baseline đã xong nhưng vLLM lỗi `preprocessor_config.json`, xem [cách chạy tiếp trên source cũ](docs/colab-finetuned-compare.md#nếu-baseline-xong-nhưng-vllm-lỗi-image-processor): tool recovery bật chế độ chỉ xử lý văn bản, giữ baseline và chạy riêng vLLM/RAG trên cùng tập.
 
 ```powershell
 .\.venv\Scripts\python.exe tools/package_colab.py
@@ -99,9 +101,13 @@ Nếu có code chưa commit, lưu vào nhánh của mình trước khi chuyển 
 
 ## 5. Docker nộp cuối
 
-Giữ `docker/Dockerfile.competition`, `configs/submission.json` và `predict.sh`. Dùng `tools/package_solution.py` để tạo build context chỉ chứa source, checkpoint được chọn và wheelhouse.
+Đã đối chiếu PDF Docker BTC nhận14/11/2026: `/code/predict.sh` không đối số, máy **2×RTX5090/32GB mỗi card**, RAM512GB,6giờ gồm load, image Linuxamd64, TAR chưa nén<=100GB và nộp **TAR.GZ + MD5 của file nén**. Image phải có cả training source/data/log/config/checkpoints và môi trường training offline.
 
-[Hướng dẫn build, chạy offline và xuất image](docs/docker.md). Thư viện được cài lúc build và weights được chép vào image cho tất cả model đang bật. Runtime vẫn phải import/nạp GPU/khởi tạo engine; toàn bộ thời gian đó tính trong 6 giờ. Bản ghép này **chưa build/chạy image thi trên GPU**; đối chiếu guideline BTC và rehearsal offline trước khi chốt.
+[Hướng dẫn Docker đầy đủ](docs/docker.md) · [Thuê GPU Vast và chuẩn bị trước giờ tính phí](docs/run-vast.md). `configs/submission.json` chốt ứng viên **vLLM + RAG**, generator GPU0/RAG GPU1. Full merged model đã verify đúng bản fine-tune stage2; không dùng base chưa fine-tune. `docker/prepare_release.py` chuẩn bị wheelhouse Linux và context có chọn lọc; `package_solution.py` từ chối release thiếu training evidence. `docker/rehearse.sh` dùng lệnh BTC cho hai lượt offline; `verify_submission.py` kiểm output/log; `export_solution.py` kiểm TAR/GZIP và tạo MD5.
+
+**Chưa có image thi được chứng nhận GPU.** Base vLLM0.33 đã inspect dùng CUDA13, trong khi guideline chỉ cam kết R570+; phải giải quyết tương thích driver hoặc xác nhận qua Test Solution trước khi chốt. CPU/tiny smoke không thay full9B+RAG trên5090. Thư viện/weights được cài sẵn trong image vẫn cần import/nạp GPU/JIT lúc khởi động.
+
+[Nhật ký lỗi runtime 14/11 và kiểm tra trước khi nộp](docs/runtime-issues-2026-11-14.md) lưu các lỗi dependency, text-only, Ninja/PATH, OOM và cảnh báo benchmark để tránh lặp lại khi đóng Docker.
 
 Ràng buộc: tổng model inference ≤15B; checkpoint công khai trước 01/10/2026 và giấy phép phù hợp; `/data` chỉ đọc; kết quả `/result/submission.jsonl`, log `/result/logs/`; toàn private test ≤6 giờ gồm load. Không dùng public/private test để training.
 

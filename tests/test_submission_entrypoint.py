@@ -32,3 +32,13 @@ def test_entrypoint_creates_writable_scratch_and_forwards_runtime_arguments(tmp_
     assert (tmp_path / 'python-args.txt').read_text().splitlines() == [
         '-m', 'datamate', 'run', '--config', 'configs/local.json', '--concurrency', '2']
     assert all((tmp_path / name).is_dir() for name in ['results/logs', 'scratch/temp', 'scratch/compile', 'scratch/config'])
+
+
+def test_final_submission_inventory_and_devices_match_two_gpu_machine():
+    from datamate.config import Settings
+    from datamate.models.registry import inventory_from_settings
+    settings = Settings.load(Path(__file__).resolve().parents[1]/'configs/submission.json',use_env=False)
+    assert settings.backend == 'vllm' and settings.rag.mode == 'dense_rerank'
+    assert settings.vllm.tensor_parallel_size == 1 and settings.rag.device == 'cuda:1'
+    assert settings.effective_workers == 1
+    assert inventory_from_settings(settings)['total_parameters'] == 10_788_614_897

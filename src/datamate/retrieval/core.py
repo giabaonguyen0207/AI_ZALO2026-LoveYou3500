@@ -65,7 +65,11 @@ def sections(text, source, scope, *, tokenizer, chunk_tokens=384, overlap=48,
             if count(piece) > chunk_tokens:
                 raise DataMateError('Embedding token budget cannot fit a source character')
             end = position + low
-            chunk_id = disk_index.fingerprint([scope, source, digest, section_number, position, end, chunk_tokens, overlap])
+            # One workbook can supply many equal-length schema descriptions.
+            # File/offset identity alone aliases different sheets and texts.
+            chunk_id = disk_index.fingerprint([scope, source, digest, metadata or {},
+                hashlib.sha256(piece.encode('utf-8')).hexdigest(),
+                section_number, position, end, chunk_tokens, overlap])
             result.append(Chunk(piece, source, scope, digest,
                                 {**(metadata or {}), 'chunk_id': chunk_id, 'section': section_number,
                                  'start_character': position, 'end_character': end}))

@@ -77,7 +77,7 @@ def test_fatal_engine_failure_preserves_other_finished_rows_and_stops_new_work(m
     assert len(rows) == 2 and {r['id'] for r in rows} == set(saved)
     summary = json.loads((output / 'run_summary.json').read_text(encoding='utf-8'))
     assert summary['written'] == 2 and 'two saved' in summary['error']
-    error = json.loads((output / 'logs/runtime-error.json').read_text(encoding='utf-8'))
+    error = json.loads((output / 'runtime-error.json').read_text(encoding='utf-8'))
     assert error['id'] in {'question_0', 'question_1', 'question_2'} - set(saved)
     assert engine.closed and not engine.active
 

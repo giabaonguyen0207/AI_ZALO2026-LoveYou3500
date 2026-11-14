@@ -15,6 +15,7 @@ def test_install_and_pip_check_target_private_runtime(tmp_path,monkeypatch,capsy
     save=tmp_path/'results';save.mkdir()
     runtime=tmp_path/'runtime'
     monkeypatch.setenv('DATAMATE_RUNTIME_DIR',str(runtime))
+    inherited_path = os.environ.get('PATH', '')
     calls=[]
     conflict='vllm requires torch==2.14.0, but you have torch 2.13.0.'
     def command(args,**kwargs):
@@ -43,6 +44,9 @@ def test_install_and_pip_check_target_private_runtime(tmp_path,monkeypatch,capsy
         assert state['RUNTIME_PYTHON']==str(runtime/'bin/python')
         assert state['RUNTIME_ENV']['PYTHONPATH'].startswith(str(work/'src'))
         assert state['RUNTIME_ENV']['PYTHONNOUSERSITE']=='1'
+        assert state['RUNTIME_ENV']['VIRTUAL_ENV']==str(runtime)
+        assert state['RUNTIME_ENV']['PATH']==str(runtime/'bin')+os.pathsep+inherited_path
+        assert os.environ.get('PATH','')==inherited_path
     assert any('install' in args for args in calls)
 
 

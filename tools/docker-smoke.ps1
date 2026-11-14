@@ -1,4 +1,4 @@
-param([string]$Image = 'datamate-dev:local')
+param([string]$Image = 'datamate-dev:local', [string]$DataRoot = '')
 $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path -LiteralPath (Split-Path -Parent $PSScriptRoot)).Path
 Set-Location -LiteralPath $projectRoot
@@ -9,7 +9,7 @@ $dataVolume = "datamate-data-$suffix"
 $resultVolume = "datamate-result-$suffix"
 $inputDir = Join-Path $projectRoot "outputs/runs/docker-smoke/input-$suffix"
 $outputDir = Join-Path $projectRoot "outputs/runs/docker-smoke/result-$suffix"
-$sourceRoot = Join-Path $projectRoot 'train/train'
+$sourceRoot = if ($DataRoot) { (Resolve-Path -LiteralPath $DataRoot).Path } else { Join-Path $projectRoot 'train/train' }
 New-Item -ItemType Directory -Force $inputDir, $outputDir | Out-Null
 $questionLines = @(Get-Content -LiteralPath (Join-Path $sourceRoot 'questions.jsonl') -Encoding utf8 -TotalCount 3)
 $questions = @($questionLines | ForEach-Object { $_ | ConvertFrom-Json })
@@ -36,7 +36,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Không tạo được staging container' }
     docker cp "$inputDir/." "${stageName}:/data"
     if ($LASTEXITCODE -ne 0) { throw 'Không chép được đúng subset vào data volume' }
-    docker create --name $runName --label "datamate.smoke=$suffix" --network none --read-only --tmpfs /work:rw,size=512m --tmpfs /tmp:rw,size=128m --mount "type=volume,source=$dataVolume,target=/data,readonly" --mount "type=volume,source=$resultVolume,target=/result" $Image --limit 3 | Out-Null
+    docker create --name $runName --label "datamate.smoke=$suffix" --network none --read-only --shm-size=16g --tmpfs /work:rw,size=512m --tmpfs /tmp:rw,size=128m --mount "type=volume,source=$dataVolume,target=/data,readonly" --mount "type=volume,source=$resultVolume,target=/result" --entrypoint bash $Image /code/predict.sh | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Không tạo được inference container' }
     docker start -a $runName
     if ($LASTEXITCODE -ne 0) { throw 'Inference container không hoàn tất' }

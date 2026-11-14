@@ -2,7 +2,7 @@
 
 Training source được giữ trong src/datamate/training và được đưa vào build context Docker. Full-checkpoint training/inference chạy trên GPU từ xa, không cài stack CUDA vào môi trường phát triển Windows.
 
-Notebook tổng quát: [DataMate_Colab_LoRA.ipynb](../notebooks/training/DataMate_Colab_LoRA.ipynb). Notebook seed Gemma: [DataMate_Colab_Seed72_100_QLoRA.ipynb](../notebooks/training/DataMate_Colab_Seed72_100_QLoRA.ipynb).
+Đường chạy hiện hành của Bảo là **Qwen3.5-9B SQL stage1 + stage2**, đã fine-tune1+0,5epoch. Source/dataset/config/report frozen đi cùng mỗi release; inference dùng [full model merged](colab-finetuned-compare.md). Các notebook LoRA tổng quát, Gemma Seed72 và SQL validation L4 phiên bản cũ đã nghỉ hỗ trợ; dùng bản frozen trong archive nếu cần tái lập, không trỏ vào notebook đã bỏ.
 
 Bộ SQL SFT mới cho Qwen3.5-9B, nguồn 3.000 câu TRAIN và notebook Colab riêng: [hướng dẫn và phạm vi kiểm chứng ngày 09/11/2026](training-sql-qwen35-9b-2026-11-09.md). Chỉ các mẫu đã nhận mới dùng train; giữ validation theo doanh nghiệp và hàng chờ sửa riêng.
 
@@ -30,6 +30,6 @@ Các lệnh là bước riêng, không tự tạo đủ trajectories từ format
 
 Bộ 136 câu/144 quyết định, ZIP dataset và source riêng được giữ nguyên trong archive/2026-11-09/outputs/. [Tài liệu gốc](history/gemma-seed72-100-colab-pro.md) ghi source/pipeline của bộ này.
 
-Không dùng source mới để ghi đè gói source frozen hoặc bỏ guard hash để ép seed cũ chạy. Dùng đúng dataset/source/notebook đi kèm đã lưu, hoặc chuẩn bị release mới đã replay/kiểm chứng. Chưa có kết quả fine-tune GPU mới từ đợt dọn bố cục.
+Không dùng source mới để ghi đè gói source frozen hoặc bỏ guard hash để ép seed cũ chạy. Dùng đúng dataset/source/notebook đi kèm đã lưu, hoặc chuẩn bị release mới đã replay/kiểm chứng. Module training/seed.py vẫn được giữ vì pipeline SQL dùng chung phần tạo messages; bỏ generator notebook/packager Gemma cũ khỏi tools hiện hành.
 
 Khi chốt checkpoint cuối: giữ training config/report/provenance, merge đúng base/revision, seal artifact, đo generation quality và kiểm Docker offline.

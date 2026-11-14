@@ -1,76 +1,118 @@
-# Đóng gói Docker cuối
+# Docker nộp BTC — DataMate
 
-Chuẩn bị và chạy rehearsal trước ngày nộp; ngày cuối chốt image đã kiểm tra, xuất TAR/checksum và nộp theo guideline BTC. Hiện chưa xác nhận base image chính thức trong workspace. Không dùng Docker dev để tuyên bố model chạy đúng/tốc độ trên GPU thi.
+Đối chiếu **toàn bộ PDF chính thức** `zac2026_DataMate_docker_guideline_final.pdf` do Bảo cung cấp14/11/2026. Bản trích10trang và SHA256 lưu trong `outputs/runs/Bảo/docker-release-20261114/`. Đây là nguồn cập nhật thay các giả định của template cũ.
 
-## 1. Chuẩn bị trên Linux GPU
+## Cấu hình và trạng thái
 
-- Chốt commit/config và các checkpoint thực sự dùng; tổng tham số ≤15B, có revision/hash/license.
-- Nếu dùng fine-tuned model, merge/seal và giữ training source/config/provenance cần bàn giao.
-- Đối chiếu base image, Python/CUDA/GPU với guideline chính thức. Chuẩn bị image base và wheelhouse phù hợp trước bước build offline.
-- Lưu dependency GPU đã chạy thực tế vào artifact của release. requirements-dev.lock.txt là khóa CPU nhẹ, không dùng làm chứng nhận stack GPU.
-- Bản ghép đã stage theo full inventory: generator/assistant và embedding/reranker đang bật. Profile dependency là `llm|vllm` cộng `rag`, không dùng wheelhouse Torch-only để đóng vLLM hoặc RAG.
+| Mục | Đã chốt / giới hạn |
+|---|---|
+| Máy BTC | 2×RTX5090, **32GB mỗi GPU**, RAM512GB; CUDA>=12.8, build hỗ trợ SM120 |
+| Entrypoint | BTC gọi **`bash /code/predict.sh` không đối số**, override entrypoint |
+| Input/output | `/data` chỉ đọc; `/result/submission.jsonl`; một record một dòng mỗi câu trong `/result/logs/` |
+| Thời gian | <=6giờ toàn private test, gồm import/hash/load/index/JIT/inference |
+| Image | **linux/amd64**, một image/tag; docker-save TAR chưa nén <=100GB, tính mọi layer |
+| Nộp | **`.tar.gz`**, Google Drive URL, **MD5 của chính file nén**, kích thước TAR chưa nén |
+| Mạng | Tắt hoàn toàn lúc inference; weights/tokenizer/config/thư viện/kernel resources phải có sẵn |
+| Training | Image chứa source, dữ liệu train/validation, generation code, config/log/report, checkpoint xác minh và manifest |
 
-## 2. Tạo build context có chọn lọc
+`configs/submission.json` bật **vLLM + dense_rerank RAG**, FP16. Generator TP1 trên GPU0; hai encoder trên GPU1; một question worker,16K context, chunked prefill2048, memory fraction0,85. Đây là **cấu hình ứng viên phải rehearsal**, chưa được đo trên2×5090. Hai GPU không tạo thành một vùng VRAM64GB tự động. Giữ Torch và lựa chọn `--rag-mode none` cho đối chứng.
 
-```bash
-python tools/package_solution.py --config configs/submission.json --wheelhouse /work/wheelhouse --model-source qwen35-9b=/work/models/qwen35-9b --output outputs/packages/release-01/context
+Model merged của Bảo: `models/qwen35-9b-stage2-comparison-merged`, manifest SHA256 **`732f292bfb088f8dc90b0fe91e255a60886772292614cf0b1af58219d097b054`**. Đã kiểm16file/19.326.417.873bytes. Bốn shard tải xuống bị thêm hậu tố đã được đối chiếu SHA256 rồi đổi lại tên; không sửa weights/manifest. Hai RAG model đã tải đúng revision và kiểm weight hash. Tổng **10.788.614.897** tham số, dưới15B; xem registry/model-evidence về license/ngày phát hành. Giữ điều kiện trước01/10 mà chủ dự án đã yêu cầu; PDF ghi26/10, không nới điều kiện của đội.
+
+**Chưa có image thi được xác nhận GPU.** Hiện đã chuẩn bị source/assets và kiểm CPU; chủ dự án sẽ thuê GPU sau. Không nộp image `datamate-dev:*` hoặc gọi CPU/tiny test là chứng minh Qwen9B+RAG chạy đúng trên5090.
+
+## Base image và CUDA: phải giải quyết trước khi nộp
+
+PDF **recommended** `vllm/vllm-openai:v0.10.1.1` (Torch2.7.1cu128), cho phép alternative hỗ trợ5090/SM120. Đây không phải bằng chứng vLLM0.10 hỗ trợ Qwen3.5. Adapter hiện nhắm AsyncLLM vLLM0.33; không hạ version chỉ để giống hình mẫu.
+
+Đã inspect tag0.33 chính thức: **CUDA13.0.2**, amd64 digest:
+
+```text
+vllm/vllm-openai@sha256:91ee972ab751fb7180bc71c175865e36b091686600dca783d52b2511399810b3
 ```
 
-Trên workspace Windows hiện tại, Qwen 9B đã lưu nguyên bản ở archive/2026-11-09/models/qwen35-9b; có thể dùng đường dẫn đó khi stage. Khi chạy trên Linux, thay bằng vị trí checkpoint local tương ứng. Assistant nếu chọn cần thêm --model-source cho khóa assistant.
+**Đây là base ứng viên, chưa được duyệt cho máy BTC.** Guideline nói R570-or-newer; CUDA13 thường cần R580+ ([NVIDIA](https://docs.nvidia.com/deploy/cuda-compatibility/minor-version-compatibility.html)). vLLM compatibility mode chỉ hỗ trợ một số GPU chuyên dụng/datacenter, không mặc định áp dụng cho RTX5090 ([vLLM](https://docs.vllm.ai/en/v0.33.0/deployment/docker/#running-on-systems-with-older-cuda-drivers)). Các tag0.33-cu128/cu129 đã kiểm không tồn tại. Cần BTC xác nhận driver đủ mới hoặc một stack CUDA12.8/Qwen3.5 được build và kiểm thật. Chạy trên5090/R580 vẫn không chứng minh chạy trên R570.
 
-Helper kiểm manifest/hash, chỉ chép source, config submission, checkpoint được khai báo và wheelhouse; giữ training source trong src/datamate/training. Không chép train/public_test, archive, logs, notebook hay toàn bộ models/. Thư mục output phải rỗng; tạo release mới nếu đã tồn tại. solution_manifest.json ghi inventory/hash và trạng thái chưa build/chưa xác nhận GPU.
+Không dùng workaround `nvidia-nccl-cu12==2.27.7` của ví dụ cho stack cu13. Cần kiểm NCCL thực tế nếu đổi TP2; cấu hình TP1/RAG GPU1 hiện tránh chia generator qua hai card. Docker đặt `NCCL_P2P_DISABLE=1`, spawn cho worker vì RAG đã khởi tạo CUDA trước generator. Giữ shm16g; không dùng host IPC.
 
-Công cụ staging không chọn base image thay BTC, không xác nhận wheel tương thích chỉ bằng tên file và không tự tải tài nguyên.
+## Chuẩn bị trước khi thuê GPU
 
-Nếu bật RAG, phải cung cấp cả checkpoint encoder/reranker (chỉ encoder khi `dense`). Cách tránh bỏ sót là chuẩn bị **bundle** trên Linux/Python/CUDA tương thích image mục tiêu:
+1. Hoàn tất chuyển source/weights/evidence lên kho artifact trước; Git không chứa dữ liệu/weights. [Hướng dẫn Vast](run-vast.md) có lựa chọn VM/SSH/disk.
+2. Giữ full merged model cùng artifact_manifest, training_report, tokenizer và MTP auxiliary shard. Hai encoder ở `models/vietnamese-embedding`, `models/vietnamese-reranker`; không dùng `main` thay revision đã pin.
+3. Training evidence đã gom từ **đúng ZIP source/dataset và run hoàn tất của cả hai stage** ở `outputs/packages/release-20261114/training-evidence-source/`. Manifest kiểm hash, kích thước, số mẫu và partition. Folder này chứa source/data/report/checkpoints; **còn phải bổ sung wheelhouse Linux** ở bước dưới. `training-input/` là đầu vào trung gian, không cần upload khi đã có evidence sealed.
 
-```bash
-python tools/prepare_runtime.py --config configs/comparison/rag.json --model-dir /work/models/qwen35-9b --rag-embedding-dir /work/models/vietnamese-embedding --rag-reranker-dir /work/models/vietnamese-reranker --artifact-root /work/artifacts/torch-rag --requirements /work/locks/torch-rag.txt
-python tools/prepare_runtime.py --artifact-root /work/artifacts/torch-rag --offline
-python tools/package_solution.py --bundle /work/artifacts/torch-rag/bundle.json --output outputs/packages/release-rag/context --base-image TEAM_VERIFIED_IMAGE_WITH_DIGEST
-```
+Stage1 dùng2347train/618validation sequences, stage2 dùng2647/618; giữ24business train/6validation và630validation question IDs. Dữ liệu gốc chỉ TRAIN;80ID của phép so100 từng được train, nên kết quả đó không phải unseen/private score.
 
-Đổi config/backend sang vLLM nếu chọn vLLM; tạo bundle/profile riêng cho lựa chọn cuối. `--requirements` là danh sách phiên bản đã kiểm trên GPU (ví dụ pip freeze đã rà soát); nó bổ sung ràng buộc nhưng không thay danh sách dependency bắt buộc của project/extra. Giai đoạn online resolve/tải wheel, ghi hash và bản khóa resolved; giai đoạn offline chỉ verify/cài wheel local, không sửa/download bundle. Không dùng lock Windows CPU để đóng image Linux GPU.
+Training-only public base được khai báo revision/license/URL/SHA256 trong data_manifest, có thể omit weights theo PDF; mọi model **inference** vẫn bên trong image. Bản huấn luyện nguyên gốc dùng base manifest `f8b32a...`; không thay bằng archive khác hash để tiếp tục parent cũ. `train.sh` tái lập cả hai stage vào output mới, cập nhật hash parent mới và giữ cấu hình/report frozen. Bộ thư viện training độc lập với inference, cài lại offline vào venv khi BTC cần tái lập; không train trong `predict.sh`.
 
-Nguồn checkpoint nonempty thiếu/sai manifest sẽ bị từ chối, không tự thay checkpoint fine-tune bằng base. `package_solution` viết lại đường dẫn tất cả model về `/app/models/<key>`, RAG index/scratch về `/work`, dữ liệu `/data`, output `/result`. Inventory phải đúng model thực dùng và không vượt 15B.
+## Chuẩn bị dependency và build trên Linux
 
-## 3. Build và rehearsal offline
-
-Sau khi thay placeholder bằng base image đã đối chiếu, tải base trước rồi build trong môi trường Linux phù hợp:
+Sau khi giải quyết base/driver, đặt `DATAMATE_BASE_IMAGE` thành **digest đã chốt**, không dùng `latest`. Dưới đây chạy tại gốc source trên VM; `EVIDENCE` là đường dẫn folder evidence sau khi chuyển lên. Base image chứa Python>=3.11.
 
 ```bash
-docker build --network=none -f outputs/packages/release-01/context/docker/Dockerfile.competition --build-arg BASE_IMAGE=OFFICIAL_IMAGE_WITH_DIGEST -t datamate:release-01 outputs/packages/release-01/context
-docker run --rm --gpus all --network none --mount type=bind,src=/work/data/split,dst=/data,readonly --mount type=bind,src=/work/results/release-01,dst=/result --mount type=bind,src=/work/scratch,dst=/work datamate:release-01
+export DATAMATE_BASE_IMAGE='REPLACE_WITH_VERIFIED_BASE_AT_SHA256_DIGEST'
+docker pull "$DATAMATE_BASE_IMAGE"
+docker run --rm --entrypoint bash \
+  --mount "type=bind,source=$PWD,target=/workspace" -w /workspace \
+  "$DATAMATE_BASE_IMAGE" -c \
+  'python docker/prepare_release.py --base-image "$1" --evidence outputs/packages/release-20261114/training-evidence-source --output outputs/packages/release-linux-01' \
+  prepare "$DATAMATE_BASE_IMAGE"
 ```
 
-Tạo trước các thư mục mount. Chạy workload cần đánh giá, kiểm submission/type/log và thời gian từ trước load/index/compile đến flush output. Giữ cơ chế timeout trong predict.sh; chạy nhanh trên mẫu nhỏ không chứng minh đủ toàn private test trong 6 giờ.
-
-## Thư viện và weights có sẵn giúp tiết kiệm phần nào?
-
-Trong `Dockerfile.competition`, `RUN python /app/docker/install_runtime.py` **cài thư viện lúc build image** từ wheelhouse; `COPY models /app/models` đưa weights/tokenizer/config đã seal vào image. `predict.sh` không pip install hoặc tải Hugging Face. Khi BTC khởi động container, hai chi phí cài/tải đó đã được loại khỏi inference.
-
-Mỗi process mới vẫn phải import Python/native extension, khởi tạo CUDA, đọc/xác minh weights từ đĩa, nạp weights vào GPU, tạo engine/KV cache; tùy cấu hình có thêm compile/capture. Image lưu dữ liệu trên đĩa, không lưu model đã nằm trong VRAM. Vì vậy Docker **không xóa thời gian startup của vLLM**. Startup có thể thấp hơn Colab/Drive nhờ I/O/cache khác, nhưng phải đo image thật; không coi toàn bộ số load khoảng 653s Hải ghi nhận là thời gian pip/download sẽ biến mất.
-
-`runtime.json` ghi các phase verify/import vLLM/tokenizer/engine; `run_summary.json` và `supervisor.json` ghi thời gian batch/process. Phase tokenizer bao gồm import Transformers/config; phase engine gồm nhiều việc SDK tự làm, chưa tách riêng compile và nạp weights. `/work/vllm` chứa cache vLLM. Cache phù hợp có thể giảm khởi tạo ở lượt sau, nhưng không mặc định có cache trên máy BTC; mount `/work` mới cũng che cache đã đặt cùng đường dẫn trong image. Đánh giá ngân sách 6 giờ bằng lần chạy offline từ trạng thái cache ban đầu đã nêu rõ, tính cả startup/RAG index và dọn output.
-
-Khi thay code/dependency/checkpoint sau rehearsal, phải kiểm lại image mới. Không sửa dữ liệu /data hoặc dùng test để training.
-
-## 4. Xuất image ngày cuối
+Đây là **bước online trước build**, không phải inference. Helper xác minh model, tải wheel Linux đúng Python, ghi lock hash/freeze/pip-check, tạo bundle và training wheelhouse riêng rồi stage `context/`. Nó không tải thay Qwen merged bằng base. `configs/docker-runtime-constraints.txt` khóa các version inference đã quan sát; resolved wheel manifest khóa mọi dependency của release cụ thể. Lỗi resolver phải được xử lý và ghi nhận, không bỏ `pip check`.
 
 ```bash
-docker save -o outputs/packages/datamate-solution.tar datamate:release-01
-sha256sum outputs/packages/datamate-solution.tar > outputs/packages/datamate-solution.tar.sha256
+docker build --platform linux/amd64 --network none --provenance=false \
+  --build-arg BASE_IMAGE="$DATAMATE_BASE_IMAGE" \
+  -f outputs/packages/release-linux-01/context/docker/Dockerfile.competition \
+  -t zaic2026_datamate_loveyou3500:final \
+  outputs/packages/release-linux-01/context
 ```
 
-Giữ kèm README chạy lại, commit/config, solution manifest, license, dependency GPU, kết quả rehearsal và checksum. Cách upload/tên file/giới hạn gói tuân theo guideline được xác minh, không suy từ template này. Nếu cần nén TAR, tính lại checksum trên đúng file gửi.
+BuildKit cần có frontend/base đã pull/cache trước khi build offline. `--network none` tắt mạng trong các RUN; bước resolve/pull base/frontend là preparation, không phải bằng chứng build hoàn toàn air-gapped. Installer cài từ wheelhouse có hash; dùng bind mount để không lưu thêm một layer wheel inference. Training wheelhouse được giữ trong `/code/training_code/` theo yêu cầu offline tái lập. Image dùng `ENTRYPOINT []`, `CMD ["bash","/code/predict.sh"]`.
 
-## Docker dev / CPU smoke
+`package_solution.py` mặc định yêu cầu evidence sealed, wheelhouse Linuxamd64 và base digest. `--development` chỉ cho fixture chưa đủ tài nguyên; manifest ghi rõ chưa release. Context có dockerignore riêng để **không loại nhầm training data**. Không build competition trực tiếp từ toàn repo.
 
-Giữ Dockerfile.dev để kiểm packaging/input/output mà không tải model:
+## Kiểm đúng lệnh BTC
+
+```bash
+docker run --rm --gpus '"device=0,1"' --network none --shm-size=16g \
+  --entrypoint bash \
+  -v /ABSOLUTE/SPLIT:/data:ro -v /ABSOLUTE/NEW_RESULT:/result \
+  zaic2026_datamate_loveyou3500:final /code/predict.sh
+```
+
+Không mount model/cache/credential/socket từ host; không privileged/host IPC/host service. Runtime có dữ liệu mới ở `/data`, tự tạo scratch dưới `/work`. Code luôn đọc toàn `questions.jsonl` BTC, không nhúng benchmark ID vào image.
+
+Có thể dùng `bash docker/rehearse.sh IMAGE ABSOLUTE_SPLIT NEW_OUTPUT_ROOT`: kiểm nvidia-smi/pip/Ninja/nvcc/compiler rồi chạy **hai container cold riêng** với lệnh trên. Chọn subset TRAIN đại diện để kiểm lỗi trước, tạo subset ngoài dữ liệu gốc; không đưa gold vào inference/RAG. Mẫu10–20câu không chứng nhận6giờ hay chất lượng toàn private test.
+
+```bash
+python tools/verify_submission.py --data /ABSOLUTE/SPLIT --result /ABSOLUTE/NEW_OUTPUT_ROOT/run-1
+python tools/verify_submission.py --data /ABSOLUTE/SPLIT --result /ABSOLUTE/NEW_OUTPUT_ROOT/run-2
+```
+
+Kiểm đủ ID/type/giá trị JSON, log một dòng, answer/elapsed_ms/thinking, run_summary sạch lỗi. So các đáp án theo ID sau khi bỏ `reason` khỏi so khớp giá trị; cần output giống hoặc chênh PA<=0,03 trên TRAIN có gold theo PDF. Chấm nhãn **sau** inference. Lưu wall/startup/peak VRAM từng GPU, OOM/timeout, cấu hình/cache/hardware/driver/freeze và image ID. Ước lượng tham chiếu PDF: startup + trung bình mỗi câu×500; vẫn cần workload đủ đại diện, không lấy vài câu dễ để bảo đảm deadline.
+
+Log BTC giữ raw thinking đầy đủ, có SQL đã chạy/parameters/output khi có; trace chi tiết vẫn còn. Human-readable markdown ở `/result/debug/`; lỗi cấp run ở `/result/runtime-error.json`/`shutdown-error.json`, không lẫn record từng câu. Không sửa metrics cũ hoặc tạo metrics GPU giả để ép pass.
+
+## Export, upload và Test Solution
+
+Chỉ export bản nộp sau các kiểm trên và chốt tương thích driver. Ví dụ:
+
+```bash
+python tools/export_solution.py --image zaic2026_datamate_loveyou3500:final \
+  --output outputs/packages/zaic2026_datamate_loveyou3500.tar.gz
+```
+
+Helper docker-save vào file tạm, gzip, đọc toàn stream/CRC, kiểm một image/tag Linuxamd64, đủ layer và TAR chưa nén<=100.000.000.000bytes; tạo `.md5`, `.sha256`, `.submission.json`. Không dùng gzip ISIZE32-bit để đo image lớn. TAR/file nén tạm đều cần disk; không để ổ đầy giữa export. Archive/hash checks **không** tự chứng nhận GPU hoặc quyền truy cập Drive.
+
+Upload đúng `.tar.gz`, giữ tên sau khi hash, cấp quyền tải phù hợp BTC. Tải từ link trên máy khác, kiểm MD5 lại; điền URL và MD5 của **file nén** vào Portal → DataMate → Test Solution. Mỗi đội chỉ1test/ngày theo thông báo/screenshot người dùng; không tự Submit thay chủ dự án. Nếu lỗi, lưu View full log rồi cập nhật [runtime issues](runtime-issues-2026-11-14.md). Chốt image/test sớm trước deadline, không đợi giờ cuối.
+
+## CPU smoke trên laptop
 
 ```powershell
-docker build -f docker/Dockerfile.dev -t datamate-dev:local .
-.\tools\docker-smoke.ps1
+docker build -f docker/Dockerfile.dev -t datamate-dev:release-check .
+.\tools\docker-smoke.ps1 -Image datamate-dev:release-check -DataRoot 'E:\Bảo Lập Trình AI\ZALO_AI_2026\train\train'
 ```
 
-DemoBackend luôn abstain; smoke này không phải PA hoặc kiểm thử GPU. Kết quả mới đặt dưới outputs/runs/docker-smoke/.
+Smoke dùng3câu thật nhưng DemoBackend chỉ abstain; kiểm offline, `/data` RO, rootfs RO, entrypoint đúng và output/log. Không phải image nộp, điểm PA hoặc bằng chứng9B/SM120. RTX4060 8GB không đủ cho full9B FP16 +RAG theo profile này.

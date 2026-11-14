@@ -57,8 +57,8 @@ def test_bundle_stage_and_offline_relocate_include_all_rag_models(runtime, tmp_p
     result = stage(runtime.project, config, output, wheelhouse, sources)
     assert len(result['inventory']['models']) == 3 and result['inference_extra'] == 'llm,rag'
     settings = Settings.load(output / 'configs/submission.json', use_env=False)
-    assert settings.rag.embedding_dir == '/app/models/vietnamese-embedding'
-    assert settings.rag.reranker_dir == '/app/models/vietnamese-reranker'
+    assert settings.rag.embedding_dir == '/code/models/vietnamese-embedding'
+    assert settings.rag.reranker_dir == '/code/models/vietnamese-reranker'
     assert (output / 'models/vietnamese-reranker/artifact_manifest.json').is_file()
     relocated = tmp_path / 'installed-config.json'
     install_bundle(runtime.root / 'bundle.json', 'target-python', runtime.project, relocated)

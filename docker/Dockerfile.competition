@@ -1,24 +1,29 @@
-# Pin the team-selected BASE_IMAGE after checking the organizer's actual guideline.
+# syntax=docker/dockerfile:1
+# Pin BASE_IMAGE; verify CUDA/driver compatibility against the actual scoring host.
 # Prepare /wheelhouse for this base's Python/CUDA/architecture before offline build.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
-WORKDIR /app
+WORKDIR /code
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
     HF_HOME=/work/huggingface TORCH_HOME=/work/torch XDG_CACHE_HOME=/work \
     TMPDIR=/work/tmp VLLM_CACHE_ROOT=/work/vllm VLLM_CONFIG_ROOT=/work/vllm-config \
-    PIP_NO_INDEX=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_NO_INDEX=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1 \
+    VLLM_WORKER_MULTIPROC_METHOD=spawn NCCL_P2P_DISABLE=1 \
+    HF_HUB_DISABLE_TELEMETRY=1 VLLM_NO_USAGE_STATS=1 DO_NOT_TRACK=1
 # Fail before copying/installing large wheels when the selected base is incomplete.
 RUN python -m pip --version && command -v timeout
-COPY wheelhouse /wheelhouse
-COPY pyproject.toml /app/
-COPY src /app/src
-COPY README.md solution_manifest.json /app/
-COPY docker/install_runtime.py /app/docker/install_runtime.py
+COPY pyproject.toml requirements.txt README.md solution_manifest.json /code/
+COPY src /code/src
+COPY docker/install_runtime.py /code/docker/install_runtime.py
 ARG INFERENCE_EXTRA=auto
-RUN python /app/docker/install_runtime.py
-COPY configs /app/configs
-COPY models /app/models
-COPY predict.sh /app/predict.sh
-RUN chmod +x /app/predict.sh
-ENV DATAMATE_CONFIG=/app/configs/submission.json
-ENTRYPOINT ["/app/predict.sh"]
+# A bind mount avoids keeping a second copy of large inference wheels in layers.
+RUN --mount=type=bind,source=wheelhouse,target=/wheelhouse,ro \
+    python /code/docker/install_runtime.py
+COPY training_code /code/training_code
+COPY configs /code/configs
+COPY models /code/models
+COPY predict.sh /code/predict.sh
+RUN sed -i 's/\r$//' /code/predict.sh && chmod +x /code/predict.sh
+ENV DATAMATE_CONFIG=/code/configs/submission.json
+ENTRYPOINT []
+CMD ["bash", "/code/predict.sh"]

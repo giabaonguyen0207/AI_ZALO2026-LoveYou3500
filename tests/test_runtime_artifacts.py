@@ -236,9 +236,54 @@ def test_package_cli_resolves_bundle_without_hardcoded_model_or_wheel_paths(runt
     import sys
     prepare(runtime)
     output = tmp_path / 'bundle-context'
-    monkeypatch.setattr(sys, 'argv', ['package_solution', '--bundle', str(runtime.root / 'bundle.json'), '--output', str(output)])
+    monkeypatch.setattr(sys, 'argv', ['package_solution', '--development', '--bundle', str(runtime.root / 'bundle.json'), '--output', str(output)])
     main()
     assert json.loads(capsys.readouterr().out)['context'] == str(output)
     manifest = json.loads((output / 'solution_manifest.json').read_text(encoding='utf-8'))
     assert manifest['wheelhouse_verified'] is True
     assert (output / 'models' / runtime.spec.key / 'artifact_manifest.json').is_file()
+
+
+def test_release_refuses_missing_training_evidence_before_staging(runtime, tmp_path):
+    from tools.package_solution import stage
+    bundle = prepare(runtime)
+    source = runtime.root / bundle['models'][runtime.spec.key]['path']
+    output = tmp_path / 'release'
+    with pytest.raises(ValueError, match='training evidence'):
+        stage(runtime.project, runtime.root / bundle['config'], output,
+              runtime.root / bundle['wheelhouse'], {runtime.spec.key:source}, release=True,
+              base_image='vllm/vllm-openai@sha256:'+'1'*64)
+    assert not output.exists()
+
+
+def test_context_relocates_every_inference_path_under_fixed_code_root(runtime, tmp_path):
+    from tools.package_solution import stage
+    bundle = prepare(runtime)
+    source = runtime.root / bundle['models'][runtime.spec.key]['path']
+    output = tmp_path / 'context'
+    stage(runtime.project, runtime.root / bundle['config'], output,
+          runtime.root / bundle['wheelhouse'], {runtime.spec.key:source})
+    config = json.loads((output/'configs/submission.json').read_text(encoding='utf-8'))
+    assert config['model_dir'] == '/code/models/' + runtime.spec.key
+    assert (output/'requirements.txt').read_bytes() == (runtime.root / bundle['wheelhouse'] / 'requirements.resolved.txt').read_bytes()
+
+
+def test_release_includes_sealed_training_data_and_offline_training_wheels(runtime, tmp_path):
+    from test_training_evidence import evidence_spec
+    from tools.training_evidence import assemble, with_dependencies, verify
+    from tools.package_solution import stage
+    bundle = prepare(runtime)
+    source = runtime.root / bundle['models'][runtime.spec.key]['path']
+    wheelhouse = runtime.root / bundle['wheelhouse']
+    spec = evidence_spec(tmp_path)
+    spec['inference_artifacts'] = {runtime.spec.key:sha256(source/'artifact_manifest.json')}
+    assemble(spec,tmp_path/'evidence-source')
+    evidence = tmp_path/'evidence-offline'
+    with_dependencies(tmp_path/'evidence-source',wheelhouse,evidence)
+    output = tmp_path/'release-context'
+    report = stage(runtime.project,runtime.root/bundle['config'],output,wheelhouse,
+                   {runtime.spec.key:source},training_evidence=evidence,release=True,
+                   base_image='team/base@sha256:'+'1'*64)
+    assert report['training_evidence_verified'] is True and report['release_context'] is True
+    assert verify(output/'training_code') == verify(evidence)
+    assert 'data/' not in (output/'.dockerignore').read_text()

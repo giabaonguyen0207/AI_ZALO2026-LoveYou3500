@@ -36,7 +36,11 @@ def engine_options(settings):
                    dtype=settings.dtype if settings.dtype != 'auto' else v.dtype, kv_cache_dtype=v.kv_cache_dtype,
                    quantization=None if v.quantization == 'none' else v.quantization,
                    load_format=v.load_format, enforce_eager=v.enforce_eager,
-                   cpu_offload_gb=v.cpu_offload_gb)
+                   cpu_offload_gb=v.cpu_offload_gb,
+                   # ChatBackend supplies token IDs for text only. Qwen/Gemma
+                   # outer configs also advertise vision; do not initialize
+                   # media processors or encoder budgets for these requests.
+                   language_model_only=True)
     if v.max_num_batched_tokens is not None:
         options['max_num_batched_tokens'] = v.max_num_batched_tokens
     options.update(v.extra_engine_args)
