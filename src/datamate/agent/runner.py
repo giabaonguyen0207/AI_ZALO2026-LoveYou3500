@@ -10,6 +10,7 @@ from ..config import Settings
 from ..data.ingest import Ingestor, quote
 from ..data.split import DatasetSplit
 from ..domain import Answer, DataMateError, Question, RunResult, json_text
+from ..execution_audit import record_executions
 from ..models.backends import ChatBackend
 from ..models.contracts import BackendUnavailableError
 from .prompts import initial_messages
@@ -54,6 +55,7 @@ class Agent:
         worker._owns_resources = False
         return worker
 
+    @record_executions
     def run(self, question: Question, remaining_seconds: float | None = None) -> RunResult:
         started = time.monotonic()
         model_path = self.settings.backend != 'demo' and getattr(self.backend,'counts_as_model',True)
@@ -168,12 +170,13 @@ class Agent:
                     trace.append({'phase': 'retrieval_context', 'step': step + 1, **packed})
                 calls += int(getattr(self.backend, 'counts_as_model', True))
                 try:
+                    call_started = time.monotonic()
                     raw = self.backend.generate(messages, remaining)
                 except Exception as exc:
                     trace.append({'step':step+1,'model_call_attempted':True,'error':str(exc),'error_kind':'generation',
                                   'generation':deepcopy(getattr(self.backend,'last_generation',None))})
                     raise
-                event = {'step': step + 1, 'raw': raw}
+                event = {'step': step + 1, 'raw': raw, 'model_call_started': call_started}
                 if step == 0:
                     event['preflight'] = preflight
                 generation = getattr(self.backend, 'last_generation', None)

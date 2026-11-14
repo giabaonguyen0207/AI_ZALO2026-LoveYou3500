@@ -287,3 +287,23 @@ def test_release_includes_sealed_training_data_and_offline_training_wheels(runti
     assert report['training_evidence_verified'] is True and report['release_context'] is True
     assert verify(output/'training_code') == verify(evidence)
     assert 'data/' not in (output/'.dockerignore').read_text()
+    readme=(output/'README.md').read_text(encoding='utf-8')
+    assert '/code/predict.sh' in readme and runtime.spec.revision in readme
+    assert 'data/train.jsonl' in readme and 'data_manifest.json' in readme
+    assert 'docs/' not in readme
+
+
+def test_release_preparation_never_downloads_when_merged_input_is_missing(runtime,tmp_path,monkeypatch):
+    import importlib.util
+    import sys
+    path=runtime.project/'docker/prepare_release.py'
+    loader=importlib.util.spec_from_file_location('release_prepare_test',path)
+    module=importlib.util.module_from_spec(loader);loader.loader.exec_module(module)
+    monkeypatch.setattr(module.sys,'platform','linux')
+    monkeypatch.setattr(module.platform,'machine',lambda:'x86_64')
+    monkeypatch.setattr(module,'verify',lambda _: {'files':{},'inference_artifacts':{}})
+    monkeypatch.setattr(module,'prepare_bundle',lambda *a,**kw:pytest.fail('download/preparation started before checking local models'))
+    monkeypatch.setattr(sys,'argv',['prepare_release','--base-image','team/base@sha256:'+'1'*64,
+        '--evidence',str(tmp_path/'evidence'),'--models',str(tmp_path/'missing-models'),'--output',str(tmp_path/'out')])
+    with pytest.raises((ValueError,DataMateError),match='model|checkpoint|merged'):
+        module.main()

@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 from ..domain import DataMateError, json_text
+from ..execution_audit import audit_execution
 from .transforms import register_functions
 
 
@@ -26,6 +27,7 @@ class SQLExecutor:
         self.max_rows = max_rows
         self.deadline = deadline
 
+    @audit_execution
     def execute(self, sql: str, parameters: list | None = None, remaining_seconds: float | None = None) -> dict:
         if not isinstance(sql, str) or not sql.strip() or len(sql) > 50000:
             raise DataMateError("SQL rỗng hoặc quá dài")

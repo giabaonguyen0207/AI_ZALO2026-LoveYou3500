@@ -74,3 +74,16 @@ Files: tools/export_solution.py, tools/verify_submission.py (new), docs/docker.m
 - Training evidence546file: frozen source/data khớp report cả hai stage, parent/final adapters, raw TRAIN, configs/log/freeze,10public-base file declarations; offline training wheelhouse chưa tạo.
 - CPU toàn repo:502passed,5skipped (41,39s), sau sửa log/chunk/staging/export. Docker CPU smoke3câu thật qua offline/dataRO/rootfsRO/scoring entrypoint; không phải full-model GPU result.
 - User steering: làm xong phần chuẩn bị/local trước; GPU/Vast sẽ do chủ dự án thuê sau. Vì vậy chưa build/certify image cuối, không export image dev như image nộp. CUDA13/R580 vs guidelineR570 là gate chưa xác minh, đã ghi trong Docker/Vast docs.
+- Final review: một reviewer độc lập, range7d8e6f8..9fe4a52. Không có Critical;4Important đã tái hiện RED và sửa trong một pass. Bị ngắt quota giữa lượt, tiếp tục cùng reviewer sau khi user yêu cầu; không mở lượt review thứ hai.
+- Final: fixed helper/SQL receipts — test_execution_audit.py RED(module missing)→GREEN, thêm kiểm thread isolation; ContextVar ledger ghi actual function/arguments/output/error.
+- Final: fixed nested reasoning order — test_targeted_patch_keeps_valid_fields_and_is_cached RED repair/outer đảo thứ tự→GREEN outer/repair; call timestamp ở cả ba điểm backend.generate.
+- Final: fixed missing-merged download fallback — test_release_preparation_never_downloads_when_merged_input_is_missing RED đã gọi preparation→GREEN fail trước download/install với mọi model local/hash/evidence.
+- Final: fixed image README — test_release_includes_sealed_training_data_and_offline_training_wheels RED thiếu revision/readme standalone→GREEN; generate README inventory/license/date/paths/counts/exact commands, không link docs ngoài image.
+- Final CPU suite:505passed,5skipped (42,62s). Docker CPU image rebuilt; fixture3câu offline/dataRO/rootfsRO/scoring entrypoint qua; export Docker-save gzip thật qua (CPU-DEMO-NOT-SUBMISSION.tar.gz), không upload và không gọi đây là image nộp.
+- Final: Ruling: CUDA13/R580, Blackwell/JIT, cold cache, VRAM và6giờ — để GPU/Test Solution kiểm theo chỉ đạo thuê sau; chưa xác nhận, nếu sai có thể làm image không chạy hoặc quá hạn.
+- Final: Ruling: entrypoint/data/output/cache — chấp nhận kiểm CPU cho hợp đồng I/O; cache/kernel GPU vẫn chưa được chứng nhận, nếu sai cần sửa image và chạy lại.
+- Final: Ruling: export — kiểm cấu trúc/TAR/gzip/hash đã có CPU thật; không suy ra inference hay link Drive hợp lệ, nếu sai transfer/link có thể khiến BTC không nhận image.
+- Final: Ruling: training evidence/hash/lineage/dockerignore — giữ frozen assets và kiểm hash; Linux wheel resolve/install và retraining chưa chạy, nếu sai release bị chặn hoặc BTC không tái lập được.
+- Final: Ruling: SQL quality/training overlap — không đổi logic đáp án trong release; báo cáo100câu là development, nếu coi là private accuracy sẽ kết luận sai chất lượng.
+- Final: Ruling: retired notebook references trong release builders — giữ vì script sinh lại artifact, không phải runtime entrypoint; dùng sai script có thể mở workflow cũ, README hiện hành là điểm bắt đầu.
+- Final: minor (deferred): docs/sql-validation100-*.md và docs/sql100-mtp-export-fix.md còn hướng dẫn notebook đã retire; chưa dọn tiếp các tài liệu lịch sử, dùng docs/docker.md/colab-finetuned-compare.md hiện hành.

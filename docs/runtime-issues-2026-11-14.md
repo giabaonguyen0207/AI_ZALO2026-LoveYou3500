@@ -110,3 +110,11 @@ Nguồn: PDF chính thức do chủ dự án chỉ đường dẫn, nhận14/11;
 - Inspect vLLM0.33 image chính thức: CUDA13.0.2, SM120 có trong TORCH_CUDA_ARCH_LIST; **không đồng nghĩa tương thích driver R570**. cu128/cu129 tags0.33 đã kiểm không tồn tại. Không mặc định forward compatibility cho GeForce hoặc cài NCCL-cu12 workaround vào cu13. Driver/Blackwell/full9B+RAG cần kiểm trên image thật và Test Solution.
 
 Chủ dự án chọn hoàn tất phần chuẩn bị trước, thuê GPU Vast sau (ngân sách khoảng1giờ). Giữ rõ phần chưa xác minh, không ghi full image/GPU đã đạt dựa trên CPU smoke. Hướng dẫn: [Docker](docker.md), [Vast](run-vast.md).
+
+## 11. Sửa sau review độc lập trước bàn giao
+
+Đã tái hiện bằng CPU rồi sửa bốn vấn đề: thiếu merged path vẫn đi vào helper tải base trước khi evidence gate chặn; thinking đảo outer/repair vì trace append lồng nhau; log bỏ helper/SQL nội bộ; README image trỏ docs không có trong image.
+
+Release preparation nay kiểm đủ model local/hash/merged lineage trước download/install. Agent có execution ledger riêng mỗi câu/worker, ghi actual function/SQL/arguments/result/error tại lúc thực thi. Các model call có mốc thứ tự độc lập; serializer giữ nguyên thinking theo thứ tự gọi. Stage helper sinh README riêng liệt kê model/revision/license/ngày, dữ liệu và lệnh chạy/tái lập trong image. Không sửa đáp án benchmark hoặc số đo cũ.
+
+Kiểm sau sửa:505CPU tests passed,5skipped; Docker CPU fixture3câu offline, scoring entrypoint, dataRO/rootfsRO và gzip export/checksum thật qua. Artifact demo có chữ CPU-DEMO-NOT-SUBMISSION, không được nộp BTC. Các kiểm này không chứng nhận full9B+RAG, compiler/kernel SM120, driver/VRAM/deadline hoặc training wheelhouse Linux.

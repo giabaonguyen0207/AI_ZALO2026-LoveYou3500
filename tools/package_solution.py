@@ -17,6 +17,54 @@ from tools.runtime_artifacts import verify_bundle, verify_wheels
 from tools.training_evidence import verify as verify_training_evidence
 
 
+def image_readme(settings, specs, evidence, base_image, release):
+    lines=['# DataMate submission', '',
+        'Status: '+('Release context; GPU/driver rehearsal is still required.' if release else 'DEVELOPMENT ONLY — do not submit.'), '',
+        '## Approach', '',
+        'Modular Python agent with Adapter + Strategy. Vietnamese embedding/reranker retrieve rulebook, README and schema context for the current business. The local generator proposes plans/SQL; read-only tools execute and validate calculations, then project the required answer type. Time is resolved from as_of_date and the mounted split rulebook. Routing IDs do not decide answers.', '',
+        '## Runtime', '',
+        'All inference assets are local. Network must be disabled. Input /data is read-only; scratch/cache /work; output /result/submission.jsonl and one-line per-question records in /result/logs. Additional debug files are in /result/debug.', '',
+        'Exact scoring command inside the container: `bash /code/predict.sh` (no arguments).', '',
+        'The selected generator/backend is '+settings.backend+'; retrieval is '+settings.rag.mode+'. '+
+        'Resolved settings: [configs/submission.json](configs/submission.json). Installed dependency pins: [requirements.txt](requirements.txt).', '',
+        'Candidate base: `'+str(base_image)+'`. This file does not certify driver, GPU memory or six-hour runtime compatibility.', '',
+        '## Inference models', '',
+        '| Key | Repository | Revision | Public revision date | License | Parameters | Local files |',
+        '|---|---|---|---|---|---:|---|']
+    for model in specs['models']:
+        key=model['key']
+        lines.append('| '+ ' | '.join(str(v) for v in [key,model['repo_id'],model['revision'],
+            model['revision_date'],model['license'],model['parameters'],'models/'+key+'/'])+' |')
+    lines.extend(['', 'Combined inference parameters: '+str(specs['total_parameters'])+'. Each model directory includes its artifact_manifest.json, file SHA256 checksums, source revision and fine-tune lineage where applicable.', '',
+        '## Training and data', '',
+        'Fine-tuning/data generation were performed before this release. Frozen source, generation tools, original TRAIN, configs, logs, reports and verification adapters are under training_code/. Public/private test are not training inputs.', '',
+        '[training_code/README.md](training_code/README.md) explains the two stages, measured hardware/runtime, exact provenance and reproducibility limits. [training_code/data_manifest.json](training_code/data_manifest.json) enumerates local paths, sizes, SHA256, record counts, data splits and revision-pinned public URLs for omitted training-only base assets.', ''])
+    for item in (evidence or {}).get('training_stages',[]):
+        files=evidence['files']
+        lines.append('- '+item['name']+': train `'+item['train']+'` ('+str(files[item['train']].get('records'))+'), validation `'+item['validation']+'` ('+str(files[item['validation']].get('records'))+').')
+    lines.extend(['', 'Training dependencies are bundled offline in training_code/wheelhouse and installed into a separate environment by train.sh; they do not replace inference dependencies.', '',
+        'Exact retraining command, after staging the declared public base locally: `bash /code/training_code/train.sh /work/verified-public-base /work/new-training-reproduction`.', '',
+        'It trains stage1 then stage2 with the new parent hashes and new outputs, preserving frozen evidence. Seeds/configs are recorded; CUDA/QLoRA/kernel execution may be nondeterministic. The original parent requires its exact original base manifest for direct continuation.', '',
+        'Generation source snapshots: training_code/source/stage1/tools/ and training_code/source/stage2/tools/. Original generation reports/inventories and frozen source instructions are included alongside the datasets. Training verification is separate from the six-hour inference limit.', '',
+        'To regenerate proposals into NEW scratch outputs (not overwrite the frozen datasets), use the training environment prepared by train.sh, then:', '',
+        '```bash',
+        'cd /code/training_code',
+        'cp -a source/stage1 /work/regen-stage1',
+        'mkdir -p /work/regen-stage1/train',
+        'cp -a data_generation/original_train /work/regen-stage1/train/train',
+        'cd /work/regen-stage1',
+        'python tools/prepare_sql_training.py --output /work/sql-pass --cache-dir /work/sql-catalogs',
+        'python tools/release_sql_training.py --pass-dir /work/sql-pass --output /work/sql-regenerated --tokenizer /work/verified-public-base --packages /work/regenerated-packages',
+        'cd /code/training_code/source/stage2',
+        'python tools/prepare_sql_stage2.py --parent /code/training_code/data/stage1 --split /code/training_code/data_generation/original_train --sources configs/training_sources.json --cache /work/stage2-catalogs --tokenizer /work/verified-public-base --output /work/stage2-regenerated --limit 300',
+        '```', '',
+        'Use the frozen data/ manifests for the submitted checkpoint; regenerated datasets are new artifacts. Tokenizer/software versions and nondeterministic timing metadata can change hashes. Do not edit frozen manifests to force a match.', '',
+        '## Execution logs', '',
+        'Per-question JSON records contain id, answer, elapsed_ms, raw thinking (call order) or null, and actual executed SQL/helper functions, arguments and results/errors. No generated reasoning is summarized or fabricated.', '',
+        'Build-context checks and model hashes are recorded in [solution_manifest.json](solution_manifest.json). They are not evidence of a completed GPU rehearsal.', ''])
+    return '\n'.join(lines)
+
+
 def stage(root, config, output, wheelhouse, model_sources, *, base_image=None,
           training_evidence=None, release=False):
     root, output, wheelhouse = map(lambda p: Path(p).resolve(), (root, output, wheelhouse))
@@ -70,7 +118,7 @@ def stage(root, config, output, wheelhouse, model_sources, *, base_image=None,
     (output / 'docker').mkdir()
     shutil.copy2(root / 'docker/Dockerfile.competition', output / 'docker/Dockerfile.competition')
     shutil.copy2(root / 'docker/install_runtime.py', output / 'docker/install_runtime.py')
-    for name in ('pyproject.toml', 'README.md', 'predict.sh'):
+    for name in ('pyproject.toml', 'predict.sh'):
         shutil.copy2(root / name, output / name)
     # This context is already curated. The repository dockerignore excludes data
     # and would silently drop required training assets from the final image.
@@ -96,6 +144,7 @@ def stage(root, config, output, wheelhouse, model_sources, *, base_image=None,
     else:
         (output / 'training_code').mkdir()
         (output / 'training_code/README.md').write_text('Development context: training evidence absent. Do not submit.\n', encoding='utf-8')
+    (output/'README.md').write_text(image_readme(settings,specs,evidence,base_image,release),encoding='utf-8',newline='\n')
     files = {p.relative_to(output).as_posix(): sha256(p) for p in sorted(output.rglob('*')) if p.is_file()}
     report = {'inventory': specs, 'files': files, 'image_built': False,
               'wheelhouse_verified': wheel_manifest is not None,

@@ -15,6 +15,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT/'src')]
 from datamate.config import Settings
+from datamate.models.artifacts import verify_artifact, sha256
+from datamate.models.registry import model_paths
 from tools.package_solution import stage
 from tools.runtime_artifacts import prepare_bundle, prepare_wheels, verify_bundle
 from tools.training_evidence import with_dependencies, verify
@@ -38,6 +40,18 @@ def main():
     settings.model_dir = str(args.merged_model or args.models/'qwen35-9b-stage2-comparison-merged')
     settings.rag.embedding_dir = str(args.models/'vietnamese-embedding')
     settings.rag.reranker_dir = str(args.models/'vietnamese-reranker')
+    # Fail before any dependency/model download or installation. The general
+    # bundle helper is also used for public-base preparation and allows download;
+    # a submission of this fine-tuned system must never take that fallback.
+    for key,folder in model_paths(settings).items():
+        path=Path(folder)
+        if not (path/'artifact_manifest.json').is_file():
+            raise ValueError('Missing sealed local model/checkpoint: '+str(path))
+        manifest=verify_artifact(path,key)
+        if evidence.get('inference_artifacts',{}).get(key)!=sha256(path/'artifact_manifest.json'):
+            raise ValueError('Local model differs from training evidence: '+key)
+        if key==settings.model_key and not (manifest.get('lineage') or {}).get('merged_lora'):
+            raise ValueError('Generator must be the verified fine-tuned merged model')
     output.mkdir(parents=True,exist_ok=True)
     bundle = prepare_bundle(output/'artifacts',ROOT,settings,sys.executable,
                             requirements=ROOT/'configs/docker-runtime-constraints.txt',install=True)

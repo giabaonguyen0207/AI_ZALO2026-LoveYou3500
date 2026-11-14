@@ -12,6 +12,7 @@ from ..data.rules import read_policy, resolve_period, RulePolicy
 from ..data.sql import SQLExecutor
 from ..data.transforms import search_key
 from ..domain import DataMateError
+from ..execution_audit import audit_methods
 
 
 def request_needs(text):
@@ -41,6 +42,7 @@ def request_needs(text):
     return result
 
 
+@audit_methods
 class BusinessTools:
     def __init__(self, catalog, rulebook, as_of_date, sql_timeout=12, max_rows=150, deadline=None):
         self.catalog, self.semantic = catalog, catalog.semantic

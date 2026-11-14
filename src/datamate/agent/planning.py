@@ -13,6 +13,7 @@ import re
 from ..data.profiling import quote
 from ..data.rules import resolve_period
 from ..data.transforms import search_key
+from ..execution_audit import audit_execution
 from ..domain import ANSWER_TYPES, DataMateError
 from ..data.interpretation import evidence_in
 
@@ -345,6 +346,7 @@ def _filters(predicates, plan, schema, tools):
     return (' AND '.join('('+c+')' for c in clauses) or '1=1'), params
 
 
+@audit_execution
 def calculate(plan, tools):
     """Compose common relational operations; unsupported concepts keep SQL."""
     schema = source_schema(tools.catalog)

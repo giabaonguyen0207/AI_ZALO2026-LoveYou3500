@@ -142,6 +142,7 @@ class SchemaRepair:
                     raise DataMateError('Hết thời gian sửa ánh xạ')
                 options={'max_new_tokens':self.settings.schema_repair_max_new_tokens} if getattr(backend,'supports_token_budget',False) else {}
                 event['model_call_attempted']=True
+                event['model_call_started']=time.monotonic()
                 response=backend.generate(messages,stop-time.monotonic(),**options)
                 event['raw']=response
                 if getattr(backend,'last_generation',None): event['generation']=deepcopy(backend.last_generation)
