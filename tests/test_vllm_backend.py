@@ -119,6 +119,20 @@ def test_context_and_expired_budget_never_submit_to_engine(make_backend):
     assert engine.requests == []
 
 
+def test_cache_hit_metadata_comes_from_request_output_and_can_be_unknown(make_backend):
+    class CachedEngine(Engine):
+        async def generate(self, *args, **kwargs):
+            async for row in super().generate(*args, **kwargs):
+                row.num_cached_tokens = 1
+                yield row
+    backend, _ = make_backend(CachedEngine())
+    raw = backend.generate([{'role':'user','content':'x'}],2)
+    assert json.loads(raw)['action']=='final' and backend.last_generation['cached_tokens']==1
+    other, _ = make_backend()
+    other.generate([{'role':'user','content':'x'}],2)
+    assert other.last_generation['cached_tokens'] is None
+
+
 def test_timeout_aborts_and_engine_can_serve_next_request(make_backend):
     backend, engine = make_backend(Engine(delay=0.1))
     with pytest.raises(GenerationTimeoutError):

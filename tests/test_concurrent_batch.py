@@ -84,12 +84,13 @@ def test_fatal_engine_failure_preserves_other_finished_rows_and_stops_new_work(m
 
 def test_wall_deadline_aborts_inflight_requests_and_closes_workers(make_backend, split_root, tmp_path, monkeypatch):
     backend, engine = make_backend(Engine(delay=5), split_root=str(split_root),
-        result_dir=str(tmp_path / 'result'), question_workers=2, wall_time_seconds=0.2)
+        # Leave time for source/input hashing before the fake 5-second request.
+        result_dir=str(tmp_path / 'result'), question_workers=2, wall_time_seconds=2)
     install(monkeypatch, backend)
     summary = run_batch(backend.settings)
     assert summary['time_budget_exhausted'] is True
     assert engine.closed and not engine.active and not backend._thread.is_alive()
-    assert len(engine.requests) <= 2  # Only a bounded window was admitted.
+    assert 1 <= len(engine.requests) <= 2  # Exercise an active request, not a pre-load deadline.
 
 
 def test_resume_rejects_changed_scheduler_or_engine_settings(make_backend, split_root, tmp_path, monkeypatch):
