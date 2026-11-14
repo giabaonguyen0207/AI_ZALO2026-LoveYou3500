@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import pytest
 
 from datamate.config import Settings
 
@@ -37,6 +38,14 @@ def test_comparison_presets_have_equal_generator_settings():
         assert len({getattr(s,key) for s in settings})==1
 
 
+def test_three_arm_runner_rejects_non_greedy_configuration_before_running(tmp_path):
+    from tools.compare_system import run
+    settings = Settings(vllm={'extra_sampling_params':{'temperature':1}}).validate()
+    with pytest.raises(ValueError,match='greedy'):
+        run(settings,['q1'],tmp_path/'run')
+    assert not (tmp_path/'run').exists()
+
+
 def test_notebook_install_resolves_vllm_and_rag_from_config(tmp_path, monkeypatch):
     import runpy
     import sys
@@ -53,4 +62,19 @@ def test_notebook_install_resolves_vllm_and_rag_from_config(tmp_path, monkeypatc
     monkeypatch.delenv('DATAMATE_BACKEND',raising=False)
     monkeypatch.delenv('DATAMATE_RAG_MODE',raising=False)
     exec(compile(INSTALL,'notebook-install','exec'),namespace)
+    assert any('.[vllm,rag]' in command for command in calls)
+
+
+def test_notebook_explicit_rag_choice_overrides_config(tmp_path, monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    from tools.create_inference_notebook import INSTALL
+    config = tmp_path/'config.json'
+    config.write_text(json.dumps({'backend':'vllm','rag':{'mode':'none'}}))
+    calls = []
+    namespace = {'WORK':Path(__file__).resolve().parents[1],'CONFIG_FILE':config,'sys':sys,
+                 'subprocess':SimpleNamespace(run=lambda command,**kwargs:calls.append(command)),
+                 'RAG_MODE':'dense_rerank','BACKEND':'vllm','CHECK_CUDA':False}
+    exec(compile(INSTALL,'notebook-install','exec'),namespace)
+    assert namespace['selected'].rag.mode=='dense_rerank'
     assert any('.[vllm,rag]' in command for command in calls)

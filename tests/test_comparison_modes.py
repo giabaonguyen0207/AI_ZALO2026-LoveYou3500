@@ -66,3 +66,17 @@ def test_rag_comparison_rejects_missing_embedding_artifact_evidence(tmp_path):
     del identity['artifact_manifests']['vietnamese-embedding']
     save(path, identity)
     assert not compare(left, right, comparison_mode='rag')['paired_comparison_valid']
+
+
+def test_backend_comparison_rejects_runner_or_global_budget_changes(tmp_path):
+    left,right = paired(tmp_path)
+    path = right/'benchmark_identity.json'
+    original = json.loads(path.read_text())
+    for field in ('source','budget','sampling'):
+        identity = json.loads(json.dumps(original))
+        if field=='source': identity['source_hashes']['datamate/agent/runner.py']='changed'
+        if field=='budget': identity['settings']['wall_time_seconds']=100
+        if field=='sampling': identity['settings']['vllm']={'extra_sampling_params':{'temperature':1}}
+        save(path,identity)
+        result = compare(left,right)
+        assert not result['paired_comparison_valid'] and result['inference_speedup'] is None,field

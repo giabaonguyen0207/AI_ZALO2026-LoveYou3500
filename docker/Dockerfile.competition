@@ -1,4 +1,4 @@
-# The team selects and pins BASE_IMAGE; no organizer-provided base is required.
+# Pin the team-selected BASE_IMAGE after checking the organizer's actual guideline.
 # Prepare /wheelhouse for this base's Python/CUDA/architecture before offline build.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}

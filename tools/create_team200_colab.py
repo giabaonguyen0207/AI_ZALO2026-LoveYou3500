@@ -19,8 +19,9 @@ PARTICIPANT = "toi"                # Tên dùng trong file nộp nhóm.
 MODEL_KEY = "qwen35-9b"             # Hoặc "gemma4-12b", "qwen35-upscaled14b-v2".
 QUANTIZATION = "none"              # G4 96 GB: none; GPU ít VRAM có thể chọn 4bit.
 MODE = "self_review"               # Giữ một cấu hình cho cả lượt chạy.
-RAG_PRESET = "rag-dense-rerank"    # rag-none, rag-dense, or rag-dense-rerank.
-RUN_NAME = f"{PARTICIPANT}-{MODEL_KEY}-{RAG_PRESET}-team200"
+BACKEND = "torch"                 # torch | vllm; chọn độc lập với RAG.
+RAG_PRESET = "rag-none"            # Baseline trước; rag-dense hoặc rag-dense-rerank sau.
+RUN_NAME = f"{PARTICIPANT}-{MODEL_KEY}-{BACKEND}-{RAG_PRESET}-team200-layout-Nov14th-01"
 AUTO_DISCONNECT = True
 RUN_LIMIT = None                    # None = đủ 200; chỉ đặt 5 nếu muốn chạy thử rồi resume.
 MAX_RUN_MINUTES = 180               # Ngân sách MỖI phiên batch, không gồm chuẩn bị/load.
@@ -91,17 +92,17 @@ print("Đúng 200 câu, seed 4000930841; không bốc lại mẫu.")
 print("Model:", MODEL_KEY, "| mode:", MODE, "| kết quả:", SAVE)
 '''
 
-INSTALL = '''import torch
-constraints = WORK / "colab-constraints.txt"
-constraints.write_text("torch==" + torch.__version__ + "\\n")
+try:
+    from .create_inference_notebook import INSTALL as GPU_INSTALL
+except ImportError:
+    from create_inference_notebook import INSTALL as GPU_INSTALL
+
+INSTALL = '''
 if RAG_PRESET not in {"rag-none", "rag-dense", "rag-dense-rerank"}:
     raise ValueError("RAG_PRESET must be rag-none, rag-dense, or rag-dense-rerank")
-extra = ".[llm]" if RAG_PRESET == "rag-none" else ".[llm,rag]"
-subprocess.run([sys.executable, "-m", "pip", "install", "-e", extra, "-c", str(constraints)], cwd=WORK, check=True)
-subprocess.run(["nvidia-smi", "--query-gpu=name,memory.total,driver_version", "--format=csv"], check=True)
-if not torch.cuda.is_available():
-    raise RuntimeError("Chọn GPU runtime trước khi nạp model")
-importlib.invalidate_caches()
+RAG_MODE = {"rag-none":"none","rag-dense":"dense","rag-dense-rerank":"dense_rerank"}[RAG_PRESET]
+CONFIG_FILE = WORK / "configs" / "experiments" / "thinh" / (RAG_PRESET + ".json")
+''' + GPU_INSTALL + '''
 verify_runtime = runpy.run_path(str(WORK / "tools/colab_runtime_check.py"))["verify_runtime"]
 print("Preflight:", verify_runtime(WORK))
 '''
@@ -132,6 +133,7 @@ load_started = time.monotonic()
 prepare_local_model = runpy.run_path(str(WORK / "tools/colab_model_cache.py"))["prepare_local_model"]
 MODEL_DIR = prepare_local_model(MODEL_SOURCE_DIR, Path("/content/models"), MODEL_KEY)
 settings = Settings.load(CONFIG_PATH, use_env=False, model_key=MODEL_KEY, model_dir=str(MODEL_DIR),
+                         backend=BACKEND,
                          mode=MODE, quantization=QUANTIZATION, split_root=str(TRAIN_ROOT),
                          cache_dir=str(WORK / ".cache/datamate-team200" / RAG_PRESET), result_dir=str(SAVE))
 if settings.rag.mode != "none":
@@ -215,7 +217,7 @@ chạy agent hiện có của bạn; không thay cách chấm hay yêu cầu c�
 3. Giữ RUN_LIMIT=None để chạy đủ 200; AUTO_DISCONNECT=True để lưu ZIP,
    đồng bộ Drive rồi tự ngắt runtime. Mặc định Qwen 9B/self_review như pipeline
    6 đã khôi phục; có thể chọn Gemma 12B hoặc checkpoint đã hỗ trợ ở ô đầu.
-   Preflight phải hiện pipeline 6/backend 3. Dùng tên lượt layout-Nov9th mới,
+   Preflight phải hiện pipeline 6/backend 3. Dùng tên lượt layout-Nov14th mới,
    không resume vào kết quả v7 hoặc lượt v6 đã chạy trước đó.
 
 Kết quả ở MyDrive/DataMate/runs/team200/<RUN_NAME>/:

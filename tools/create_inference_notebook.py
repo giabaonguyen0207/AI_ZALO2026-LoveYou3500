@@ -91,7 +91,9 @@ if str(source_dir) not in sys.path:
 importlib.invalidate_caches()
 from datamate.config import Settings
 from datamate.models.registry import inference_extras
-overrides = {k:v for k,v in {"backend":globals().get("BACKEND"), "rag_mode":globals().get("RAG_MODE")}.items() if v is not None}
+overrides = {"backend":globals().get("BACKEND")}
+if globals().get("RAG_MODE") is not None:
+    overrides["rag"] = {"mode":RAG_MODE}
 selected = Settings.load(globals().get("CONFIG_FILE"), **overrides)
 extras = inference_extras(selected)
 def installed(name):
@@ -125,7 +127,9 @@ import runpy
 
 verify_runtime = runpy.run_path(str(WORK / "tools/colab_runtime_check.py"))["verify_runtime"]
 print("Preflight:", verify_runtime(WORK))
-overrides = {k:v for k,v in {"backend":globals().get("BACKEND"), "rag_mode":globals().get("RAG_MODE")}.items() if v is not None}
+overrides = {"backend":globals().get("BACKEND")}
+if globals().get("RAG_MODE") is not None:
+    overrides["rag"] = {"mode":RAG_MODE}
 settings = Settings.load(CONFIG_FILE, model_key=MODEL_KEY, model_dir=str(MODEL_SOURCE_DIR),
     split_root=str(TRAIN_ROOT), cache_dir=str(WORK / ".cache/datamate"), result_dir=str(SAVE), **overrides)
 if globals().get("EMBEDDING_SOURCE_DIR") is not None:

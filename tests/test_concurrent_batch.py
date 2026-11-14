@@ -83,9 +83,26 @@ def test_fatal_engine_failure_preserves_other_finished_rows_and_stops_new_work(m
 
 
 def test_wall_deadline_aborts_inflight_requests_and_closes_workers(make_backend, split_root, tmp_path, monkeypatch):
-    backend, engine = make_backend(Engine(delay=5), split_root=str(split_root),
-        # Leave time for source/input hashing before the fake 5-second request.
-        result_dir=str(tmp_path / 'result'), question_workers=2, wall_time_seconds=2)
+    import time
+    from types import SimpleNamespace
+    import datamate.application as app
+    import datamate.batching as batching
+    import datamate.agent.runner as runner
+    started = time.monotonic()
+    active_at = []
+    class WaitingEngine(Engine):
+        async def generate(self,*args,**kwargs):
+            if not active_at:
+                active_at.append(time.monotonic())
+            async for result in super().generate(*args,**kwargs):
+                yield result
+    # Freeze only application clocks during hashing/telemetry so host I/O
+    # cannot consume the fixture deadline before it exercises an active request.
+    clock = SimpleNamespace(monotonic=lambda: started+(time.monotonic()-active_at[0] if active_at else 0))
+    for module in (app,batching,runner):
+        monkeypatch.setattr(module,'time',clock)
+    backend, engine = make_backend(WaitingEngine(delay=5), split_root=str(split_root),
+        result_dir=str(tmp_path / 'result'), question_workers=2, wall_time_seconds=.2)
     install(monkeypatch, backend)
     summary = run_batch(backend.settings)
     assert summary['time_budget_exhausted'] is True

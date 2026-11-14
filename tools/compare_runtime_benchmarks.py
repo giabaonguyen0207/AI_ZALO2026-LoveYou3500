@@ -143,7 +143,7 @@ def compare(baseline, candidate, *, references=None, comparison_mode='backend'):
     calls = [lines(p/'model_calls.jsonl') for p in (baseline,candidate)]
     inputs = [read(p/'run_identity.json') for p in (baseline,candidate)]
     left,right = identities
-    common = ('model_key','mode','quantization','dtype','max_steps','max_repeated_actions','max_context_tokens','max_new_tokens','seed',
+    common = ('model_key','assistant_key','mode','quantization','dtype','wall_time_seconds','max_steps','max_repeated_actions','max_context_tokens','max_new_tokens','seed',
               'question_timeout_seconds','sql_timeout_seconds','max_result_rows','schema_mode','adaptive_preparation',
               'require_plan','auto_execute_plan','schema_repair_timeout_seconds','schema_repair_max_new_tokens',
               'preparation_timeout_seconds','preparation_max_attempts','preparation_max_new_tokens')
@@ -177,8 +177,7 @@ def compare(baseline, candidate, *, references=None, comparison_mode='backend'):
     sources = [i.get('source_hashes',{}) for i in identities]
     source_equal = all(sources[0].get('datamate/'+name) and sources[0].get('datamate/'+name)==sources[1].get('datamate/'+name)
                        for name in CRITICAL_SOURCE)
-    if comparison_mode == 'rag':
-        source_equal = source_equal and sources[0]==sources[1]
+    source_equal = source_equal and sources[0]==sources[1]
     baseline_prompts = []
     for folder in (baseline,candidate):
         path = folder/'question_timing.jsonl'
@@ -195,6 +194,8 @@ def compare(baseline, candidate, *, references=None, comparison_mode='backend'):
              'expected_backend_pair':backend_pair,
              'same_business_logic_source':bool(source_equal),
              'complete_model_evidence':all(artifact_evidence(i) for i in identities),
+             'greedy_sampling_contract':all(not i['settings'].get('vllm',{}).get('extra_sampling_params')
+                                           for i in identities if i['settings'].get('backend')=='vllm'),
              'token_metadata_complete':all(m.get('token_metadata_complete',False) for m in metrics),
              'same_resolved_precision':precisions[0] in {'float16','bfloat16','float32'} and precisions[0]==precisions[1],
              'same_dataset_hashes':all(inputs[0].get(k) is not None and inputs[0].get(k)==inputs[1].get(k)

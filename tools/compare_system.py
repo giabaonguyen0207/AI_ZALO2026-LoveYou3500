@@ -23,6 +23,8 @@ def save(path, value):
 
 def run(settings, ids, output, *, project_root=PROJECT, references=None,
         dtype='float16', tensor_parallel_size=1, vllm_workers=1, rag_mode='dense_rerank'):
+    if settings.vllm.extra_sampling_params:
+        raise ValueError('Controlled comparison requires greedy defaults: clear vllm.extra_sampling_params')
     output = ensure_outside_dataset(Path(output).resolve(),settings.split_root)
     if output.exists() and any(output.iterdir()):
         raise ValueError('Choose a fresh comparison output directory')

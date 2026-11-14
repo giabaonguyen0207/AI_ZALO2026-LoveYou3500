@@ -8,7 +8,7 @@ Chuẩn bị và chạy rehearsal trước ngày nộp; ngày cuối chốt imag
 - Nếu dùng fine-tuned model, merge/seal và giữ training source/config/provenance cần bàn giao.
 - Đối chiếu base image, Python/CUDA/GPU với guideline chính thức. Chuẩn bị image base và wheelhouse phù hợp trước bước build offline.
 - Lưu dependency GPU đã chạy thực tế vào artifact của release. requirements-dev.lock.txt là khóa CPU nhẹ, không dùng làm chứng nhận stack GPU.
-- Hải/Thịnh cần cập nhật extras và công cụ staging khi thêm vLLM/RAG; runtime hiện chưa có hai tích hợp đó.
+- Bản ghép đã stage theo full inventory: generator/assistant và embedding/reranker đang bật. Profile dependency là `llm|vllm` cộng `rag`, không dùng wheelhouse Torch-only để đóng vLLM hoặc RAG.
 
 ## 2. Tạo build context có chọn lọc
 
@@ -22,6 +22,18 @@ Helper kiểm manifest/hash, chỉ chép source, config submission, checkpoint �
 
 Công cụ staging không chọn base image thay BTC, không xác nhận wheel tương thích chỉ bằng tên file và không tự tải tài nguyên.
 
+Nếu bật RAG, phải cung cấp cả checkpoint encoder/reranker (chỉ encoder khi `dense`). Cách tránh bỏ sót là chuẩn bị **bundle** trên Linux/Python/CUDA tương thích image mục tiêu:
+
+```bash
+python tools/prepare_runtime.py --config configs/comparison/rag.json --model-dir /work/models/qwen35-9b --rag-embedding-dir /work/models/vietnamese-embedding --rag-reranker-dir /work/models/vietnamese-reranker --artifact-root /work/artifacts/torch-rag --requirements /work/locks/torch-rag.txt
+python tools/prepare_runtime.py --artifact-root /work/artifacts/torch-rag --offline
+python tools/package_solution.py --bundle /work/artifacts/torch-rag/bundle.json --output outputs/packages/release-rag/context --base-image TEAM_VERIFIED_IMAGE_WITH_DIGEST
+```
+
+Đổi config/backend sang vLLM nếu chọn vLLM; tạo bundle/profile riêng cho lựa chọn cuối. `--requirements` là danh sách phiên bản đã kiểm trên GPU (ví dụ pip freeze đã rà soát); nó bổ sung ràng buộc nhưng không thay danh sách dependency bắt buộc của project/extra. Giai đoạn online resolve/tải wheel, ghi hash và bản khóa resolved; giai đoạn offline chỉ verify/cài wheel local, không sửa/download bundle. Không dùng lock Windows CPU để đóng image Linux GPU.
+
+Nguồn checkpoint nonempty thiếu/sai manifest sẽ bị từ chối, không tự thay checkpoint fine-tune bằng base. `package_solution` viết lại đường dẫn tất cả model về `/app/models/<key>`, RAG index/scratch về `/work`, dữ liệu `/data`, output `/result`. Inventory phải đúng model thực dùng và không vượt 15B.
+
 ## 3. Build và rehearsal offline
 
 Sau khi thay placeholder bằng base image đã đối chiếu, tải base trước rồi build trong môi trường Linux phù hợp:
@@ -32,6 +44,14 @@ docker run --rm --gpus all --network none --mount type=bind,src=/work/data/split
 ```
 
 Tạo trước các thư mục mount. Chạy workload cần đánh giá, kiểm submission/type/log và thời gian từ trước load/index/compile đến flush output. Giữ cơ chế timeout trong predict.sh; chạy nhanh trên mẫu nhỏ không chứng minh đủ toàn private test trong 6 giờ.
+
+## Thư viện và weights có sẵn giúp tiết kiệm phần nào?
+
+Trong `Dockerfile.competition`, `RUN python /app/docker/install_runtime.py` **cài thư viện lúc build image** từ wheelhouse; `COPY models /app/models` đưa weights/tokenizer/config đã seal vào image. `predict.sh` không pip install hoặc tải Hugging Face. Khi BTC khởi động container, hai chi phí cài/tải đó đã được loại khỏi inference.
+
+Mỗi process mới vẫn phải import Python/native extension, khởi tạo CUDA, đọc/xác minh weights từ đĩa, nạp weights vào GPU, tạo engine/KV cache; tùy cấu hình có thêm compile/capture. Image lưu dữ liệu trên đĩa, không lưu model đã nằm trong VRAM. Vì vậy Docker **không xóa thời gian startup của vLLM**. Startup có thể thấp hơn Colab/Drive nhờ I/O/cache khác, nhưng phải đo image thật; không coi toàn bộ số load khoảng 653s Hải ghi nhận là thời gian pip/download sẽ biến mất.
+
+`runtime.json` ghi các phase verify/import vLLM/tokenizer/engine; `run_summary.json` và `supervisor.json` ghi thời gian batch/process. Phase tokenizer bao gồm import Transformers/config; phase engine gồm nhiều việc SDK tự làm, chưa tách riêng compile và nạp weights. `/work/vllm` chứa cache vLLM. Cache phù hợp có thể giảm khởi tạo ở lượt sau, nhưng không mặc định có cache trên máy BTC; mount `/work` mới cũng che cache đã đặt cùng đường dẫn trong image. Đánh giá ngân sách 6 giờ bằng lần chạy offline từ trạng thái cache ban đầu đã nêu rõ, tính cả startup/RAG index và dọn output.
 
 Khi thay code/dependency/checkpoint sau rehearsal, phải kiểm lại image mới. Không sửa dữ liệu /data hoặc dùng test để training.
 

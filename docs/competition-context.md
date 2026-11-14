@@ -437,3 +437,7 @@ Do not assume these details are known. Verify against the actual files and offic
 **Official portal cited by the user:** <https://challenge.zalo.ai/portal/datamate/>.
 
 Purpose: retain enough factual context for future work on the competition agent, without prematurely selecting a technical solution. Keep competition requirements, observations from real data, and the team's future design decisions distinct.
+
+## 11. Internal engineering update — November 14, 2026
+
+Source: project owner's request, fetched team branches and local Hải benchmark logs; see [integration report](integration-vllm-rag-2026-11-14.md). Team decisions: Adapter + Strategy, independent generator backend/retrieval selection, three-arm current-source evaluation. Observed Hải timings are diagnostic 24-question evidence without labels, with deadline/answer differences; they do not establish quality or full private-test runtime. This integration has CPU fixture verification, not a full-checkpoint GPU/Docker result. No additional official organizer guideline or base-image requirement was independently established by this update.

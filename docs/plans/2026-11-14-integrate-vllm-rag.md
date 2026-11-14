@@ -1,6 +1,6 @@
 # Tích hợp vLLM và RAG — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Merge hai nhánh Hải/Thịnh vào `codex/team-gpu-layout`, sửa lỗi và cung cấp cùng một đường inference cho baseline Torch, vLLM và Torch + RAG.
 
@@ -34,10 +34,10 @@
 
 **Interfaces:** consume refs `a726f39`, `6be9ea3`, target `codex/team-gpu-layout`; produce merged source và checklist các khác biệt có chủ ý.
 
-- [ ] Chạy suite tại target trước merge, lưu log và các lỗi sẵn có.
-- [ ] Merge hai refs bằng merge commit, không reset/force-push; giữ các commit training đã có ở target.
-- [ ] Loại các thay đổi heuristic nghiệp vụ không thuộc retrieval; giữ tools benchmark và adapter hữu ích.
-- [ ] Kiểm Git ancestry và checkout gốc còn nguyên.
+- [x] Chạy suite tại target trước merge, lưu log và các lỗi sẵn có.
+- [x] Merge hai refs bằng merge commit, không reset/force-push; giữ các commit training đã có ở target.
+- [x] Loại các thay đổi heuristic nghiệp vụ không thuộc retrieval; giữ tools benchmark và adapter hữu ích.
+- [x] Kiểm Git ancestry và checkout gốc còn nguyên.
 
 ## Task 2: RAG theo contract, context và lifecycle
 
@@ -45,11 +45,11 @@
 
 **Interfaces:** `build_retriever(settings, split)`; `prepare(business_ids, ingestor, remaining_seconds)`; `retrieve(question,business_id,catalog,remaining_seconds)`; `identity()/runtime_info()/close()`; `RetrievalFatalError`.
 
-- [ ] Viết và chạy RED cho partial load, fatal, close race, scope/provenance/cache và actual token budget nhiều lượt.
-- [ ] Giữ CLS + normalize 1024D; batching/token limits/dtype/chunking là config; init atomic, query deadline, fatal không bị nuốt.
-- [ ] Chuẩn bị model/index ngoài deadline câu nhưng trong wall budget; dùng nguồn raw, manifest/checksum/atomic cache, scope trước top-k.
-- [ ] Ghép context bằng tokenizer generator, giảm nguyên chunk trước mỗi generate; none/rỗng giữ baseline.
-- [ ] Chạy GREEN các test liên quan, ghi ledger và commit.
+- [x] Viết và chạy RED cho partial load, fatal, close race, scope/provenance/cache và actual token budget nhiều lượt.
+- [x] Giữ CLS + normalize 1024D; batching/token limits/dtype/chunking là config; init atomic, query deadline, fatal không bị nuốt.
+- [x] Chuẩn bị model/index ngoài deadline câu nhưng trong wall budget; dùng nguồn raw, manifest/checksum/atomic cache, scope trước top-k.
+- [x] Ghép context bằng tokenizer generator, giảm nguyên chunk trước mỗi generate; none/rỗng giữ baseline.
+- [x] Chạy GREEN các test liên quan, ghi ledger và commit.
 
 ## Task 3: Full runtime artifact và lỗi vLLM
 
@@ -57,11 +57,11 @@
 
 **Interfaces:** shared inventory/path mapping cho generator/assistant/embedding/reranker; dependency profile backend cộng RAG.
 
-- [ ] RED cho nguồn nonempty chưa seal, lock thiếu dependency, full RAG stage/relocate/package và fatal một worker.
-- [ ] Chuyển tools dùng active models; giữ manifest generator cũ; verify đúng pinned RAG weights và file configs offline.
-- [ ] Resolve dependency project + extra và lock constraints, fail-fast gói thiếu; notebook chọn backend cùng Settings.
-- [ ] Deadline init tính từ đầu, cleanup báo rõ giới hạn SDK; metadata thực tế, không che lỗi/đổi model.
-- [ ] GREEN các test runtime/package và commit.
+- [x] RED cho nguồn nonempty chưa seal, lock thiếu dependency, full RAG stage/relocate/package và fatal một worker.
+- [x] Chuyển tools dùng active models; giữ manifest generator cũ; verify đúng pinned RAG weights và file configs offline.
+- [x] Resolve dependency project + extra và lock constraints, fail-fast gói thiếu; notebook chọn backend cùng Settings.
+- [x] Deadline init tính từ đầu, cleanup báo rõ giới hạn SDK; metadata thực tế, không che lỗi/đổi model.
+- [x] GREEN các test runtime/package và commit.
 
 ## Task 4: Lựa chọn inference và ba arm đối chứng
 
@@ -69,17 +69,21 @@
 
 **Interfaces:** `--backend transformers|vllm`, `--rag-mode none|dense|dense_rerank`; baseline, vllm, rag cùng source và selected IDs.
 
-- [ ] RED cho merge config/env/CLI, preset parity và comparator từ chối thay đổi ngoài arm cho phép.
-- [ ] Cung cấp lựa chọn independent trong CLI/notebook; Torch là alias UX cho Transformers, không tạo vòng agent riêng.
-- [ ] Giữ source/ID/hash/timing tools Hải, thêm comparison RAG có prompt thay đổi có chủ ý; báo thời gian cold/inference/timeout/điểm nếu có nhãn.
-- [ ] Chuẩn bị preset cùng generator/budget; baseline chạy trước, vLLM default một worker cho đối chứng và cho phép tăng worker explicit.
-- [ ] GREEN test entrypoints/compare và commit.
+- [x] RED cho merge config/env/CLI, preset parity và comparator từ chối thay đổi ngoài arm cho phép.
+- [x] Cung cấp lựa chọn independent trong CLI/notebook; Torch là alias UX cho Transformers, không tạo vòng agent riêng.
+- [x] Giữ source/ID/hash/timing tools Hải, thêm comparison RAG có prompt thay đổi có chủ ý; báo thời gian cold/inference/timeout/điểm nếu có nhãn.
+- [x] Chuẩn bị preset cùng generator/budget; baseline chạy trước, vLLM default một worker cho đối chứng và cho phép tăng worker explicit.
+- [x] GREEN test entrypoints/compare và commit.
 
 ## Task 5: Tài liệu, kiểm chứng và merge hoàn tất
 
 **Files:** README, `docs/run-gpu.md`, báo cáo tích hợp và nhật ký ngữ cảnh; tests toàn repo.
 
-- [ ] Cập nhật cách stage đúng model, cài extras và chạy ba arm; phân biệt quan sát Hải với kết quả cần chạy lại.
-- [ ] Chạy suite toàn repo + smoke DemoBackend/packaging, ghi rõ các lỗi sẵn có và giới hạn GPU.
-- [ ] Fresh independent review toàn diff, sửa Important/Critical bằng RED→GREEN.
-- [ ] Commit phần sửa, xác minh target chứa cả hai refs; giữ checkout training gốc và không push.
+- [x] Cập nhật cách stage đúng model, cài extras và chạy ba arm; phân biệt quan sát Hải với kết quả cần chạy lại.
+- [x] Chạy suite toàn repo + smoke DemoBackend/packaging, ghi rõ các lỗi sẵn có và giới hạn GPU.
+- [x] Fresh independent review toàn diff, sửa Important/Critical bằng RED→GREEN.
+- [x] Commit phần sửa, xác minh target chứa cả hai refs; giữ checkout training gốc và không push.
+
+## Kết quả kiểm chứng
+
+Suite CPU cuối: 437 pass, 5 skip, 3 lỗi training sẵn có (hai tham chiếu notebook cũ và psutil thiếu). Không có số đo full-checkpoint GPU/image mới. Fresh review đã xử lý ba Important; xem docs/integration-vllm-rag-2026-11-14.md. Hai refs nguồn là tổ tiên của target; checkout gốc rag và 20 file chưa commit giữ nguyên hash/trạng thái. Merge local đã được chủ dự án yêu cầu; không push.

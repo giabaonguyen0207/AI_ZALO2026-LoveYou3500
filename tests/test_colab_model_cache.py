@@ -100,6 +100,7 @@ def test_gpu_notebook_prepares_without_loading_then_runs_shared_batch_once(model
     context={'WORK':root,'MODEL_SOURCE_DIR':model_source,'MODEL_KEY':'fixture', 'QUANTIZATION':'none',
              'TRAIN_ROOT':tmp_path/'train','SAVE':tmp_path/'saved',
              'COPY_MODEL_TO_SCRATCH':True, 'CONFIG_FILE':root/'configs/qwen35-9b.json',
+             'BACKEND':'torch','RAG_MODE':'none',
              'IDS_FILE':None, 'RUN_LIMIT':None, 'RESUME':False}
     exec(compile(PREPARE, 'gpu-prepare', 'exec'), context)
     assert not calls
