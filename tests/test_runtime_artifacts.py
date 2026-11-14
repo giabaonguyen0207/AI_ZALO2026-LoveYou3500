@@ -102,15 +102,16 @@ def test_corrupt_cache_is_not_resealed_or_overwritten_and_online_repair_uses_new
     verify_artifact(replacement, runtime.spec.key)
 
 
-def test_wrong_model_candidate_is_preserved_while_correct_registered_model_is_downloaded(runtime, tmp_path, monkeypatch):
+def test_wrong_model_candidate_is_preserved_and_rejected_without_base_substitution(runtime, tmp_path, monkeypatch):
     other = ModelSpec('other-cache', 'test/other', 'b' * 40, 3, '2026-01-01T00:00:00Z')
     monkeypatch.setitem(MODELS, other.key, other)
     source = tmp_path / 'other'
     model(source, other)
     original = sha256(source / 'artifact_manifest.json')
     runtime.settings.model_dir = str(source)
-    bundle = prepare(runtime)
-    verify_artifact(runtime.root / bundle['models'][runtime.spec.key]['path'], runtime.spec.key)
+    with pytest.raises(DataMateError, match='manifest'):
+        prepare(runtime)
+    assert not any('stage-model' in command for command, _ in runtime.calls)
     assert sha256(source / 'artifact_manifest.json') == original
 
 

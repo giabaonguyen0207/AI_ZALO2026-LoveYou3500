@@ -28,7 +28,8 @@ def install(wheelhouse, manifest_path, extra='auto', project='.'):
     wheelhouse = Path(wheelhouse).resolve()
     solution = json.loads(Path(manifest_path).read_text(encoding='utf-8'))
     extra = solution.get('inference_extra', 'llm') if extra == 'auto' else extra
-    if extra not in {'llm', 'vllm'}:
+    selected = set(extra.split(','))
+    if not selected <= {'llm', 'vllm', 'rag'} or len(selected & {'llm', 'vllm'}) != 1:
         raise ValueError('Unsupported inference extra')
     lock = wheelhouse / 'requirements.resolved.txt'
     sealed = wheelhouse / 'wheelhouse_manifest.json'

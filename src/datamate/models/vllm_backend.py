@@ -21,7 +21,7 @@ from .artifacts import verify_artifact
 from .chat_format import context_budget, encode_messages, generation_token_settings, input_ids
 from .contracts import BackendUnavailableError, GenerationTimeoutError
 from .registry import inventory
-from .runtime import runtime_identity, template_hash
+from .runtime import runtime_identity, template_hash, hardware_snapshot
 
 
 def engine_options(settings):
@@ -55,13 +55,22 @@ class VLLMBackend:
 
     def __init__(self, settings: Settings, *, engine_factory=None, sampling_factory=None,
                  tokenizer=None, generation_config=None, remaining_seconds=None):
+        started = time.monotonic()
         settings.validate()
+        allowance = min(settings.vllm.init_timeout_seconds, settings.wall_time_seconds,
+                        remaining_seconds if remaining_seconds is not None else settings.wall_time_seconds)
+        self._startup_deadline = started + allowance
+        self.startup_phases = {'artifact_verification_seconds': 0.0, 'library_import_seconds': 0.0,
+                               'tokenizer_seconds': 0.0, 'engine_init_seconds': 0.0}
         if settings.backend != 'vllm':
             raise DataMateError('VLLMBackend cần backend=vllm')
         self.settings = settings
         self.inventory = inventory(settings.model_key, settings.assistant_key)
         configure_offline(Path(settings.cache_dir).parent)
+        phase = time.monotonic()
         verify_artifact(settings.model_dir, settings.model_key)
+        self.startup_phases['artifact_verification_seconds'] = time.monotonic()-phase
+        self._init_remaining()
         self._local = threading.local()
         self._tokenizer_lock = threading.Lock()
         self._close_lock = threading.Lock()
@@ -71,6 +80,7 @@ class VLLMBackend:
         self._peak_requests = 0
         self.options = engine_options(settings)
         try:
+            phase = time.monotonic()
             if tokenizer is None or generation_config is None:
                 from transformers import AutoConfig, AutoTokenizer, GenerationConfig
                 tokenizer = AutoTokenizer.from_pretrained(settings.model_dir, local_files_only=True, trust_remote_code=False)
@@ -79,6 +89,9 @@ class VLLMBackend:
                 else:
                     config = AutoConfig.from_pretrained(settings.model_dir, local_files_only=True, trust_remote_code=False)
                     generation_config = GenerationConfig.from_model_config(config)
+            self.startup_phases['tokenizer_seconds'] = time.monotonic()-phase
+            self._init_remaining()
+            phase = time.monotonic()
             if engine_factory is None:
                 from vllm import SamplingParams
                 from vllm.sampling_params import RequestOutputKind
@@ -88,33 +101,49 @@ class VLLMBackend:
                 sampling_factory = lambda **kwargs: SamplingParams(output_kind=RequestOutputKind.FINAL_ONLY, **kwargs)
             if sampling_factory is None:
                 raise DataMateError('Engine factory cần sampling factory')
+            self.startup_phases['library_import_seconds'] = time.monotonic()-phase
+            self._init_remaining()
         except ImportError as exc:
             raise BackendUnavailableError('Thiếu stack vLLM/Transformers tương thích; cài extra vllm trên Linux GPU') from exc
         self.tokenizer = tokenizer
         self.generation_tokens = generation_token_settings(tokenizer, generation_config)
         self._sampling_factory = sampling_factory
         self._make_sampling(settings.max_new_tokens)  # Validate before loading engine weights.
+        self._init_remaining()
+        phase = time.monotonic()
         self._loop = asyncio.new_event_loop()
         self._thread = threading.Thread(target=self._serve_loop, name='datamate-vllm', daemon=True)
         self._thread.start()
 
         async def boot():
-            self._engine = await _await_if_needed(engine_factory(self.options))
+            self._init_remaining()
+            value = engine_factory(self.options)
+            self._engine = await value if inspect.isawaitable(value) else value
+            if self._closed:
+                await self._shutdown_engine()
+                return
             for method in ('generate', 'abort', 'shutdown'):
                 if not callable(getattr(self._engine, method, None)):
                     raise BackendUnavailableError(f'vLLM API thiếu {method}; dùng AsyncLLM API được hỗ trợ')
 
         future = asyncio.run_coroutine_threadsafe(boot(), self._loop)
         try:
-            future.result(timeout=min(settings.vllm.init_timeout_seconds, settings.wall_time_seconds,
-                                      remaining_seconds if remaining_seconds is not None else settings.wall_time_seconds))
+            future.result(timeout=self._init_remaining())
+            self.startup_phases['engine_init_seconds'] = time.monotonic()-phase
         except Exception as exc:
+            future.cancel()
             self._fatal = f'Khởi tạo vLLM thất bại: {exc}'
             try:
                 self.close()
-            except BackendUnavailableError:
-                pass
+            except BackendUnavailableError as cleanup:
+                self._fatal += f'; cleanup chưa hoàn tất: {cleanup}; cần process watchdog'
             raise BackendUnavailableError(self._fatal) from exc
+
+    def _init_remaining(self):
+        remaining = self._startup_deadline-time.monotonic()
+        if remaining <= 0:
+            raise BackendUnavailableError('Hết deadline/thời gian startup budget vLLM')
+        return remaining
 
     def _serve_loop(self):
         asyncio.set_event_loop(self._loop)
@@ -251,6 +280,8 @@ class VLLMBackend:
         return {**runtime_identity(self.settings), 'protocol_version': self.protocol_version,
                 'inventory': self.inventory, 'engine_args': self.options,
                 'chat_template_sha256': template_hash(self.tokenizer), 'generation_tokens': self.generation_tokens,
+                'startup_phases': self.startup_phases, 'hardware': hardware_snapshot(),
+                'resolved_dtype': str(getattr(getattr(self._engine, 'model_config', None), 'dtype', None)).removeprefix('torch.'),
                 'active_requests_peak': self._peak_requests, 'closed': self._closed, 'fatal_error': self._fatal}
 
     async def _shutdown(self):
@@ -262,8 +293,13 @@ class VLLMBackend:
                 await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True),
                                        self.settings.vllm.abort_timeout_seconds)
         finally:
-            if self._engine is not None:
-                await _await_if_needed(self._engine.shutdown())
+            await self._shutdown_engine()
+
+    async def _shutdown_engine(self):
+        if self._engine is not None:
+            method = self._engine.shutdown
+            options = {'timeout': self.settings.vllm.shutdown_timeout_seconds} if 'timeout' in inspect.signature(method).parameters else {}
+            await _await_if_needed(method(**options))
 
     def close(self):
         with self._close_lock:

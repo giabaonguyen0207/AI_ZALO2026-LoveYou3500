@@ -11,20 +11,20 @@ import sys
 sys.path[:0] = [str(Path(__file__).resolve().parents[1]), str(Path(__file__).resolve().parents[1] / 'src')]
 from datamate.config import Settings
 from datamate.models.artifacts import sha256, verify_artifact
-from datamate.models.registry import inventory
+from datamate.models.registry import inventory_from_settings, relocate_models, inference_extras
 from tools.runtime_artifacts import verify_bundle, verify_wheels
 
 
 def stage(root, config, output, wheelhouse, model_sources, *, base_image=None):
     root, output, wheelhouse = map(lambda p: Path(p).resolve(), (root, output, wheelhouse))
     settings = Settings.load(config)
-    specs = inventory(settings.model_key, settings.assistant_key)
+    specs = inventory_from_settings(settings)
     if not wheelhouse.is_dir() or not list(wheelhouse.glob('*.whl')):
         raise ValueError('Prepare a Linux/GPU-compatible wheelhouse before staging')
     wheel_manifest = None
     if (wheelhouse / 'wheelhouse_manifest.json').exists():
         wheel_manifest = verify_wheels(wheelhouse)
-        expected_extra = 'vllm' if settings.backend == 'vllm' else 'llm'
+        expected_extra = inference_extras(settings)
         if wheel_manifest['identity']['extra'] != expected_extra:
             raise ValueError('Wheelhouse backend does not match solution config')
     if output.exists() and any(output.iterdir()):
@@ -52,9 +52,9 @@ def stage(root, config, output, wheelhouse, model_sources, *, base_image=None):
         shutil.copy2(root / name, output / name)
     (output / 'configs').mkdir()
     settings.split_root, settings.result_dir, settings.cache_dir = '/data', '/result', '/work/datamate'
-    settings.model_dir = '/app/models/' + settings.model_key
-    if settings.assistant_key:
-        settings.assistant_dir = '/app/models/' + settings.assistant_key
+    relocate_models(settings, {key: '/app/models/' + key for key in manifests})
+    if settings.rag.mode != 'none':
+        settings.rag.index_dir = '/work/datamate/retrieval'
     (output / 'configs/submission.json').write_text(json.dumps(settings.to_dict(), indent=2) + '\n', encoding='utf-8')
     shutil.copy2(root / 'configs/training_sources.json', output / 'configs/training_sources.json')
     for key in manifests:
@@ -64,7 +64,7 @@ def stage(root, config, output, wheelhouse, model_sources, *, base_image=None):
     files = {p.relative_to(output).as_posix(): sha256(p) for p in sorted(output.rglob('*')) if p.is_file()}
     report = {'inventory': specs, 'files': files, 'image_built': False,
               'wheelhouse_verified': wheel_manifest is not None,
-              'inference_extra': 'vllm' if settings.backend == 'vllm' else 'llm',
+              'inference_extra': inference_extras(settings),
               'base_image': base_image, 'base_image_policy': 'team_selected',
               'base_image_gpu_verified': False, 'full_gpu_inference_performed': False}
     (output / 'solution_manifest.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')

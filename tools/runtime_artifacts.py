@@ -16,7 +16,7 @@ import zipfile
 
 from datamate.domain import DataMateError
 from datamate.models.artifacts import sha256, verify_artifact
-from datamate.models.registry import get_model, inventory
+from datamate.models.registry import get_model, inventory_from_settings, model_paths, relocate_models, inference_extras
 
 
 def _run(command, **kwargs):
@@ -119,11 +119,13 @@ def verify_wheels(directory, expected_identity=None):
 def prepare_wheels(root, project, extra, python, *, requirements=None, index_url=None, extra_index_urls=()):
     project = Path(project).resolve()
     profile = python_profile(python)
-    if extra == 'vllm' and profile['system'] != 'linux':
+    if 'vllm' in extra.split(',') and profile['system'] != 'linux':
         raise DataMateError('Chuẩn bị vLLM wheels trên Linux target environment; không tải GPU stack trên laptop Windows')
     metadata = tomllib.loads((project / 'pyproject.toml').read_text(encoding='utf-8'))
-    direct = [*metadata['project']['dependencies'], *metadata['project']['optional-dependencies'][extra],
+    direct = [*metadata['project']['dependencies'],
+              *(requirement for name in extra.split(',') for requirement in metadata['project']['optional-dependencies'][name]),
               *metadata['build-system']['requires'], 'wheel']
+    direct = list(dict.fromkeys(direct))
     identity = {'extra': extra, 'profile': profile,
                 'project_metadata_sha256': sha256(project / 'pyproject.toml'),
                 'requirements': _requirements_hashes(requirements) if requirements else direct,
@@ -140,7 +142,9 @@ def prepare_wheels(root, project, extra, python, *, requirements=None, index_url
     target.mkdir(parents=True, exist_ok=True)
     _ensure_pip(python)
     command = [str(python), '-m', 'pip', 'download', '--only-binary=:all:', '--dest', str(target)]
-    command += ['--requirement', str(Path(requirements).resolve())] if requirements else direct
+    command += direct
+    if requirements:
+        command += ['--requirement', str(Path(requirements).resolve())]
     if index_url:
         command += ['--index-url', index_url]
     for url in extra_index_urls:
@@ -187,6 +191,8 @@ def prepare_model(root, project, python, key, candidate):
         raise DataMateError('Model key không phải đường dẫn cache hợp lệ')
     source = Path(candidate).resolve() if candidate else None
     verified = None
+    if source and source.is_dir() and any(source.iterdir()) and not (source / 'artifact_manifest.json').is_file():
+        raise DataMateError('Checkpoint source không rỗng nhưng thiếu artifact_manifest.json; seal/verify trước, không thay bằng base')
     if source and (source / 'artifact_manifest.json').is_file():
         try:
             verified = verify_artifact(source, key)
@@ -200,6 +206,10 @@ def prepare_model(root, project, python, key, candidate):
                 manifest = {}
             if manifest.get('lineage'):
                 raise DataMateError('Artifact fine-tune bị lỗi: cung cấp bản đúng; không tự thay bằng base')
+            own_base_cache = (source.parent == parent and
+                (source.name == spec.revision or source.name.startswith(spec.revision + '-repair-')))
+            if not own_base_cache:
+                raise DataMateError('Checkpoint source manifest/hash không hợp lệ; không tự thay bằng base')
     target = parent / (sha256(source / 'artifact_manifest.json') if verified else spec.revision)
     if verified and source.is_relative_to(root):
         return source, 'hit'
@@ -250,10 +260,10 @@ def verify_bundle(path):
         raise DataMateError('Bundle config hash sai')
     from datamate.config import Settings
     settings = Settings.load(config, use_env=False)
-    expected_inventory = inventory(settings.model_key, settings.assistant_key)
+    expected_inventory = inventory_from_settings(settings)
     if bundle.get('inventory') != expected_inventory or set(bundle['models']) != {m['key'] for m in expected_inventory['models']}:
         raise DataMateError('Bundle thiếu/thừa model hoặc inventory không khớp config')
-    if wheel_manifest['identity']['extra'] != ('vllm' if settings.backend == 'vllm' else 'llm'):
+    if wheel_manifest['identity']['extra'] != inference_extras(settings):
         raise DataMateError('Backend config không khớp dependency bundle')
     return bundle
 
@@ -263,22 +273,20 @@ def prepare_bundle(root, project, settings, python, *, requirements=None, instal
     from datamate.data.split import ensure_outside_dataset
     root = ensure_outside_dataset(root, settings.split_root)
     settings.validate()
-    specs = inventory(settings.model_key, settings.assistant_key)
-    extra = 'vllm' if settings.backend == 'vllm' else 'llm'
+    specs = inventory_from_settings(settings)
+    extra = inference_extras(settings)
     wheelhouse, _, wheel_status = prepare_wheels(root, project, extra, python,
         requirements=requirements, index_url=index_url, extra_index_urls=extra_index_urls)
     libraries = install_libraries(wheelhouse, python) if install else {'status': 'not_installed'}
-    models, statuses = {}, {}
+    models, statuses, sources, staged = {}, {}, model_paths(settings), {}
     for spec in specs['models']:
         key = spec['key']
-        candidate = settings.model_dir if key == settings.model_key else settings.assistant_dir
+        candidate = sources[key]
         folder, statuses[key] = prepare_model(root, project, python, key, candidate)
         models[key] = {'path': folder.relative_to(root).as_posix(),
                        'manifest_sha256': sha256(folder / 'artifact_manifest.json')}
-        if key == settings.model_key:
-            settings.model_dir = str(folder)
-        else:
-            settings.assistant_dir = str(folder)
+        staged[key] = str(folder)
+    relocate_models(settings, staged)
     config_name = 'runtime-' + hashlib.sha256(json.dumps(settings.to_dict(), sort_keys=True).encode()).hexdigest()[:16] + '.json'
     _save(root / config_name, settings.to_dict())
     bundle = {'format_version': 1, 'inventory': specs, 'models': models,

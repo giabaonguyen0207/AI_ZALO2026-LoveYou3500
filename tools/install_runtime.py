@@ -11,6 +11,7 @@ sys.path[:0] = [str(PROJECT), str(PROJECT / 'src')]
 from datamate.config import Settings
 from datamate.data.split import ensure_outside_dataset
 from datamate.domain import DataMateError
+from datamate.models.registry import relocate_models, inference_extras
 from tools.runtime_artifacts import _run, _save, install_libraries, verify_bundle
 
 
@@ -29,13 +30,9 @@ def install_bundle(bundle_path, python, project, output_config, *, check_only=Fa
     if check_only:
         return {'libraries': result, 'bundle_verified': True, 'config_written': False}
     _run([str(python), '-m', 'pip', 'install', '--no-index', '--find-links', str(wheelhouse),
-          '--no-build-isolation', '--no-deps', '--editable', str(Path(project).resolve())])
+          '--no-build-isolation', '--editable', str(Path(project).resolve()) + '[' + inference_extras(settings) + ']'])
     _run([str(python), '-m', 'pip', 'check'])
-    for key, item in bundle['models'].items():
-        if key == settings.model_key:
-            settings.model_dir = str(root / item['path'])
-        elif key == settings.assistant_key:
-            settings.assistant_dir = str(root / item['path'])
+    relocate_models(settings, {key: str(root / item['path']) for key, item in bundle['models'].items()})
     _save(output, settings.to_dict())
     return {'libraries': result, 'bundle_verified': True, 'config': str(output)}
 
