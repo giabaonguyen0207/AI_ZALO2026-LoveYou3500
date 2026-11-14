@@ -73,6 +73,35 @@ class VLLMSettings:
 
 
 @dataclass
+class RAGSettings:
+    mode: str = 'none'
+    embedding_key: str = 'vietnamese-embedding'
+    embedding_dir: str = 'models/vietnamese-embedding'
+    reranker_key: str = 'vietnamese-reranker'
+    reranker_dir: str = 'models/vietnamese-reranker'
+    device: str = 'cpu'
+    candidate_k: int = 12
+    context_k: int = 4
+    context_tokens: int = 1200
+    timeout_seconds: float = 45.0
+
+    def validate(self):
+        if self.mode not in {'none', 'dense', 'dense_rerank'}:
+            raise DataMateError('rag.mode khong hop le')
+        if self.mode != 'none' and self.embedding_key != 'vietnamese-embedding':
+            raise DataMateError('rag.embedding_key phai la checkpoint embedding da kiem chung')
+        if self.mode == 'dense_rerank' and self.reranker_key != 'vietnamese-reranker':
+            raise DataMateError('rag.reranker_key phai la checkpoint reranker da kiem chung')
+        if self.device not in {'cpu', 'cuda', 'cuda:0', 'cuda:1'}:
+            raise DataMateError('rag.device khong hop le')
+        if any(type(v) is not int or v < 1 for v in (self.candidate_k, self.context_k, self.context_tokens)) or self.context_k > self.candidate_k:
+            raise DataMateError('rag top-k/token budget khong hop le')
+        if type(self.timeout_seconds) not in (int, float) or not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
+            raise DataMateError('rag.timeout_seconds phai duong')
+        return self
+
+
+@dataclass
 class Settings:
     split_root: str = "train/train"
     cache_dir: str = ".cache/datamate"
@@ -106,6 +135,7 @@ class Settings:
     seed: int = 42
     question_workers: int | None = None  # auto: vLLM min(4,max_num_seqs), others 1
     vllm: VLLMSettings = field(default_factory=VLLMSettings)
+    rag: RAGSettings = field(default_factory=RAGSettings)
 
     @property
     def effective_workers(self):
@@ -126,6 +156,16 @@ class Settings:
         if not isinstance(self.vllm, VLLMSettings):
             raise DataMateError('vllm cần object cấu hình')
         self.vllm.validate()
+        if isinstance(self.rag, dict):
+            try:
+                self.rag = RAGSettings(**self.rag)
+            except TypeError as exc:
+                raise DataMateError(f'rag config: {exc}') from exc
+        if not isinstance(self.rag, RAGSettings):
+            raise DataMateError('rag can object cau hinh')
+        self.rag.validate()
+        if self.rag.mode != 'none' and self.backend == 'demo':
+            raise DataMateError('rag can backend co tokenizer')
         if self.backend not in {"transformers", "demo", "vllm"}:
             raise DataMateError("backend phải là transformers, vllm hoặc demo")
         if self.question_workers is not None and (type(self.question_workers) is not int or self.question_workers < 1):
@@ -180,6 +220,9 @@ class Settings:
         raw = json.loads(Path(path).read_text(encoding="utf-8-sig")) if path else {}
         if not isinstance(raw, dict):
             raise DataMateError('Cấu hình cần JSON object')
+        rag = raw.get('rag', {})
+        if not isinstance(rag, dict):
+            raise DataMateError('rag can JSON object')
         nested = raw.get('vllm', {})
         if not isinstance(nested, dict):
             raise DataMateError('vllm cần JSON object')
@@ -188,15 +231,20 @@ class Settings:
             for name, value in environment_settings().items():
                 if name == 'vllm':
                     nested.update(value)
+                elif name == 'rag':
+                    rag.update(value)
                 else:
                     raw[name] = value
         for key, value in overrides.items():
             if value is not None:
                 if key == 'vllm':
                     nested.update(asdict(value) if isinstance(value, VLLMSettings) else value)
+                elif key == 'rag':
+                    rag.update(asdict(value) if isinstance(value, RAGSettings) else value)
                 else:
                     raw[key] = value
         raw['vllm'] = nested
+        raw['rag'] = rag
         try:
             return cls(**raw).validate()
         except TypeError as exc:
@@ -224,13 +272,15 @@ def parse_option(value, default, name):
 
 
 def environment_settings():
-    result, nested = {}, {}
+    result, nested, rag = {}, {}, {}
     for f in fields(Settings):
         name = 'DATAMATE_' + f.name.upper()
         if name in os.environ:
             default = getattr(Settings(), f.name)
             if f.name == 'vllm':
                 nested.update(parse_option(os.environ[name], {}, name))
+            elif f.name == 'rag':
+                rag.update(parse_option(os.environ[name], {}, name))
             else:
                 # Optional string paths/keys must stay literal strings.
                 result[f.name] = os.environ[name] if f.name in {'assistant_key', 'assistant_dir'} else parse_option(os.environ[name], default, name)
@@ -238,8 +288,14 @@ def environment_settings():
         name = 'DATAMATE_VLLM_' + f.name.upper()
         if name in os.environ:
             nested[f.name] = parse_option(os.environ[name], getattr(VLLMSettings(), f.name), name)
+    for f in fields(RAGSettings):
+        name = 'DATAMATE_RAG_' + f.name.upper()
+        if name in os.environ:
+            rag[f.name] = parse_option(os.environ[name], getattr(RAGSettings(), f.name), name)
     if nested:
         result['vllm'] = nested
+    if rag:
+        result['rag'] = rag
     return result
 
 

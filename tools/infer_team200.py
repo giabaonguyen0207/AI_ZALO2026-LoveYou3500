@@ -18,6 +18,8 @@ from datamate.data.split import ensure_outside_dataset, read_jsonl
 from datamate.debug_log import write_debug_log
 from datamate.domain import Answer, DataMateError, json_text
 from datamate.evaluation.scoring import score
+from datamate.models.registry import inventory_from_settings
+from datamate.models.artifacts import verify_artifact
 from tools.diagnose_train import (TimedBackend, diagnostic_flags, disconnect_colab_after_report,
                                   question_profile, runtime_snapshot, save_json, source_hashes)
 
@@ -65,6 +67,8 @@ def load_plan(agent, participant_root):
 
 def load_references(reference_zip, expected_ids):
     """Called after the generation loop, including when producing a partial report."""
+    if reference_zip is None:
+        raise FileNotFoundError("Khong co nhan coordinator trong participant run")
     if sha256(reference_zip) != REFERENCE_ZIP_SHA256:
         raise DataMateError("Gói đáp án không khớp coordinator-private.zip v2")
     with zipfile.ZipFile(reference_zip) as archive:
@@ -110,11 +114,20 @@ def write_outputs(destination, plan, records, runtime, ledger, reference_zip, pa
     batch_seconds = None if incomplete_timing else round(sum(e["elapsed_seconds"] for e in ledger["batches"]), 4)
     gpu = "; ".join(f"{item['name']} ({item['total_vram_gib']:.1f} GiB)" for item in runtime.get("gpus", [])) or "CPU"
     settings = json.loads((destination / "run_manifest.json").read_text(encoding="utf-8"))["settings"]
-    model = json.loads((Path(settings["model_dir"]) / "artifact_manifest.json").read_text(encoding="utf-8"))
-    source = model.get("source", {})
-    model_description = source.get("repo_id", source.get("model_id", settings["model_key"]))
-    revision = source.get("revision")
-    metadata = {"participant": participant, "models": [model_description + ("@" + revision if revision else "")],
+    model_paths = [(settings["model_key"], settings["model_dir"])]
+    rag = settings.get("rag", {})
+    if rag.get("mode") in {"dense", "dense_rerank"}:
+        model_paths.append((rag["embedding_key"], rag["embedding_dir"]))
+    if rag.get("mode") == "dense_rerank":
+        model_paths.append((rag["reranker_key"], rag["reranker_dir"]))
+    descriptions = []
+    for fallback_key, directory in model_paths:
+        model = json.loads((Path(directory) / "artifact_manifest.json").read_text(encoding="utf-8"))
+        source = model.get("source", {})
+        description = source.get("repo_id", source.get("model_id", fallback_key))
+        revision = source.get("revision")
+        descriptions.append(description + ("@" + revision if revision else ""))
+    metadata = {"participant": participant, "models": descriptions,
                 "gpu": gpu, "load_seconds": load_seconds, "inference_seconds": batch_seconds,
                 "compute_units_used": units_used}
     save_json(destination / "run_metadata.json", metadata)
@@ -197,11 +210,21 @@ def run_team200(agent, participant_root, output_dir, reference_zip, *, participa
     original = agent.backend
     runtime = runtime_snapshot(original)
     model_manifest = Path(agent.settings.model_dir) / "artifact_manifest.json"
+    rag_manifests = {}
+    if agent.settings.rag.mode != 'none':
+        active = [(agent.settings.rag.embedding_key, agent.settings.rag.embedding_dir)]
+        if agent.settings.rag.mode == 'dense_rerank':
+            active.append((agent.settings.rag.reranker_key, agent.settings.rag.reranker_dir))
+        for key, directory in active:
+            verify_artifact(directory, key)
+            rag_manifests[key] = sha256(Path(directory) / 'artifact_manifest.json')
     identity = {"runner_version": RUNNER_VERSION, "pipeline_version": agent.pipeline_version, "benchmark_id": BENCHMARK_ID,
                 "participant": participant, "question_ids": [q.id for q in plan],
                 "questions_sha256": QUESTIONS_SHA256, "settings": agent.settings.to_dict(),
                 "source_hashes": source_hashes(), "runner_sha256": sha256(__file__),
                 "source_archive_sha256": source_archive_sha256, "model_manifest_sha256": sha256(model_manifest),
+                  "active_model_inventory": inventory_from_settings(agent.settings),
+                  "rag_manifest_sha256": rag_manifests,
                 "runtime_identity": {k: runtime.get(k) for k in ("packages", "gpus", "dtype", "generation_tokens", "effective_generation")}}
     manifest_path = destination / "run_manifest.json"
     if manifest_path.exists():
@@ -268,7 +291,10 @@ def run_team200(agent, participant_root, output_dir, reference_zip, *, participa
             save_jsonl(existing, [records[item.id]["submission"] for item in plan if item.id in records])
             entry["elapsed_seconds"] = round(time.monotonic() - started, 4)
             save_json(ledger_path, ledger)
-            print(f"  -> {result.answer.type} | {result.elapsed_seconds:.2f}s | {result.model_calls} calls", flush=True)
+            failed = any(event.get('error_kind') in {'runtime', 'generation'} for event in result.trace)
+            state = 'LỖI XỬ LÝ, ĐÃ LƯU ABSTAIN' if failed else 'ĐÃ LƯU'
+            print(f"  -> {state}: {q.id} | {result.answer.type} | {result.elapsed_seconds:.2f}s | "
+                  f"{result.model_calls} calls | logs/{q.id}.json", flush=True)
     finally:
         agent.backend = original
         entry["elapsed_seconds"] = round(time.monotonic() - started, 4)

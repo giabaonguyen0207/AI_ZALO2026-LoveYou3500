@@ -19,7 +19,8 @@ PARTICIPANT = "toi"                # Tên dùng trong file nộp nhóm.
 MODEL_KEY = "qwen35-9b"             # Hoặc "gemma4-12b", "qwen35-upscaled14b-v2".
 QUANTIZATION = "none"              # G4 96 GB: none; GPU ít VRAM có thể chọn 4bit.
 MODE = "self_review"               # Giữ một cấu hình cho cả lượt chạy.
-RUN_NAME = f"{PARTICIPANT}-{MODEL_KEY}-team200-layout-Nov9th-01"
+RAG_PRESET = "rag-dense-rerank"    # rag-none, rag-dense, or rag-dense-rerank.
+RUN_NAME = f"{PARTICIPANT}-{MODEL_KEY}-{RAG_PRESET}-team200"
 AUTO_DISCONNECT = True
 RUN_LIMIT = None                    # None = đủ 200; chỉ đặt 5 nếu muốn chạy thử rồi resume.
 MAX_RUN_MINUTES = 180               # Ngân sách MỖI phiên batch, không gồm chuẩn bị/load.
@@ -93,7 +94,10 @@ print("Model:", MODEL_KEY, "| mode:", MODE, "| kết quả:", SAVE)
 INSTALL = '''import torch
 constraints = WORK / "colab-constraints.txt"
 constraints.write_text("torch==" + torch.__version__ + "\\n")
-subprocess.run([sys.executable, "-m", "pip", "install", "-e", ".[llm]", "-c", str(constraints)], cwd=WORK, check=True)
+if RAG_PRESET not in {"rag-none", "rag-dense", "rag-dense-rerank"}:
+    raise ValueError("RAG_PRESET must be rag-none, rag-dense, or rag-dense-rerank")
+extra = ".[llm]" if RAG_PRESET == "rag-none" else ".[llm,rag]"
+subprocess.run([sys.executable, "-m", "pip", "install", "-e", extra, "-c", str(constraints)], cwd=WORK, check=True)
 subprocess.run(["nvidia-smi", "--query-gpu=name,memory.total,driver_version", "--format=csv"], check=True)
 if not torch.cuda.is_available():
     raise RuntimeError("Chọn GPU runtime trước khi nạp model")
@@ -105,24 +109,39 @@ print("Preflight:", verify_runtime(WORK))
 LOAD = '''from datamate.config import Settings
 from datamate.application import create_agent
 verify_runtime(WORK)
+CONFIG_PATH = WORK / "configs" / "experiments" / "thinh" / f"{RAG_PRESET}.json"
+if not CONFIG_PATH.is_file():
+    raise FileNotFoundError(f"Missing RAG preset: {CONFIG_PATH}")
+
+def ensure_staged(key, directory):
+    directory = Path(directory)
+    if (directory / "artifact_manifest.json").is_file():
+        print("Checkpoint already sealed:", key, directory, flush=True)
+        return directory
+    stage_env = {**os.environ, "HF_HUB_OFFLINE": "0", "TRANSFORMERS_OFFLINE": "0"}
+    subprocess.run([sys.executable, "-m", "datamate", "stage-model", "--model", key,
+                    "--output", str(directory)], cwd=WORK, env=stage_env, check=True)
+    return directory
+
 if "agent" in globals():
     raise RuntimeError("Model đã load. Chạy lại ô batch để resume; không load chồng hai model.")
 # Đây là bước chuẩn bị online, tách khỏi thời gian load/inference benchmark.
-if not (MODEL_SOURCE_DIR / "artifact_manifest.json").is_file():
-    stage_env = {**os.environ, "HF_HUB_OFFLINE": "0", "TRANSFORMERS_OFFLINE": "0"}
-    subprocess.run([sys.executable, "-m", "datamate", "stage-model", "--model", MODEL_KEY,
-                    "--output", str(MODEL_SOURCE_DIR)], cwd=WORK, env=stage_env, check=True)
+ensure_staged(MODEL_KEY, MODEL_SOURCE_DIR)
 LOAD_SESSION_ID = uuid.uuid4().hex
 load_started = time.monotonic()
 prepare_local_model = runpy.run_path(str(WORK / "tools/colab_model_cache.py"))["prepare_local_model"]
 MODEL_DIR = prepare_local_model(MODEL_SOURCE_DIR, Path("/content/models"), MODEL_KEY)
-settings = Settings(model_key=MODEL_KEY, model_dir=str(MODEL_DIR), mode=MODE,
-                    quantization=QUANTIZATION, split_root=str(TRAIN_ROOT),
-                    cache_dir=str(WORK / ".cache/datamate-team200"), result_dir=str(SAVE),
-                    max_context_tokens=16384, max_new_tokens=768, max_steps=6,
-                    question_timeout_seconds=90, schema_mode="code_first", adaptive_preparation=False,
-                    require_plan=True, auto_execute_plan=True,
-                    schema_repair_timeout_seconds=20, schema_repair_max_new_tokens=512)
+settings = Settings.load(CONFIG_PATH, use_env=False, model_key=MODEL_KEY, model_dir=str(MODEL_DIR),
+                         mode=MODE, quantization=QUANTIZATION, split_root=str(TRAIN_ROOT),
+                         cache_dir=str(WORK / ".cache/datamate-team200" / RAG_PRESET), result_dir=str(SAVE))
+if settings.rag.mode != "none":
+    settings.rag.device = "cuda:0"
+    for role in ["embedding"] + (["reranker"] if settings.rag.mode == "dense_rerank" else []):
+        key = getattr(settings.rag, role + "_key")
+        sealed = ensure_staged(key, BASE / "models" / key)
+        cached = prepare_local_model(sealed, Path("/content/models"), key)
+        setattr(settings.rag, role + "_dir", str(cached))
+settings.validate()
 agent = create_agent(settings)
 LOAD_SECONDS = round(time.monotonic() - load_started, 4)
 print("Loaded:", MODEL_KEY, "| pipeline:", agent.pipeline_version, "| load:", LOAD_SECONDS, "giây")
@@ -177,6 +196,8 @@ def build(root, release=None, output=None):
             archive.write(path, path.relative_to(root).as_posix())
         for name in helpers:
             archive.write(root / "tools" / name, "tools/" + name)
+        for path in sorted((root / "configs" / "experiments" / "thinh").glob("rag-*.json")):
+            archive.write(path, path.relative_to(root).as_posix())
         archive.writestr("tools/__init__.py", "\"\"\"Notebook runtime helpers.\"\"\"\n")
         for name in ("pyproject.toml", "requirements.txt", "README.md"):
             archive.write(root / name, name)
