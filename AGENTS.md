@@ -15,6 +15,7 @@
 - Mỗi người tự chọn benchmark, chạy baseline trước rồi bản tích hợp trên cùng tập đã chọn. Không bắt buộc Team200 và không so điểm từ hai tập khác nhau để kết luận cải thiện.
 - Dataset/model/output/cache/archive không qua Git. Kho `archive/2026-11-09/` là local, giữ các artifact frozen nguyên hash; dùng `outputs/runs/<người>/<run-id>/` và `outputs/packages/` cho lượt mới. Đọc README, `docs/run-gpu.md`, `docs/team-workflow.md` trước khi đổi entrypoint/đường dẫn.
 - Trước khi thiết kế dựa trên dữ liệu, kiểm tra tài liệu và file thực tế trong workspace. Không suy đoán schema, tên cột, chất lượng dữ liệu, base image chính thức hoặc hiệu năng.
+- Trước khi đóng Docker hoặc sửa môi trường GPU, đọc `docs/runtime-issues-2026-11-14.md` và `docs/docker.md`. Nhật ký lưu các lỗi thực tế về dependency, Qwen text-only, Ninja/PATH/CUDA JIT, OOM và cảnh báo baseline; cập nhật khi có log mới, không đánh dấu fix GPU đã xác nhận chỉ từ test CPU.
 
 ## Các ràng buộc phải nhớ từ bản tổng hợp
 

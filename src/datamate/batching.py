@@ -14,7 +14,12 @@ def run_questions(agent, questions, workers, deadline, state):
             if remaining <= 0:
                 state['time_budget_exhausted'] = True
                 return
-            yield question, agent.run(question, remaining)
+            try:
+                result = agent.run(question, remaining)
+            except Exception as exc:
+                exc.question_id = question.id
+                raise
+            yield question, result
         return
 
     local = threading.local()

@@ -73,6 +73,57 @@ class VLLMSettings:
 
 
 @dataclass
+class RAGSettings:
+    mode: str = 'none'
+    embedding_key: str = 'vietnamese-embedding'
+    embedding_dir: str = 'models/vietnamese-embedding'
+    reranker_key: str = 'vietnamese-reranker'
+    reranker_dir: str = 'models/vietnamese-reranker'
+    device: str = 'cuda:0'
+    dtype: str = 'auto'
+    candidate_k: int = 20
+    context_k: int = 5
+    context_tokens: int = 2048
+    timeout_seconds: float = 8.0
+    chunk_tokens: int = 384
+    chunk_overlap: int = 48
+    embedding_max_tokens: int = 2048
+    rerank_max_tokens: int = 2304
+    rerank_query_max_tokens: int = 256
+    embedding_batch_size: int = 8
+    rerank_batch_size: int = 4
+    index_dir: str | None = None
+    max_cached_businesses: int = 2
+
+    def validate(self):
+        if self.mode not in {'none', 'dense', 'dense_rerank'}:
+            raise DataMateError('rag.mode khong hop le')
+        if self.mode != 'none' and self.embedding_key != 'vietnamese-embedding':
+            raise DataMateError('rag.embedding_key phai la checkpoint embedding da kiem chung')
+        if self.mode == 'dense_rerank' and self.reranker_key != 'vietnamese-reranker':
+            raise DataMateError('rag.reranker_key phai la checkpoint reranker da kiem chung')
+        if self.device not in {'cpu', 'cuda', 'cuda:0', 'cuda:1'}:
+            raise DataMateError('rag.device khong hop le')
+        if self.dtype not in {'auto', 'float16', 'bfloat16', 'float32'}:
+            raise DataMateError('rag.dtype không hợp lệ')
+        if any(type(v) is not int or v < 1 for v in (self.candidate_k, self.context_k, self.context_tokens)) or self.context_k > self.candidate_k:
+            raise DataMateError('rag top-k/token budget khong hop le')
+        if type(self.timeout_seconds) not in (int, float) or not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
+            raise DataMateError('rag.timeout_seconds phai duong')
+        for name in ('chunk_tokens', 'embedding_max_tokens', 'rerank_max_tokens', 'rerank_query_max_tokens',
+                     'embedding_batch_size', 'rerank_batch_size', 'max_cached_businesses'):
+            if type(getattr(self, name)) is not int or getattr(self, name) < 1:
+                raise DataMateError('rag.' + name + ' phải là số nguyên dương')
+        if (type(self.chunk_overlap) is not int or not 0 <= self.chunk_overlap < self.chunk_tokens
+                or self.chunk_tokens + 2 > self.embedding_max_tokens
+                or self.rerank_query_max_tokens >= self.rerank_max_tokens):
+            raise DataMateError('rag chunk/overlap/encoder token budgets không hợp lệ')
+        if self.index_dir is not None and (not isinstance(self.index_dir, str) or not self.index_dir.strip()):
+            raise DataMateError('rag.index_dir phải là đường dẫn hoặc null')
+        return self
+
+
+@dataclass
 class Settings:
     split_root: str = "train/train"
     cache_dir: str = ".cache/datamate"
@@ -84,6 +135,7 @@ class Settings:
     assistant_key: str | None = None
     assistant_dir: str | None = None
     quantization: str = "none"
+    dtype: str = 'auto'
     max_steps: int = 10
     max_repeated_actions: int = 2
     max_new_tokens: int = 1024
@@ -106,12 +158,15 @@ class Settings:
     seed: int = 42
     question_workers: int | None = None  # auto: vLLM min(4,max_num_seqs), others 1
     vllm: VLLMSettings = field(default_factory=VLLMSettings)
+    rag: RAGSettings = field(default_factory=RAGSettings)
 
     @property
     def effective_workers(self):
         return self.question_workers if self.question_workers is not None else min(4, self.vllm.max_num_seqs) if self.backend == 'vllm' else 1
 
     def validate(self) -> Settings:
+        if self.backend == 'torch':
+            self.backend = 'transformers'
         for f in fields(Settings):
             default, value = getattr(Settings(), f.name), getattr(self, f.name)
             if type(default) is int and (type(value) is not int or value < (0 if f.name == 'seed' else 1)):
@@ -126,6 +181,16 @@ class Settings:
         if not isinstance(self.vllm, VLLMSettings):
             raise DataMateError('vllm cần object cấu hình')
         self.vllm.validate()
+        if isinstance(self.rag, dict):
+            try:
+                self.rag = RAGSettings(**self.rag)
+            except TypeError as exc:
+                raise DataMateError(f'rag config: {exc}') from exc
+        if not isinstance(self.rag, RAGSettings):
+            raise DataMateError('rag can object cau hinh')
+        self.rag.validate()
+        if self.rag.mode != 'none' and self.backend == 'demo':
+            raise DataMateError('rag can backend co tokenizer')
         if self.backend not in {"transformers", "demo", "vllm"}:
             raise DataMateError("backend phải là transformers, vllm hoặc demo")
         if self.question_workers is not None and (type(self.question_workers) is not int or self.question_workers < 1):
@@ -140,6 +205,11 @@ class Settings:
             raise DataMateError("mode phải là single, self_review hoặc speculative")
         if self.quantization not in {"none", "4bit", "8bit"}:
             raise DataMateError("quantization phải là none, 4bit hoặc 8bit")
+        if self.dtype not in {'auto', 'float16', 'bfloat16', 'float32'}:
+            raise DataMateError('dtype phải là auto, float16, bfloat16 hoặc float32')
+        configured_dtype = {'half': 'float16', 'float': 'float32'}.get(self.vllm.dtype, self.vllm.dtype)
+        if self.backend == 'vllm' and self.dtype != 'auto' and configured_dtype not in {'auto', self.dtype}:
+            raise DataMateError('dtype và vllm.dtype mâu thuẫn; chọn một precision chung')
         if self.mode == "speculative" and (not self.assistant_key or not self.assistant_dir):
             raise DataMateError("Chế độ speculative cần assistant_key và assistant_dir")
         if self.mode != "speculative" and (self.assistant_key or self.assistant_dir):
@@ -180,6 +250,10 @@ class Settings:
         raw = json.loads(Path(path).read_text(encoding="utf-8-sig")) if path else {}
         if not isinstance(raw, dict):
             raise DataMateError('Cấu hình cần JSON object')
+        rag = raw.get('rag', {})
+        if not isinstance(rag, dict):
+            raise DataMateError('rag can JSON object')
+        rag = dict(rag)
         nested = raw.get('vllm', {})
         if not isinstance(nested, dict):
             raise DataMateError('vllm cần JSON object')
@@ -188,15 +262,20 @@ class Settings:
             for name, value in environment_settings().items():
                 if name == 'vllm':
                     nested.update(value)
+                elif name == 'rag':
+                    rag.update(value)
                 else:
                     raw[name] = value
         for key, value in overrides.items():
             if value is not None:
                 if key == 'vllm':
                     nested.update(asdict(value) if isinstance(value, VLLMSettings) else value)
+                elif key == 'rag':
+                    rag.update(asdict(value) if isinstance(value, RAGSettings) else value)
                 else:
                     raw[key] = value
         raw['vllm'] = nested
+        raw['rag'] = rag
         try:
             return cls(**raw).validate()
         except TypeError as exc:
@@ -210,6 +289,8 @@ def parse_option(value, default, name):
     """Parse CLI/environment values without guessing paths/model names as JSON."""
     if isinstance(default, str):
         return value
+    if default is None and name.lower().endswith(('_dir', '_key')):
+        return None if value == 'null' else value
     try:
         parsed = json.loads(value)
     except (ValueError, TypeError) as exc:
@@ -224,13 +305,15 @@ def parse_option(value, default, name):
 
 
 def environment_settings():
-    result, nested = {}, {}
+    result, nested, rag = {}, {}, {}
     for f in fields(Settings):
         name = 'DATAMATE_' + f.name.upper()
         if name in os.environ:
             default = getattr(Settings(), f.name)
             if f.name == 'vllm':
                 nested.update(parse_option(os.environ[name], {}, name))
+            elif f.name == 'rag':
+                rag.update(parse_option(os.environ[name], {}, name))
             else:
                 # Optional string paths/keys must stay literal strings.
                 result[f.name] = os.environ[name] if f.name in {'assistant_key', 'assistant_dir'} else parse_option(os.environ[name], default, name)
@@ -238,8 +321,14 @@ def environment_settings():
         name = 'DATAMATE_VLLM_' + f.name.upper()
         if name in os.environ:
             nested[f.name] = parse_option(os.environ[name], getattr(VLLMSettings(), f.name), name)
+    for f in fields(RAGSettings):
+        name = 'DATAMATE_RAG_' + f.name.upper()
+        if name in os.environ:
+            rag[f.name] = parse_option(os.environ[name], getattr(RAGSettings(), f.name), name)
     if nested:
         result['vllm'] = nested
+    if rag:
+        result['rag'] = rag
     return result
 
 
@@ -248,6 +337,7 @@ def configure_offline(cache_root: str | Path = ".cache") -> None:
     for name, value in {
         "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", "HF_HUB_DISABLE_TELEMETRY": "1",
         "VLLM_NO_USAGE_STATS": "1", "VLLM_DO_NOT_TRACK": "1", "DO_NOT_TRACK": "1",
+        "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
         "HF_HOME": str(root / "huggingface"), "TORCH_HOME": str(root / "torch"),
         "XDG_CACHE_HOME": str(root), "TOKENIZERS_PARALLELISM": "false",
     }.items():

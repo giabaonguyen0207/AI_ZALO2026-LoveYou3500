@@ -1,6 +1,6 @@
 # Bổ sung runtime vLLM: thay đổi, contract và vận hành
 
-Tài liệu bổ sung cho nhánh `codex/hai-vllm`, so với `main` tại commit `cc2ea9842d88a84fa6f9982d0dad3dbf6686ce76`. Các file Markdown có sẵn trên `main` được giữ nguyên; tài liệu này mô tả phần runtime bổ sung. Trạng thái kiểm chứng ngày 12/11/2026: **301 tests CPU qua, 7 tests tùy chọn bỏ qua; chưa kiểm GPU/Docker thật**.
+Tài liệu bổ sung cho nhánh `codex/hai-vllm`, so với `main` tại commit `cc2ea9842d88a84fa6f9982d0dad3dbf6686ce76`. Các file Markdown có sẵn trên `main` được giữ nguyên; tài liệu này mô tả phần runtime bổ sung. Trạng thái kiểm chứng ngày 13/11/2026, sau khi đơn giản hóa lượt chạy Kaggle: **343 tests CPU qua, 7 tests tùy chọn bỏ qua; chưa kiểm GPU/Docker thật**.
 
 Cập nhật ngày **12/11/2026**: bổ sung bàn giao RAG, cách chọn backend, base image do đội chọn, và xuất Docker archive kèm MD5 cho Test Solution. Thông tin Portal ở mục 8.7 lấy từ email BTC được cung cấp trong phiên làm việc; không suy ra loại GPU, RAM, driver hay một base image bắt buộc từ email này.
 
@@ -10,7 +10,7 @@ Cập nhật ngày **12/11/2026**: bổ sung bàn giao RAG, cách chọn backend
 
 Giữ thuật toán nghiệp vụ, xử lý số liệu và chuỗi quyết định **plan → tool/SQL → review → final** của agent. Thay backend sinh token và cách điều phối nhiều câu đồng thời; bổ sung lifecycle, timeout/abort, log/cache identity và đóng gói offline.
 
-Phần vận hành chịu trách nhiệm điều phối, cấu hình tài nguyên, kiểm lỗi hạ tầng và cách đóng gói. Phần nghiệp vụ/RAG do người phụ trách tương ứng đánh giá chất lượng. Không tự sửa SQL, đáp án, cắt dữ liệu đầu vào hoặc đổi số bước agent để làm một lượt chạy vượt qua kiểm bộ nhớ. Những thay đổi ngày 12/11 chỉ ở công cụ đóng gói, entrypoint, Docker và tài liệu; không sửa thêm file trong `src/`.
+Phần vận hành chịu trách nhiệm điều phối, cấu hình tài nguyên, kiểm lỗi hạ tầng và cách đóng gói. Phần nghiệp vụ/RAG do người phụ trách tương ứng đánh giá chất lượng. Không tự sửa SQL, đáp án, cắt dữ liệu đầu vào hoặc đổi số bước agent để làm một lượt chạy vượt qua kiểm bộ nhớ. Đợt cập nhật Test Solution chỉ sửa công cụ đóng gói/entrypoint/Docker/tài liệu. Đợt Kaggle bổ sung công cụ đo và cache-token metadata trong adapter vLLM; không sửa thêm agent loop hay xử lý dữ liệu.
 
 Đối chiếu với commit gốc:
 
@@ -42,6 +42,7 @@ Thay engine, precision hoặc batching có thể làm model thật sinh output k
 | `tools/create_inference_notebook.py` | Env paths/backend, extra dependency, kiểm Torch cũ sau install |
 | `notebooks/DataMate_Colab_Inference.ipynb` | Sinh lại từ generator, vẫn gọi `application.run_batch()` |
 | `tools/diagnose_train.py` | Snapshot bổ sung `runtime_info()` theo backend contract |
+| `tools/package_colab.py` | Gói source bao gồm huongdankaggle.md nếu có; không đóng model/dataset vào source ZIP |
 | `tools/package_solution.py` | Resolve bundle, verify model/wheel manifest, chọn extra, copy build helper và ghi base image đội chọn |
 | `docker/Dockerfile.competition` | Base image truyền vào, kiểm Python/pip/timeout sớm, cài offline, đặt temp/cache trong vùng ghi được |
 | `docker/Dockerfile.dev` | Chỉ cập nhật chú thích: image này dành cho CPU dev, không phải image GPU thi |
@@ -65,6 +66,15 @@ Thay engine, precision hoặc batching có thể làm model thật sinh output k
 | `tools/prepare_runtime.py` | CLI chuẩn bị bundle online hoặc verify offline |
 | `tools/install_runtime.py` | Cài library/source offline, relocate model paths, check-only |
 | `tools/export_solution.py` | Xuất image hoặc nhận archive có sẵn; tính MD5/SHA256 theo khối và ghi thông tin cho Portal, không upload |
+| `tools/prepare_kaggle_benchmark.py` | Tạo tập con có seed, không nhãn, không sửa participant; đóng băng baseline đúng commit, cùng quy tắc lọc source ZIP hiện tại |
+| `tools/profile_runtime_context.py` | Đo request đầu qua Agent.run thật rồi ngắt trước generation, chỉ dùng tokenizer |
+| `tools/benchmark_runtime.py` | Timer/telemetry quanh hàm gốc, dùng được với baseline cũ; tùy chọn loader dtype được ghi rõ, không đổi agent loop |
+| `tools/compare_runtime_benchmarks.py` | Kiểm các điều kiện so sánh, tính speedup và chấm local sau inference nếu có nhãn |
+| `tools/kaggle_workflow.py` | Mỗi lượt GPU tự cài thư viện/tải model trước phần đo, chỉ cần Input kit; điều phối pilot/main/so sánh, timeout và lưu status/log/result theo tên cố định |
+| `tools/package_kaggle_kit.py` | Gom source hiện tại/baseline/dataset thành thư mục tách biệt trong một gói upload, nhận được khi Kaggle tự giải nén |
+| `tools/create_kaggle_benchmark_notebook.py`, hai notebook `DataMate_Kaggle_*.ipynb` | Sinh notebook GPU benchmark tự tải/cài và notebook CPU so sánh; đã bỏ notebook `DataMate_Kaggle_Prepare_Model.ipynb` vì không còn bước chuẩn bị riêng |
+| `tests/test_kaggle_runtime_benchmark.py` | Tập con cố định/disjoint/không copy nhãn, preflight, observer, dtype override và gate so sánh |
+| `tests/test_kaggle_workflow.py` | Kiểm source baseline không đổi byte, status/log/capsule khi lỗi, watchdog, kết quả đã giải nén và bootstrap từ trạng thái sạch |
 | `docker/install_runtime.py` | Kiểm wheelhouse và cài dependency/source khi build image |
 | `tests/test_hai_backend_foundation.py` | Contract, formatter/token/context, identity, lifecycle |
 | `tests/test_vllm_backend.py` | Request overlap, sampling, timeout/abort/fatal và thread-local logs |
@@ -245,6 +255,20 @@ Các ô lệnh đầy đủ ở mục 6–8. `configs/vllm.json` dùng self_revi
 
 Các profile sau là **điểm thử, chưa đo fit/PA/tốc độ trên GPU thật**. Dung lượng VRAM chưa đủ xác định kiến trúc hoặc khả năng BF16/FP8/quantization. Cần lưu tên GPU, driver, Torch/CUDA/vLLM và kiến trúc checkpoint.
 
+**Làm rõ hai giới hạn:** `max_context_tokens` mặc định 16.384 là input + lịch sử + chỗ dành cho output; `max_new_tokens=768` trong preset là phần đầu ra mỗi lượt, không phải context. Đã đếm bằng tokenizer pin của Qwen9B: phần prompt tĩnh + rulebook/README/câu hỏi, chưa catalog/preflight/history, dài 7.365–10.800 token trên participant 200. Độ dài đầy đủ phải đo bằng `tools/profile_runtime_context.py`; không suy context từ số dòng bảng hoặc tự tăng lên 100K chỉ vì checkpoint hỗ trợ.
+
+Với **Kaggle T4×2**, hướng dẫn có cell nhập sẵn, dataset 24 câu và cách đọc số đo ở [huongdankaggle.md](../huongdankaggle.md). Bản đầu chọn Qwen9B FP16 không quantize, TP2, workers/seqs 2/2, prefill 2048, eager, context theo preflight tối đa 32K, VRAM fraction thử 0.88, prefix caching bật và layout prompt gốc giữ nguyên. Weights FP16 lý tưởng 17,98 GiB toàn model, khoảng 8,99 GiB/card nếu chia đều; còn phải chừa KV/linear state/workspace/activation. Không cam kết fit trước pilot GPU.
+
+Quy trình Kaggle chạy hoàn toàn trên Kaggle theo thời gian: upload `kaggle-runtime-kit.zip` → gắn duy nhất kit vào hai notebook GPU, bật Internet → theo dõi pilot 4 câu → Save Version/Save & Run All cho main 24 câu → CPU so sánh Output hai version. Mỗi lượt GPU tự cài cùng nhóm thư viện, kiểm T4 rồi tải checkpoint đúng revision vào thư mục tạm; không cần notebook chuẩn bị hay Dataset model/thư viện. Gói upload có `current/`, `baseline/`, `benchmark/`, không có ZIP lồng; bootstrap nhận manifest khi Kaggle đã giải nén. Code tự ghi `torch_main_result.zip`, `vllm_main_result.zip`, status/log tương ứng và `comparison.txt/csv/json`; không giả định tên archive do giao diện Kaggle tạo.
+
+Thời gian tải/cài và context preflight nằm ngoài phép đo. `cold_total_seconds` tính từ lúc gọi `run_batch()`, gồm kiểm hash/load model và xử lý câu hỏi; `inference_seconds` tính sau khi tạo agent xong. `elapsed_seconds` trong status là thời gian toàn quy trình, không dùng làm tốc độ inference. Model/venv nằm dưới thư mục tạm `/tmp/datamate-kaggle` mặc định, có thể đổi `work_root` trong SETTINGS; Output chỉ giữ kết quả/log. Bản thay đổi này bỏ task `prepare_model` trong công cụ Kaggle và hoàn tác phần chuẩn bị bộ thư viện vừa thử bổ sung. Công cụ bundle/Docker offline ở mục 6–8 giữ nguyên: nộp bài vẫn phải đóng sẵn model và thư viện trước khi BTC cắt mạng.
+
+Sửa lỗi tạo môi trường được báo từ Kaggle: dùng `venv --without-pip`, kiểm Python thật sự thuộc venv, kiểm pip và bootstrap bằng `get-pip.py` chính thức khi thiếu/hỏng. Không coi executable còn sót sau lỗi ensurepip là môi trường hoàn chỉnh. Không cài vào Python hệ thống. Đã thử tạo venv không pip và cài pip lại thật trong thư mục CPU tạm; không tải Torch/vLLM/weights cho kiểm tra này. `DATAMATE_GET_PIP_URL` cho đổi nguồn HTTPS khi cần; URL và SHA256 script bootstrap được lưu trong status. Đây là bước chuẩn bị online, không được đưa vào inference Docker offline.
+
+T4 cần `dtype=float16`; không dùng `auto` để tình cờ chọn BF16 từ config checkpoint. Hai card có tổng dung lượng lớn hơn không đồng nghĩa BF16/FP8 được hỗ trợ. [Platform CUDA của vLLM v0.33.0](https://github.com/vllm-project/vllm/blob/v0.33.0/vllm/platforms/cuda.py). Nếu chỉ có một T4, FP16 Qwen9B không vừa weights; có thể thử BNB TP1 như một phép so deployment riêng, hoặc chọn model/GPU đã kiểm, không đổi quantization một phía rồi gọi đó là speedup thuần engine.
+
+Baseline cũ cũng có nhánh tự chọn BF16 bằng API Torch có thể tính emulation. Harness Kaggle nhận `--transformers-dtype float16` để ép precision tại loader, lưu override trong identity và kiểm dtype thực trong so sánh; không sửa source frozen hay thuật toán generate. Adapter vLLM bổ sung `last_generation.cached_tokens` từ RequestOutput, `null` nếu chưa được cung cấp; không suy cache hit từ mức overlap. Đây là metadata mới, không thay prompt/sampling/loop.
+
 ```bash
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
 python -c 'import torch; print(torch.__version__, torch.version.cuda); print(torch.cuda.is_available(), torch.cuda.is_bf16_supported())'
@@ -258,6 +282,7 @@ python -c 'import torch; print(torch.__version__, torch.version.cuda); print(tor
 | 32 GB | Qwen9B BF16 hoặc Gemma12B 4/8 bit có hỗ trợ | 16K trước | 2 / 4 / 1 | 0.80–0.85, thấp hơn nếu chia model |
 | 48 GB | Qwen9B/Gemma12B BF16 | 16K trước; 32K khi cần/fit | 2–4 / 4–8 / 1 | 0.80–0.85 |
 | 2×32 GB | Một engine TP2 hoặc TP1 sau đo đối chứng | 16K trước | 2–4 / 4–8 / 1 hoặc 2 | Theo cách chia tài nguyên |
+| 2×T4 ~16 GB/card | Qwen9B FP16 không quantize; Turing, chưa kiểm kernel/model thực tế | Preflight 16–32K | 2 / 2 / 2; prefill 2048, eager | 0.88 điểm thử |
 
 Hai card 32 GB không tự thành một vùng VRAM 64 GB cho TP1. Hai replica cũng cần controller phân phối câu; runtime hiện có một shared engine, không tự tạo data-parallel replicas. TP2 có chi phí liên GPU, không mặc định nhanh hơn.
 
@@ -773,9 +798,13 @@ Nên thử trong lượt sớm còn lại trước hạn đóng tính năng, sau
 
 ## 9. Kiểm thử và tiêu chí bàn giao
 
-Ngày 12/11/2026 đã chạy **301 passed, 7 skipped** trong environment CPU nhẹ. Tests dùng scripted/fake engine, safetensors và wheel metadata nhỏ, không tải checkpoint/GPU stack. Kiểm được overlap 4 request, multi-loop cùng shop, metadata không lẫn, context/EOS/override, abort/fatal, partial output, deadline/resume, config precedence, cache/version/platform, offline install flags, relocate và packaging. Kiểm thêm MD5/SHA256 đúng bytes, đọc archive có giới hạn, lỗi export/đổi tag/không ghi đè, và entrypoint temp/env/watchdog bằng tiến trình giả. Code Python/notebook và các ô Bash/Python trong hướng dẫn đã kiểm cú pháp; diff so với baseline và AST loop/normalization đã được đối chiếu.
+Ngày 13/11/2026 đã chạy **343 passed, 7 skipped** trong environment CPU nhẹ. Tests dùng scripted/fake engine, safetensors và wheel metadata nhỏ, không tải checkpoint/GPU stack. Kiểm được overlap 4 request, multi-loop cùng shop, metadata không lẫn, context/EOS/override, abort/fatal, partial output, deadline/resume, config precedence, cache/version/platform, offline install flags, relocate và packaging. Kiểm thêm MD5/SHA256 đúng bytes, đọc archive có giới hạn, lỗi export/đổi tag/không ghi đè, và entrypoint temp/env/watchdog bằng tiến trình giả. Bộ đo Kaggle kiểm tập con disjoint/không nhãn, preflight qua agent thật bằng tokenizer giả, observer chạy được source frozen cũ trên fixture CPU, dtype override và gate so sánh; notebook sinh từ guide không có output GPU. Luồng SavedRun kiểm ghi status/log/result khi lỗi, watchdog process im lặng, source cũ không đổi byte, kit/kết quả đã giải nén, bootstrap trong namespace sạch và so sánh CPU thực từ capsule dữ liệu giả. Bổ sung kiểm venv dở dang, pip đã có, kiểm isolation trước cài và bootstrap không dùng ensurepip. Tokenizer thật được tải riêng để đếm phần prompt tĩnh bằng CPU, không tải weights. Code Python/notebook và các ô Bash/Python trong hướng dẫn đã kiểm cú pháp; diff so với baseline và AST loop/normalization đã được đối chiếu.
 
-Đối chiếu riêng đợt sửa ngày 12/11: 99 file gồm source `src/` và Markdown gốc giữ nguyên byte so với đầu đợt sửa; 48 Markdown có sẵn vẫn giống `main`. Không có thay đổi nghiệp vụ hoặc agent loop mới trong đợt cập nhật Test Solution.
+Kiểm bổ sung luồng Kaggle đơn giản: chỉ một Input kit; cài thư viện và tải checkpoint trước khi gọi driver đo; dừng trước inference nếu tải lỗi; model ở scratch, không lọt vào Output/result ZIP; checkpoint truyền riêng được verify và không tải lại. Các kiểm tra này dùng tiến trình giả, chưa xác nhận tải toàn bộ CUDA stack/model trên Kaggle thật.
+
+Cập nhật kiểm thử **13/11/2026**: không đổi source `src/` trong đợt này. Observer bổ sung thời gian trước generate, thời gian ngoài generate, ngân sách còn lại và hash output. Pipeline đủ câu nhưng có deadline được ghi `needs_review`; lỗi thực thi/thiếu câu vẫn là `failed`. Compare đọc được hai ZIP main cũ đã cung cấp mà không chạy GPU lại, giữ cảnh báo và không xuất speedup sạch khi timeout. Báo cáo tách ba khác biệt liên quan deadline khỏi một khác biệt action model, đồng thời phát hiện `elapsed_seconds` trong tool feedback làm prompt sau bước đầu khác nhau. Không xóa trường này khỏi prompt. Chỉ chỉnh các công cụ benchmark/compare/workflow, kiểm thử và hướng dẫn có sẵn; mặc định 90 giây/câu và agent loop giữ nguyên.
+
+Đối chiếu riêng đợt Test Solution trước bộ đo Kaggle: 99 file gồm source `src/` và Markdown gốc giữ nguyên byte so với đầu đợt đó; 48 Markdown có sẵn vẫn giống `main`. Bộ đo Kaggle thêm một guide mới; thay đổi `src/` chỉ là metadata cache của adapter, không đổi nhánh quyết định trong Agent.run hay body chuẩn hóa dữ liệu.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q --basetemp .cache/pytest

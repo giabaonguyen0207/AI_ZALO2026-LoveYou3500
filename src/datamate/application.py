@@ -9,27 +9,55 @@ from pathlib import Path
 from .agent.runner import Agent
 from .config import Settings
 from .data.split import DatasetSplit, ensure_outside_dataset, read_jsonl
+from .data.ingest import Ingestor
 from .domain import Answer, DataMateError, Question, RunResult, json_text
 from .debug_log import write_debug_log
 from .models.backends import build_backend
-from .models.registry import inventory
+from .models.registry import inventory_from_settings, model_paths
+from .retrieval import build_retriever
 from .models.artifacts import sha256
 from .models.runtime import runtime_identity
 from .batching import run_questions
+from .competition_log import competition_fields
 
 
-def create_agent(settings: Settings, *, remaining_seconds=None) -> Agent:
+def create_agent(settings: Settings, *, business_ids=None, remaining_seconds=None, progress=None) -> Agent:
+    started = time.monotonic()
     settings.validate()
-    inventory(settings.model_key, settings.assistant_key)
+    deadline = started + (settings.wall_time_seconds if remaining_seconds is None else remaining_seconds)
+    inventory_from_settings(settings)
     split = DatasetSplit(settings.split_root)
     # Check writable outputs before loading a large model.
     ensure_outside_dataset(settings.cache_dir, split.root)
     ensure_outside_dataset(settings.result_dir, split.root)
-    backend = build_backend(settings, remaining_seconds=remaining_seconds) if settings.backend == 'vllm' else build_backend(settings)
+    if settings.rag.index_dir:
+        ensure_outside_dataset(settings.rag.index_dir, split.root)
+    retriever = build_retriever(settings, split)
+    backend = None
     try:
-        return Agent(settings, backend, split)
+        ingestor = Ingestor(split, settings.cache_dir)
+        if settings.rag.mode != 'none':
+            if progress:
+                progress('retrieval_prepare', deadline-time.monotonic())
+            selected = sorted(set(business_ids if business_ids is not None else [q.business_id for q in split.questions()]))
+            retriever.prepare(selected, ingestor=ingestor, remaining_seconds=deadline-time.monotonic())
+        if time.monotonic() >= deadline:
+            raise DataMateError('Hết wall budget khi chuẩn bị RAG/model')
+        if progress:
+            progress('generator_init', min(deadline-time.monotonic(), settings.vllm.init_timeout_seconds)
+                     if settings.backend == 'vllm' else deadline-time.monotonic())
+        backend = (build_backend(settings, remaining_seconds=deadline-time.monotonic())
+                   if settings.backend == 'vllm' else build_backend(settings))
+        agent = Agent(settings, backend, split, retriever, ingestor=ingestor)
+        if progress:
+            progress('ready', deadline-time.monotonic())
+        return agent
     except BaseException:
-        backend.close()
+        try:
+            if backend is not None:
+                backend.close()
+        finally:
+            retriever.close()
         raise
 
 
@@ -49,13 +77,21 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
         questions = questions[:limit]
     result_dir = ensure_outside_dataset(settings.result_dir, split.root)
     result_dir.mkdir(parents=True, exist_ok=True)
+    def progress(phase, timeout):
+        path = result_dir / 'startup_progress.json'
+        temporary = path.with_suffix('.tmp')
+        temporary.write_text(json_text({'phase': phase, 'monotonic_started': time.monotonic(),
+                                        'timeout_seconds': max(0, timeout)}), encoding='utf-8')
+        temporary.replace(path)
     logs = result_dir / "logs"
     logs.mkdir(exist_ok=True)
+    debug = result_dir / 'debug'
+    debug.mkdir(exist_ok=True)
     output = result_dir / "submission.jsonl"
     identity = {"settings": settings.to_dict(), "rulebook_sha256": split.rulebook_hash,
                 "questions_sha256": hashlib.sha256((split.root / "questions.jsonl").read_bytes()).hexdigest(),
                 "selected_ids_sha256": hashlib.sha256(json_text([q.id for q in questions]).encode()).hexdigest(),
-                "inventory": inventory(settings.model_key, settings.assistant_key),
+                "inventory": inventory_from_settings(settings),
                 "runtime": runtime_identity(settings)}
     package_root=Path(__file__).parent
     identity['source_hashes']={p.relative_to(package_root).as_posix():sha256(p) for p in sorted(package_root.rglob('*.py'))}
@@ -65,7 +101,7 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
     identity["input_hashes"] = {p.relative_to(split.root).as_posix(): sha256(p) for p in input_files}
     if settings.backend != "demo":
         identity["artifact_manifests"] = {}
-        for folder in (settings.model_dir, settings.assistant_dir):
+        for folder in model_paths(settings).values():
             if folder:
                 manifest_path = Path(folder) / "artifact_manifest.json"
                 if not manifest_path.exists():
@@ -89,6 +125,7 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
     todo = [q for q in questions if q.id not in completed]
     if settings.backend == 'vllm' and settings.vllm.group_by_business:
         todo.sort(key=lambda q: q.business_id)  # IDs route data; never determine answers.
+    print(f'Inference: {len(questions)} câu; đã có {len(completed)}, còn {len(todo)}. Kết quả: {output}', flush=True)
     deadline = started + settings.wall_time_seconds
     state = {'time_budget_exhausted': False}
     agent, loaded_seconds, written, failure = None, None, 0, None
@@ -97,10 +134,15 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
             state['time_budget_exhausted'] = True
             todo = []
         if todo:
-            agent = create_agent(settings, remaining_seconds=deadline-time.monotonic())
+            print('Đang nạp model và chuẩn bị dữ liệu...', flush=True)
+            agent = create_agent(settings, business_ids=sorted({q.business_id for q in todo}),
+                                 remaining_seconds=deadline-time.monotonic(), progress=progress)
+            print(f'Model đã sẵn sàng sau {time.monotonic()-started:.1f}s; bắt đầu trả lời.', flush=True)
         loaded_seconds = time.monotonic()-started
         if agent and callable(getattr(agent.backend, 'runtime_info', None)):
             (result_dir / 'runtime.json').write_text(json_text(agent.backend.runtime_info(), indent=2), encoding='utf-8')
+        if agent and settings.rag.mode != 'none':
+            (result_dir / 'retrieval_runtime.json').write_text(json_text(agent.retriever.runtime_info(), indent=2), encoding='utf-8')
         with output.open('a' if resume else 'w', encoding='utf-8', newline='\n') as handle:
             runs = run_questions(agent, todo, settings.effective_workers, deadline, state) if agent else iter(())
             try:
@@ -108,22 +150,26 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
                     name = hashlib.sha256(question.id.encode()).hexdigest()[:24] + '.json'
                     payload = {'id': question.id, 'business_id': question.business_id,
                                **question.prompt_dict(), 'rulebook_sha256': split.rulebook_hash,
-                               **run.to_dict(question.id)}
+                               **run.to_dict(question.id), **competition_fields(run)}
                     temporary = logs / (name + '.tmp')
-                    temporary.write_text(json_text(payload, indent=2), encoding='utf-8')
+                    temporary.write_text(json_text(payload) + '\n', encoding='utf-8')
                     temporary.replace(logs / name)
                     handle.write(json_text(run.answer.to_dict(question.id)) + '\n')
                     handle.flush()
                     os.fsync(handle.fileno())
                     written += 1
-                    write_debug_log((logs / name).with_suffix('.md'), payload)
+                    write_debug_log((debug / name).with_suffix('.md'), payload)
+                    error = any(item.get('error_kind') in {'runtime', 'generation'} for item in run.trace)
+                    outcome = 'LỖI XỬ LÝ' if error else 'ĐÃ LƯU'
+                    print(f'[{len(completed)+written}/{len(questions)}] {outcome} {question.id} | '
+                          f'{run.answer.type} | {run.elapsed_seconds:.1f}s | {run.model_calls} model calls', flush=True)
             finally:
                 close_runs = getattr(runs, 'close', None)
                 if close_runs:
                     close_runs()
     except BaseException as exc:
         failure = f'{type(exc).__name__}: {exc}'
-        (logs / 'runtime-error.json').write_text(json_text({
+        (result_dir / 'runtime-error.json').write_text(json_text({
             'id': getattr(exc, 'question_id', None), 'error': failure,
             'elapsed_seconds': time.monotonic()-started, 'submission': {'type': 'abstain'}}, indent=2), encoding='utf-8')
         raise
@@ -135,7 +181,7 @@ def run_batch(settings: Settings, ids: set[str] | None = None, limit: int | None
                     (result_dir / 'runtime.json').write_text(json_text(agent.backend.runtime_info(), indent=2), encoding='utf-8')
         except BaseException as exc:
             cleanup_error = f'{type(exc).__name__}: {exc}'
-            (logs / 'shutdown-error.json').write_text(json_text({'error': cleanup_error,
+            (result_dir / 'shutdown-error.json').write_text(json_text({'error': cleanup_error,
                 'elapsed_seconds': time.monotonic()-started}, indent=2), encoding='utf-8')
             if failure is None:
                 failure = cleanup_error

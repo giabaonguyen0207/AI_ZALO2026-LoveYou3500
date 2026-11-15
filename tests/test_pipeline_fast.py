@@ -105,9 +105,17 @@ def test_targeted_patch_keeps_valid_fields_and_is_cached(business,tmp_path,scrip
     cite='R'+str(next(i for i,line in enumerate(README.splitlines()) if 'Chốt nghĩa' in line))
     patch={'action':'prepare','tables':{'T0':{'status_map':{'Chốt':{'value':'completed','evidence':cite}},
                                            'roles':{'made_up_role':{'column':'T0C0','evidence':'T0C0'}}}}}
-    agent=make_agent(split,tmp_path,scripted_backend([plan(text),patch]))
+    backend=scripted_backend([plan(text),patch])
+    generate=backend.generate
+    def with_thinking(*args,**kwargs):
+        raw=generate(*args,**kwargs)
+        return '<think>'+('outer' if len(backend.messages)==1 else 'repair')+'</think>'+raw
+    backend.generate=with_thinking
+    agent=make_agent(split,tmp_path,backend)
     result=agent.run(Question('x','shop_a',text,'2025-01-31'))
     assert result.answer.answer==400 and result.model_calls==2
+    from datamate.competition_log import competition_fields
+    assert competition_fields(result)['thinking'] == ['outer','repair']
     repair=next(e for e in result.trace if e.get('preparation_stage')=='targeted_schema_repair')
     assert repair['observation']['baseline_preserved'] and repair['observation']['changed']
     assert repair['observation']['rejected_fields'] and not repair['observation']['remaining_needs']

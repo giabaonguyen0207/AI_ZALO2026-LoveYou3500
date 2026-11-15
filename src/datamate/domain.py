@@ -122,8 +122,9 @@ class RunResult:
     trace: list[dict] = field(default_factory=list)
     model_calls: int = 0
     initial_messages: list[dict] = field(default_factory=list)
+    executions: list[dict] | None = None
 
     def to_dict(self, question_id: str) -> dict:
         return {"submission": self.answer.to_dict(question_id), "elapsed_seconds": round(self.elapsed_seconds, 4),
                 "model_calls": self.model_calls, "trace": self.trace,
-                "initial_messages": self.initial_messages}
+                "initial_messages": self.initial_messages, "executions": self.executions}

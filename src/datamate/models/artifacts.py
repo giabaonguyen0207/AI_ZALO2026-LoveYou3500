@@ -11,6 +11,24 @@ from ..domain import DataMateError, json_text
 from .registry import ModelSpec, get_model
 
 
+RAG_WEIGHT_HASHES = {
+    ('AITeamVN/Vietnamese_Embedding', 'dea33aa1ab339f38d66ae0a40e6c40e0a9249568'):
+        '1f2debafdf03659e8273022a3e902b94deec73cd20c2b7262ab7e21630163f6d',
+    ('AITeamVN/Vietnamese_Reranker', 'f536976248403314225d7fdfdbc87f0e9516a54e'):
+        '1cecccab406ec6d3f13da8ccdc5e853a1372e51845322163655ab530d3730071',
+}
+
+
+def verify_checkpoint_weight_hash(directory, spec, *, digest=None):
+    expected = RAG_WEIGHT_HASHES.get((spec.repo_id, spec.revision))
+    if expected is None:
+        return None
+    file = Path(directory) / 'model.safetensors'
+    actual = digest if digest is not None else sha256(file) if file.is_file() else None
+    if actual != expected:
+        raise DataMateError('Hash checkpoint RAG khác revision trọng số đã kiểm chứng: ' + spec.key)
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -52,6 +70,7 @@ def seal_artifact(directory: str | Path, spec: ModelSpec, lineage: dict | None =
         raise DataMateError(f"Số phần tử tensor {count:,} khác inventory {spec.parameters:,}; kiểm tra checkpoint trước khi dùng")
     files = {str(path.relative_to(directory)).replace("\\", "/"): {"sha256": sha256(path), "bytes": path.stat().st_size}
              for path in artifact_files(directory)}
+    verify_checkpoint_weight_hash(directory, spec, digest=files.get('model.safetensors', {}).get('sha256'))
     manifest = {"format_version": 1, "source": spec.to_dict(), "tensor_parameters": count,
                 "files": files, "lineage": lineage}
     (directory / "artifact_manifest.json").write_text(json_text(manifest, indent=2), encoding="utf-8")
@@ -69,10 +88,15 @@ def verify_artifact(directory: str | Path, key: str) -> dict:
     actual = {str(p.relative_to(directory)).replace("\\", "/") for p in artifact_files(directory)}
     if actual != set(manifest.get("files", {})):
         raise DataMateError("Danh sách file model đã thay đổi sau khi seal")
+    hashes = {}
     for relative, meta in manifest["files"].items():
         file = (directory / relative).resolve()
-        if not file.is_relative_to(directory) or not file.is_file() or sha256(file) != meta["sha256"]:
+        if not file.is_relative_to(directory) or not file.is_file():
+            raise DataMateError(f'Hash model/path không khớp: {relative}')
+        hashes[relative] = sha256(file)
+        if hashes[relative] != meta["sha256"]:
             raise DataMateError(f"Hash model không khớp: {relative}")
+    verify_checkpoint_weight_hash(directory, spec, digest=hashes.get('model.safetensors'))
     return manifest
 
 

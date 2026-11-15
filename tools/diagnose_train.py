@@ -180,9 +180,14 @@ def runtime_snapshot(backend):
     info = getattr(backend, 'runtime_info', None)
     if callable(info):
         result['engine_runtime'] = info()
+        snapshot = result['engine_runtime']
+        if 'hardware' in snapshot:
+            result.update(snapshot['hardware'])
+        if snapshot.get('resolved_dtype') not in (None, 'None'):
+            result['dtype'] = snapshot['resolved_dtype']
     result['effective_generation']={'do_sample':False,'num_beams':1,'protocol_version':getattr(backend,'protocol_version',None)}
     result['generation_tokens'] = deepcopy(getattr(backend, 'generation_tokens', None))
-    for package in ("torch", "transformers", "accelerate", "bitsandbytes", "datamate-agent"):
+    for package in ("torch", "transformers", "vllm", "numpy", "accelerate", "bitsandbytes", "datamate-agent"):
         try:
             result["packages"][package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:

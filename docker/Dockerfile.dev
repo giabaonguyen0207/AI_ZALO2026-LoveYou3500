@@ -1,16 +1,17 @@
 # CPU development / smoke-test image only; select a GPU base for competition.
 ARG BASE_IMAGE=python:3.13-slim@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb
 FROM ${BASE_IMAGE}
-WORKDIR /app
+WORKDIR /code
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
     HF_HOME=/work/huggingface TORCH_HOME=/work/torch XDG_CACHE_HOME=/work
-COPY requirements-dev.lock.txt /app/requirements-dev.lock.txt
+COPY requirements-dev.lock.txt /code/requirements-dev.lock.txt
 RUN python -m pip install --no-cache-dir -r requirements-dev.lock.txt
-COPY pyproject.toml /app/
-COPY src /app/src
+COPY pyproject.toml /code/
+COPY src /code/src
 RUN python -m pip install --no-cache-dir --no-deps .
-COPY configs /app/configs
-COPY predict.sh /app/predict.sh
-RUN chmod +x /app/predict.sh
-ENV DATAMATE_CONFIG=/app/configs/submission-demo.json
-ENTRYPOINT ["/app/predict.sh"]
+COPY configs /code/configs
+COPY predict.sh /code/predict.sh
+RUN sed -i 's/\r$//' /code/predict.sh && chmod +x /code/predict.sh
+ENV DATAMATE_CONFIG=/code/configs/submission-demo.json
+ENTRYPOINT []
+CMD ["bash", "/code/predict.sh"]

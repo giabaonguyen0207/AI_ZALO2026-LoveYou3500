@@ -1,0 +1,19 @@
+{
+  "backend": "transformers",
+  "model_key": "qwen35-9b",
+  "model_dir": "models/qwen35-9b",
+  "mode": "self_review",
+  "quantization": "4bit",
+  "split_root": "train",
+  "cache_dir": ".cache/datamate-thinh",
+  "result_dir": "outputs/runs/thinh/team200-none",
+  "max_steps": 6,
+  "max_context_tokens": 8192,
+  "max_new_tokens": 768,
+  "question_timeout_seconds": 120,
+  "schema_mode": "code_first",
+  "adaptive_preparation": false,
+  "require_plan": true,
+  "auto_execute_plan": true,
+  "rag": {"mode": "none"}
+}

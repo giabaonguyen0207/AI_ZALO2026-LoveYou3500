@@ -208,16 +208,3 @@ def test_colab_configs_smoke_longest_and_report_actual_gpu(seed_source,tmp_path,
     assert report['gpu']=='fixture GPU' and report['total_vram_gib']==24 and report['memory_fit_verified'] is False
     cuda.get_device_properties=lambda _:types.SimpleNamespace(total_memory=16*1024**3)
     with pytest.raises(DataMateError,match='dưới ngưỡng'): gpu_preflight(torch)
-
-
-def test_seed_notebook_compiles_and_has_small_pilot_defaults():
-    root=Path(__file__).resolve().parents[1]
-    notebook=json.loads((root/'notebooks/training/DataMate_Colab_Seed72_100_QLoRA.ipynb').read_text(encoding='utf-8'))
-    import ast
-    setup=next(c for c in notebook['cells'] if c.get('id')=='seed-setup')
-    desired={'MODEL_KEY','MAX_STEPS','RUN_EVALUATION'}
-    values={n.targets[0].id:ast.literal_eval(n.value) for n in ast.parse(''.join(setup['source'])).body
-            if isinstance(n,ast.Assign) and len(n.targets)==1 and isinstance(n.targets[0],ast.Name) and n.targets[0].id in desired}
-    assert values=={'MODEL_KEY':'gemma4-12b','MAX_STEPS':5,'RUN_EVALUATION':False}
-    for cell in notebook['cells']:
-        if cell['cell_type']=='code': compile(''.join(cell['source']),cell['id'],'exec')

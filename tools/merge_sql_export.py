@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from pathlib import Path
 import shutil
 import struct
@@ -68,12 +69,15 @@ def preserve_auxiliary_tensors(base, output):
     return receipt
 
 
-def merge_verified(model_key, base, adapter, output):
+def merge_verified(model_key, base, adapter, output, *, inference_package_sha256=None):
     from datamate.config import configure_offline
     configure_offline()
     base,adapter,output=Path(base),Path(adapter),Path(output)
     artifacts.verify_artifact(base,model_key)
     spec=artifacts.get_model(model_key)
+    if inference_package_sha256 is not None and (not isinstance(inference_package_sha256,str)
+            or not re.fullmatch('[0-9a-f]{64}',inference_package_sha256)):
+        raise DataMateError('Inference package SHA256 không hợp lệ')
     if output.exists() and any(output.iterdir()):raise DataMateError('Merge output phải là thư mục mới')
     report=json.loads((adapter/'training_report.json').read_text(encoding='utf-8'))
     if report['base_source']!=spec.to_dict():raise DataMateError('Adapter khác base revision')
@@ -89,7 +93,10 @@ def merge_verified(model_key, base, adapter, output):
     shutil.copy2(adapter/'training_report.json',output/'training_report.json')
     receipt=preserve_auxiliary_tensors(base,output)
     atomic_json(output/'auxiliary_export.json',receipt)
-    manifest=artifacts.seal_artifact(output,spec,{
+    lineage={
         'merged_lora':True,'training_report_sha256':artifacts.sha256(output/'training_report.json'),
-        'base_manifest_sha256':artifacts.sha256(base/'artifact_manifest.json'),'auxiliary_export':receipt})
+        'base_manifest_sha256':artifacts.sha256(base/'artifact_manifest.json'),'auxiliary_export':receipt}
+    if inference_package_sha256 is not None:
+        lineage['inference_package_sha256']=inference_package_sha256
+    manifest=artifacts.seal_artifact(output,spec,lineage)
     return {'output':str(output.resolve()),'tensor_parameters':manifest['tensor_parameters'],'auxiliary_export':receipt}

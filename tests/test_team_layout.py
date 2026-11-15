@@ -10,7 +10,7 @@ from tools.package_colab import package
 
 def test_gpu_source_package_excludes_archives_data_models_and_history(tmp_path):
     root = tmp_path / 'project'
-    files = ['pyproject.toml', 'requirements.txt', 'requirements-dev.lock.txt', 'requirements-colab.txt',
+    files = ['pyproject.toml', '.dockerignore', 'requirements.txt', 'requirements-dev.lock.txt', 'requirements-colab.txt',
              'README.md', 'AGENTS.md', 'predict.sh', 'src/datamate/__init__.py', 'docs/run-gpu.md',
              'docs/history/old.md', 'docs/references/paper.pdf', 'archive/private.txt',
              'models/weights.bin', 'train/answers.jsonl', 'outputs/run/log.json', 'src/datamate/__pycache__/x.pyc']
@@ -23,6 +23,7 @@ def test_gpu_source_package_excludes_archives_data_models_and_history(tmp_path):
     with zipfile.ZipFile(output) as archive:
         names = set(archive.namelist())
     assert 'src/datamate/__init__.py' in names and 'docs/run-gpu.md' in names
+    assert '.dockerignore' in names  # package_solution also runs from the GPU source ZIP.
     assert not any(n.startswith(('archive/', 'models/', 'train/', 'outputs/', 'docs/history/', 'docs/references/')) for n in names)
     assert not any('__pycache__' in n for n in names)
     assert json.loads(output.with_suffix('.zip.manifest.json').read_text())['sha256'] == report['sha256']
@@ -53,7 +54,8 @@ def test_gpu_setup_separates_source_versions_and_rejects_stale_kernel(tmp_path, 
     packet = tmp_path / 'source.zip'
     data = tmp_path / 'data'
     data.mkdir()
-    code = SETUP.replace('PLATFORM = "colab"', 'PLATFORM = "gpu"')
+    monkeypatch.setenv('DATAMATE_PLATFORM','gpu')
+    code = SETUP
     replacements = {'/work/datamate': tmp_path / 'runtime', '/work/datamate-results': tmp_path / 'saved',
                     '/work/inputs/datamate-colab-source.zip': packet, '/work/data/train': data}
     for original, value in replacements.items():

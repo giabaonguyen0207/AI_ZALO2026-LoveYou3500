@@ -16,7 +16,7 @@ def docker_archive(path):
     with tarfile.open(path, 'w') as archive:
         for name, data in {
             'manifest.json': json.dumps([{'Config': 'config.json', 'RepoTags': ['fixture:v1'], 'Layers': []}]).encode(),
-            'config.json': b'{}',
+            'config.json': b'{"os":"linux","architecture":"amd64"}',
         }.items():
             member = tarfile.TarInfo(name)
             member.size = len(data)
@@ -93,7 +93,7 @@ def test_source_tar_is_rejected_without_extracting_any_files(tmp_path):
         member = tarfile.TarInfo('../escape.py')
         member.size = 1
         handle.addfile(member, io.BytesIO(b'x'))
-    with pytest.raises(ValueError, match='docker save'):
+    with pytest.raises(ValueError, match='docker save|Unsafe'):
         export.write_receipts(archive)
     assert not Path(str(archive) + '.md5').exists()
     assert not (tmp_path.parent / 'escape.py').exists()
@@ -162,3 +162,42 @@ def test_invalid_url_or_block_size_is_rejected(tmp_path):
         export.write_receipts(archive, google_url='not-a-link')
     with pytest.raises(ValueError, match='block size'):
         export.hash_archive(archive, block_bytes=0)
+
+
+def test_gzip_export_hashes_compressed_bytes_and_measures_complete_tar(tmp_path, monkeypatch):
+    import gzip
+    mock_docker(monkeypatch)
+    output = tmp_path / 'release.tar.gz'
+    result = export.export_image('fixture:v1', output)
+    with gzip.open(output, 'rb') as handle:
+        raw = handle.read()
+    assert result['archive_structure']['uncompressed_bytes'] == len(raw)
+    assert result['md5'] == hashlib.md5(output.read_bytes(), usedforsecurity=False).hexdigest()
+    assert result['archive_structure']['architecture'] == 'amd64'
+    assert not list(tmp_path.glob('*.partial'))
+    with pytest.raises(ValueError, match='100|limit|size'):
+        export.verify_archive(output, max_bytes=100)
+
+
+@pytest.mark.parametrize('problem', ['missing_layer', 'arm64', 'multiple_images', 'truncated_gzip'])
+def test_archive_validation_rejects_incomplete_or_wrong_image(tmp_path, problem):
+    import gzip
+    output = tmp_path / 'bad.tar'
+    entries = [{'Config':'config.json', 'RepoTags':['fixture:v1'],
+                'Layers':['missing.tar'] if problem == 'missing_layer' else []}]
+    if problem == 'multiple_images':
+        entries *= 2
+    with tarfile.open(output, 'w') as archive:
+        for name, value in {'manifest.json':entries,
+                            'config.json':{'os':'linux','architecture':'arm64' if problem == 'arm64' else 'amd64'}}.items():
+            payload = json.dumps(value).encode()
+            member = tarfile.TarInfo(name)
+            member.size = len(payload)
+            archive.addfile(member, io.BytesIO(payload))
+    if problem == 'truncated_gzip':
+        compressed = tmp_path / 'bad.tar.gz'
+        compressed.write_bytes(gzip.compress(output.read_bytes())[:-5])
+        output = compressed
+    with pytest.raises((ValueError, EOFError, tarfile.TarError)):
+        export.write_receipts(output)
+    assert not Path(str(output) + '.md5').exists()

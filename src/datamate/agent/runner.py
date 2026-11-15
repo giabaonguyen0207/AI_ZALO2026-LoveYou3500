@@ -10,6 +10,7 @@ from ..config import Settings
 from ..data.ingest import Ingestor, quote
 from ..data.split import DatasetSplit
 from ..domain import Answer, DataMateError, Question, RunResult, json_text
+from ..execution_audit import record_executions
 from ..models.backends import ChatBackend
 from ..models.contracts import BackendUnavailableError
 from .prompts import initial_messages
@@ -19,28 +20,42 @@ from .verification import question_contract, question_periods, verify_metric_req
 from .preparation import BusinessPreparer
 from .planning import validate_plan, calculate, verify_sql_plan
 from .schema_repair import SchemaRepair, repair_needs
+from ..retrieval import NullRetriever
+from ..retrieval.contracts import RetrievalFatalError
+from ..retrieval.context import fit_context
 
 
 class Agent:
     pipeline_version = 6
-    def __init__(self, settings: Settings, backend: ChatBackend, split: DatasetSplit | None = None):
+    def __init__(self, settings: Settings, backend: ChatBackend, split: DatasetSplit | None = None, retriever=None, *, ingestor=None):
         self.settings, self.backend = settings, backend
         self.split = split or DatasetSplit(settings.split_root)
-        self.ingestor = Ingestor(self.split, settings.cache_dir)
+        self.ingestor = ingestor if ingestor is not None else Ingestor(self.split, settings.cache_dir)
         self.preparer = BusinessPreparer(settings, self.split)
         self.schema_repair = SchemaRepair(settings, self.split)
+        if retriever is None and settings.rag.mode != 'none':
+            raise DataMateError('RAG bật cần retriever do application tạo')
+        self.retriever = retriever if retriever is not None else NullRetriever()
+        self._owns_resources, self._closed = True, False
 
     def close(self):
-        close = getattr(self.backend, 'close', None)
-        if close:
-            close()
+        if not self._owns_resources or self._closed:
+            return
+        self._closed = True
+        try:
+            close = getattr(self.backend, 'close', None)
+            if close:
+                close()  # Abort generation before waiting for an encoder batch.
+        finally:
+            self.retriever.close()
 
     def new_worker(self):
         """Isolate per-question/cache controller state; share engine and ingestion."""
-        worker = Agent(self.settings, self.backend, self.split)
-        worker.ingestor = self.ingestor
+        worker = Agent(self.settings, self.backend, self.split, self.retriever, ingestor=self.ingestor)
+        worker._owns_resources = False
         return worker
 
+    @record_executions
     def run(self, question: Question, remaining_seconds: float | None = None) -> RunResult:
         started = time.monotonic()
         model_path = self.settings.backend != 'demo' and getattr(self.backend,'counts_as_model',True)
@@ -123,26 +138,45 @@ class Agent:
             if preflight['availability'] == 'missing' and not adaptive:
                 evidence['e0'] = preflight
                 preflight = {**preflight, 'evidence_id': 'e0'}
-            messages = initial_messages(question, self.split.rulebook, self.split.readme(question.business_id), catalog.summary(),
-                                        {'contract': contract, 'periods': expected_periods, 'answerability': preflight,
+            request_contract = {'contract': contract, 'periods': expected_periods, 'answerability': preflight,
                                          'plan_required':plan_required, 'auto_execute_plan':auto_execute,
                                          'result_review_required':self.settings.mode=='self_review',
                                          'schema_mode':'llm' if adaptive else self.settings.schema_mode,
-                                         'lexical_hints_are_advisory':True},
-                                        cache_prefix=self.settings.backend == 'vllm' and self.settings.vllm.cache_prompt_prefix)
+                                         'lexical_hints_are_advisory':True}
+            prompt_args = (question, self.split.rulebook, self.split.readme(question.business_id), catalog.summary(), request_contract)
+            prefix = self.settings.backend == 'vllm' and self.settings.vllm.cache_prompt_prefix
+            messages = initial_messages(*prompt_args, cache_prefix=prefix)
+            baseline_messages_sha256 = hashlib.sha256(json_text(messages,sort_keys=True).encode()).hexdigest()
+            selected = []
+            if self.settings.rag.mode != 'none':
+                chunks, retrieval = self.retriever.retrieve(question.question, question.business_id,
+                    self.ingestor.catalog(question.business_id, normalize=False),
+                    min(deadline-time.monotonic(), self.settings.rag.timeout_seconds))
+                messages, selected, packed = fit_context(chunks,
+                    build_messages=lambda context: initial_messages(*prompt_args, cache_prefix=prefix, retrieved_context=context),
+                    backend=self.backend, settings=self.settings)
+                trace.append({'phase':'retrieval', **retrieval, **packed, 'selected': [c['source'] for c in selected],
+                              'baseline_messages_sha256':baseline_messages_sha256})
             prompt_snapshot=deepcopy(messages)
             for step in range(self.settings.max_steps):
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     break
+                if selected:
+                    history = messages[2:]
+                    messages, selected, packed = fit_context(selected,
+                        build_messages=lambda context: initial_messages(*prompt_args, cache_prefix=prefix, retrieved_context=context) + history,
+                        backend=self.backend, settings=self.settings)
+                    trace.append({'phase': 'retrieval_context', 'step': step + 1, **packed})
                 calls += int(getattr(self.backend, 'counts_as_model', True))
                 try:
+                    call_started = time.monotonic()
                     raw = self.backend.generate(messages, remaining)
                 except Exception as exc:
                     trace.append({'step':step+1,'model_call_attempted':True,'error':str(exc),'error_kind':'generation',
                                   'generation':deepcopy(getattr(self.backend,'last_generation',None))})
                     raise
-                event = {'step': step + 1, 'raw': raw}
+                event = {'step': step + 1, 'raw': raw, 'model_call_started': call_started}
                 if step == 0:
                     event['preflight'] = preflight
                 generation = getattr(self.backend, 'last_generation', None)
@@ -383,7 +417,7 @@ class Agent:
                     break
                 event['model_observation'] = self._feedback_for_model(feedback)
                 messages.append({'role': 'user', 'content': json_text({'tool_result': event['model_observation']},separators=(',',':'))})
-        except BackendUnavailableError:
+        except (BackendUnavailableError, RetrievalFatalError):
             raise
         except Exception as exc:
             trace.append({'error': f'{type(exc).__name__}: {exc}', 'error_kind': 'runtime'})

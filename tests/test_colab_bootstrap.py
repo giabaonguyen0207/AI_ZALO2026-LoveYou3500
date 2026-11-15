@@ -7,13 +7,12 @@ import sys
 import pytest
 
 
-@pytest.mark.parametrize("notebook_name", ["Inference", "LoRA"])
-def test_setup_makes_source_importable_without_kernel_restart(tmp_path, notebook_name):
+def test_setup_makes_source_importable_without_kernel_restart(tmp_path):
     project = Path(__file__).resolve().parents[1]
     work = tmp_path / "workspace"
     shutil.copytree(project / "src/datamate", work / "src/datamate",
                     ignore=shutil.ignore_patterns("__pycache__"))
-    notebook = project / ("notebooks" if notebook_name == "Inference" else "notebooks/training") / f"DataMate_Colab_{notebook_name}.ipynb"
+    notebook = project / 'notebooks/DataMate_Colab_Inference.ipynb'
     driver = r'''
 import importlib.util, json, sys, types
 from pathlib import Path

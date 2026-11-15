@@ -102,15 +102,16 @@ def test_corrupt_cache_is_not_resealed_or_overwritten_and_online_repair_uses_new
     verify_artifact(replacement, runtime.spec.key)
 
 
-def test_wrong_model_candidate_is_preserved_while_correct_registered_model_is_downloaded(runtime, tmp_path, monkeypatch):
+def test_wrong_model_candidate_is_preserved_and_rejected_without_base_substitution(runtime, tmp_path, monkeypatch):
     other = ModelSpec('other-cache', 'test/other', 'b' * 40, 3, '2026-01-01T00:00:00Z')
     monkeypatch.setitem(MODELS, other.key, other)
     source = tmp_path / 'other'
     model(source, other)
     original = sha256(source / 'artifact_manifest.json')
     runtime.settings.model_dir = str(source)
-    bundle = prepare(runtime)
-    verify_artifact(runtime.root / bundle['models'][runtime.spec.key]['path'], runtime.spec.key)
+    with pytest.raises(DataMateError, match='manifest'):
+        prepare(runtime)
+    assert not any('stage-model' in command for command, _ in runtime.calls)
     assert sha256(source / 'artifact_manifest.json') == original
 
 
@@ -235,9 +236,74 @@ def test_package_cli_resolves_bundle_without_hardcoded_model_or_wheel_paths(runt
     import sys
     prepare(runtime)
     output = tmp_path / 'bundle-context'
-    monkeypatch.setattr(sys, 'argv', ['package_solution', '--bundle', str(runtime.root / 'bundle.json'), '--output', str(output)])
+    monkeypatch.setattr(sys, 'argv', ['package_solution', '--development', '--bundle', str(runtime.root / 'bundle.json'), '--output', str(output)])
     main()
     assert json.loads(capsys.readouterr().out)['context'] == str(output)
     manifest = json.loads((output / 'solution_manifest.json').read_text(encoding='utf-8'))
     assert manifest['wheelhouse_verified'] is True
     assert (output / 'models' / runtime.spec.key / 'artifact_manifest.json').is_file()
+
+
+def test_release_refuses_missing_training_evidence_before_staging(runtime, tmp_path):
+    from tools.package_solution import stage
+    bundle = prepare(runtime)
+    source = runtime.root / bundle['models'][runtime.spec.key]['path']
+    output = tmp_path / 'release'
+    with pytest.raises(ValueError, match='training evidence'):
+        stage(runtime.project, runtime.root / bundle['config'], output,
+              runtime.root / bundle['wheelhouse'], {runtime.spec.key:source}, release=True,
+              base_image='vllm/vllm-openai@sha256:'+'1'*64)
+    assert not output.exists()
+
+
+def test_context_relocates_every_inference_path_under_fixed_code_root(runtime, tmp_path):
+    from tools.package_solution import stage
+    bundle = prepare(runtime)
+    source = runtime.root / bundle['models'][runtime.spec.key]['path']
+    output = tmp_path / 'context'
+    stage(runtime.project, runtime.root / bundle['config'], output,
+          runtime.root / bundle['wheelhouse'], {runtime.spec.key:source})
+    config = json.loads((output/'configs/submission.json').read_text(encoding='utf-8'))
+    assert config['model_dir'] == '/code/models/' + runtime.spec.key
+    assert (output/'requirements.txt').read_bytes() == (runtime.root / bundle['wheelhouse'] / 'requirements.resolved.txt').read_bytes()
+
+
+def test_release_includes_sealed_training_data_and_offline_training_wheels(runtime, tmp_path):
+    from test_training_evidence import evidence_spec
+    from tools.training_evidence import assemble, with_dependencies, verify
+    from tools.package_solution import stage
+    bundle = prepare(runtime)
+    source = runtime.root / bundle['models'][runtime.spec.key]['path']
+    wheelhouse = runtime.root / bundle['wheelhouse']
+    spec = evidence_spec(tmp_path)
+    spec['inference_artifacts'] = {runtime.spec.key:sha256(source/'artifact_manifest.json')}
+    assemble(spec,tmp_path/'evidence-source')
+    evidence = tmp_path/'evidence-offline'
+    with_dependencies(tmp_path/'evidence-source',wheelhouse,evidence)
+    output = tmp_path/'release-context'
+    report = stage(runtime.project,runtime.root/bundle['config'],output,wheelhouse,
+                   {runtime.spec.key:source},training_evidence=evidence,release=True,
+                   base_image='team/base@sha256:'+'1'*64)
+    assert report['training_evidence_verified'] is True and report['release_context'] is True
+    assert verify(output/'training_code') == verify(evidence)
+    assert 'data/' not in (output/'.dockerignore').read_text()
+    readme=(output/'README.md').read_text(encoding='utf-8')
+    assert '/code/predict.sh' in readme and runtime.spec.revision in readme
+    assert 'data/train.jsonl' in readme and 'data_manifest.json' in readme
+    assert 'docs/' not in readme
+
+
+def test_release_preparation_never_downloads_when_merged_input_is_missing(runtime,tmp_path,monkeypatch):
+    import importlib.util
+    import sys
+    path=runtime.project/'docker/prepare_release.py'
+    loader=importlib.util.spec_from_file_location('release_prepare_test',path)
+    module=importlib.util.module_from_spec(loader);loader.loader.exec_module(module)
+    monkeypatch.setattr(module.sys,'platform','linux')
+    monkeypatch.setattr(module.platform,'machine',lambda:'x86_64')
+    monkeypatch.setattr(module,'verify',lambda _: {'files':{},'inference_artifacts':{}})
+    monkeypatch.setattr(module,'prepare_bundle',lambda *a,**kw:pytest.fail('download/preparation started before checking local models'))
+    monkeypatch.setattr(sys,'argv',['prepare_release','--base-image','team/base@sha256:'+'1'*64,
+        '--evidence',str(tmp_path/'evidence'),'--models',str(tmp_path/'missing-models'),'--output',str(tmp_path/'out')])
+    with pytest.raises((ValueError,DataMateError),match='model|checkpoint|merged'):
+        module.main()

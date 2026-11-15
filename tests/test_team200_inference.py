@@ -177,7 +177,9 @@ def test_notebook_cells_compile_and_torch_constraint_ends_in_real_newline():
     write = next(node for node in ast.walk(tree) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Attribute) and node.func.attr == "write_text")
     assert write.args[0].right.value == "\n", "pip constraints must not contain literal backslash-n"
-    assert "team200-layout-Nov9th-01" in SETUP
+    settings = {n.targets[0].id:n.value.value for n in ast.parse(SETUP.replace('__EXPECTED_ARCHIVES__','{}')).body
+                if isinstance(n,ast.Assign) and isinstance(n.targets[0],ast.Name) and isinstance(n.value,ast.Constant)}
+    assert settings['RAG_PRESET']=='rag-none' and settings['BACKEND']=='torch'
 
 
 def test_runner_rejects_old_pipeline_before_loading_benchmark_or_generating(team_case):

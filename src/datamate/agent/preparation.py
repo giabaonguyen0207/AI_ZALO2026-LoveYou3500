@@ -130,6 +130,7 @@ class BusinessPreparer:
             event = {'phase':'preparation', 'preparation_stage':stage, 'input_messages':deepcopy(messages)}
             try:
                 options = {'max_new_tokens':self.settings.preparation_max_new_tokens} if getattr(backend,'supports_token_budget',False) else {}
+                event['model_call_started']=time.monotonic()
                 raw = backend.generate(messages, deadline-time.monotonic(), **options)
                 event['raw'] = raw
                 if getattr(backend, 'last_generation', None):

@@ -5,6 +5,22 @@ import hashlib
 import json
 import zipfile
 
+SOURCE_FOLDERS = {'src', 'configs', 'notebooks', 'docs', 'tools', 'tests', 'docker'}
+SOURCE_FILES = {'.dockerignore', 'pyproject.toml', 'requirements.txt', 'requirements-dev.lock.txt',
+                'requirements-colab.txt', 'README.md', 'AGENTS.md', 'predict.sh', 'huongdankaggle.md'}
+
+
+def source_path_allowed(relative):
+    """One inclusion policy for the old Git snapshot and current working tree."""
+    parts = Path(relative).parts
+    if not parts or any(p in {'__pycache__', '.cache', '.pytest_cache', '.ipynb_checkpoints', '.git'}
+                        or p.endswith('.egg-info') for p in parts):
+        return False
+    if len(parts) == 1:
+        return parts[0] in SOURCE_FILES
+    return (parts[0] in SOURCE_FOLDERS
+            and not (parts[0] == 'docs' and parts[1] in {'history', 'references', 'research'}))
+
 
 def package(root, output):
     root, output = Path(root).resolve(), Path(output).resolve()
@@ -12,14 +28,14 @@ def package(root, output):
     folders = ["src", "configs", "notebooks", "docs", "tools", "tests", "docker"]
     names = ["pyproject.toml", "requirements.txt", "requirements-dev.lock.txt",
              "requirements-colab.txt", "README.md", "AGENTS.md", "predict.sh"]
+    for optional in ('huongdankaggle.md','.dockerignore'):
+        if (root / optional).is_file():
+            names.append(optional)
     files = [root / name for name in names]
     for folder in folders:
         for path in sorted((root / folder).rglob("*")):
             relative = path.relative_to(root)
-            if (not path.is_file() or path.is_symlink() or "__pycache__" in relative.parts
-                    or any(p.endswith(".egg-info") for p in relative.parts)
-                    or (folder == "docs" and len(relative.parts) > 1
-                        and relative.parts[1] in {"history", "references", "research"})):
+            if not path.is_file() or path.is_symlink() or not source_path_allowed(relative):
                 continue
             files.append(path)
     hashes = {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
