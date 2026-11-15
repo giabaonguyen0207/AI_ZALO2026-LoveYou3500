@@ -60,7 +60,8 @@ def verify_result(data, result):
     if seen != expected:
         raise ValueError('Missing per-question logs')
     summary = json.loads((result / 'run_summary.json').read_text(encoding='utf-8'))
-    if summary.get('error') or summary.get('time_budget_exhausted') or summary.get('written') != len(expected):
+    completed = summary.get('written', 0) + summary.get('previously_completed', 0)
+    if summary.get('error') or summary.get('time_budget_exhausted') or completed != len(expected):
         raise ValueError('Run did not finish cleanly; preserve output and inspect logs')
     wall = summary.get('wall_time_seconds')
     if type(wall) not in (int, float) or not 0 <= wall <= 21600:

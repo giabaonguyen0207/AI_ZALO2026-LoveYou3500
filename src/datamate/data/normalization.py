@@ -113,6 +113,49 @@ def _readme_conversions(readme):
     return rows
 
 
+def _note_status(value, rulebook='', *, default_completed=None):
+    """Interpret documented order notes; never default blank status columns."""
+    text = search_key(value) or ''
+    # Negated status phrases need interpretation; a substring must not exclude orders.
+    if re.search(r'\b(?:khong|chua)\s+(?:huy|tra|hoan|giao)\b', text):
+        return 'unknown'
+    found = set()
+    for state, pattern in (
+        ('returned', r'\b(?:tra hang|khach tra lai|hoan hang|tra lai hang)\b'),
+        ('cancelled', r'^(?:don\s+)?(?:da\s+)?huy(?:\s+don)?(?:$|\s+(?:vi|do|boi)\b)|\b(?:don|khach|da)\s+huy\b'),
+        ('shipping', r'\b(?:dang giao|cho giao|dang van chuyen)\b'),
+        ('completed', r'\b(?:hoan thanh|da giao|da xong)\b'),
+    ):
+        if re.search(pattern, text):
+            found.add(state)
+    if len(found) == 1:
+        return found.pop()
+    if found:
+        return 'unknown'
+    if default_completed is None:
+        default_completed = 'ghi chu khong nhac trang thai la don hoan thanh' in (search_key(rulebook) or '')
+    return 'completed' if default_completed else status_class(value)
+
+
+def _adjustment_patterns(readme):
+    """Keep explicitly documented non-item ledger rows outside sales facts."""
+    # A quoted product in an unrelated paragraph is not evidence that it is an
+    # adjustment. Only use labels on a line explicitly documenting non-items.
+    documented = '\n'.join(line for line in readme.splitlines()
+                           if 'dong khong phai hang' in (search_key(line) or ''))
+    labels = re.findall(r'["“]([^"”\n]+)["”]', documented)
+    patterns = []
+    for label in labels:
+        folded = search_key(label) or ''
+        if not any(word in folded for word in ('voucher', 'diem', 'phi ship', 'phi giao')):
+            continue
+        # Only the documented numeric placeholder is variable; retain other text.
+        template = re.sub(r'<n>', 'DMNUMPLACEHOLDER', label, flags=re.I)
+        pattern = re.escape(search_key(template) or '').replace('dmnumplaceholder', r'\d+')
+        patterns.append(pattern)
+    return patterns
+
+
 def build_semantics(connection, tables, rulebook, readme, interpretation=None):
     policy = RulePolicy(**interpretation['policy']) if interpretation else read_policy(rulebook)
     members = {name for table in tables for name in table.get("view_of", [])}
@@ -129,8 +172,14 @@ def build_semantics(connection, tables, rulebook, readme, interpretation=None):
         resolve_order_relationships(connection,bindings,preferred)
     binding_by_name = {b["table"]: b for b in bindings}
     overlay = bool(interpretation and interpretation.get('mode') == 'code_first')
+    note_default_completed = 'ghi chu khong nhac trang thai la don hoan thanh' in (search_key(rulebook) or '')
     def state_of(row, binding):
         value = _value(row, binding, 'status')
+        note_rule = binding.get('status_from_notes')
+        if note_rule and note_rule.get('column') == binding['roles'].get('status'):
+            if str(value) in binding.get('status_map', {}):
+                return binding['status_map'][str(value)]
+            return _note_status(value, default_completed=note_default_completed)
         fallback = status_class(value) if not interpretation or overlay else 'unknown' if _nonempty(value) else None
         return binding.get('status_map', {}).get(str(value), fallback)
     def payment_of(row, binding):
@@ -148,10 +197,14 @@ def build_semantics(connection, tables, rulebook, readme, interpretation=None):
         rows = [dict(zip(columns, row)) for row in cursor]
         epoch,epoch_evidence=date_epoch(table,rows,binding,_cutoff(readme))
         if epoch_evidence:binding['date_epoch_evidence']=epoch_evidence
-        years = []
+        years, file_year_cache = [], {}
         for row in rows:
             match = re.search(r"\b((?:19|20|21)\d{2})\b", str(row.get("_dm_sheet", "")).replace("_", " "))
-            years.append(int(match[1]) if match else None)
+            filename = str(row.get('_dm_file', ''))
+            if filename not in file_year_cache:
+                file_years = set(re.findall(r'\b((?:19|20|21)\d{2})\b', filename.replace('_', ' ')))
+                file_year_cache[filename] = int(next(iter(file_years))) if len(file_years)==1 else None
+            years.append(int(match[1]) if match else file_year_cache[filename])
         profiles[name] = {}
         for column in table["columns"]:
             role = role_by_column.get(column)
@@ -325,7 +378,11 @@ def build_semantics(connection, tables, rulebook, readme, interpretation=None):
         cid, cname = get("customer_id"), get("customer_name")
         cname = customer_names.get(str(cid), cname)
         day = get("order_date")
-        statuses = {state_of(r,b) for r,b in header_group if _nonempty(_value(r,b,"status"))}
+        statuses = {state_of(r,b) for r,b in header_group
+                    if _nonempty(_value(r,b,"status")) or b.get('status_from_notes')}
+        # Blank notes on other lines of the same order must not override a return.
+        if any(b.get('status_from_notes') for _, b in header_group) and len(statuses) > 1:
+            statuses.discard('completed')
         state = next(iter(statuses)) if len(statuses)==1 else "unknown"
         if policy.exclude_whole_returned_order and 'returned' in statuses:
             state='returned'
@@ -349,8 +406,15 @@ def build_semantics(connection, tables, rulebook, readme, interpretation=None):
             **_provenance(first,first_binding["table"])}
     facts["dm_orders_all"] = list(order_map.values())
 
+    adjustment_patterns = _adjustment_patterns(readme)
     for binding in sales_bindings:
         for row in clean[binding["table"]]:
+            label = search_key(_value(row, binding, 'product_name')) or ''
+            if (_value(row, binding, 'quantity') is None and adjustment_patterns
+                    and not any(issue.startswith('parse:') for issue in row['_dm_issues'])
+                    and any(re.fullmatch(pattern, label) for pattern in adjustment_patterns)):
+                excluded.append({**_provenance(row, binding['table']), 'reason': 'documented_non_item_adjustment'})
+                continue
             oid = _value(row,binding,"order_id")
             order = order_map.get(str(oid), {})
             day = order.get("order_date") or _value(row,binding,"order_date")
@@ -442,7 +506,9 @@ def build_semantics(connection, tables, rulebook, readme, interpretation=None):
                        for b in sales_bindings+order_bindings if "status" in b["roles"]}
     for binding in bindings:
         for item in status_profiles.get(binding['table'], {}).get('values', []):
-            if interpretation:
+            if binding.get('status_from_notes'):
+                item['canonical'] = state_of({binding['roles']['status']: item['value']}, binding)
+            elif interpretation:
                 item['canonical'] = binding.get('status_map', {}).get(str(item['value']), status_class(item['value']) if overlay else 'unknown')
     dates = [r["order_date"] for r in facts["dm_sales_all"] if r.get("order_date")]
     if not dates:

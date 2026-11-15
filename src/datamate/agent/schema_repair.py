@@ -87,6 +87,7 @@ class SchemaRepair:
         self.cache.directory=Path(settings.cache_dir)/'schema-repairs'
         self.ready={}
         self.last_trace=[]
+        self.failures={}  # Transient parse/generation failures are never sealed on disk.
 
     def _identity(self,backend):
         return hashlib.sha256((self.cache._identity(backend)+hashlib.sha256(Path(__file__).read_bytes()).hexdigest()+
@@ -127,34 +128,53 @@ class SchemaRepair:
                                  'baseline':{'kind':binding['kind'],'roles':binding['roles'],'ambiguous':binding.get('ambiguous',{})},'columns':items}
         context={'needs':needs,'rulebook':{k:v for k,v in sources.items() if k.startswith('B')},
                  'readme':{k:v for k,v in sources.items() if k.startswith('R')},'tables':context_tables,
+                  'allowed_table_ids': list(context_tables), 'allowed_policy_fields': needs.get('policy', []),
                  'policy':catalog.semantic['policy'],'scope':'all-row profiles; values may be incomplete'}
         # A policy-only failure is shared across businesses of the same split.
         source_key=raw.fingerprint if tables else self.split.rulebook_hash
         key=hashlib.sha256((identity+source_key+json_text(needs,sort_keys=True)+json_text(context_tables,sort_keys=True)).encode()).hexdigest()
         event={'phase':'preparation','preparation_stage':'targeted_schema_repair','needs':needs,'cache_key':key}
         self.last_trace=[event]
-        cached=self.cache._load(key)
+        cached=self.cache._load(key) or self.failures.get(key)
         if cached is None:
             messages=[{'role':'system','content':PATCH_PROMPT},{'role':'user','content':json_text(context)}]
-            event['input_messages']=deepcopy(messages)
-            try:
-                if stop<=time.monotonic():
-                    raise DataMateError('Hết thời gian sửa ánh xạ')
-                options={'max_new_tokens':self.settings.schema_repair_max_new_tokens} if getattr(backend,'supports_token_budget',False) else {}
-                event['model_call_attempted']=True
-                event['model_call_started']=time.monotonic()
-                response=backend.generate(messages,stop-time.monotonic(),**options)
-                event['raw']=response
-                if getattr(backend,'last_generation',None): event['generation']=deepcopy(backend.last_generation)
-                proposal=parse_action(response)
-                event['llm_action']=deepcopy(proposal)
-                if proposal['action']!='prepare': raise DataMateError('Cần action prepare cho bản bổ sung')
-                cached={'proposal':proposal}
-            except BackendUnavailableError:
-                raise
-            except Exception as exc:
-                cached={'error':str(exc)}
-            self.cache._store(key,cached)
+            for attempt in range(2):
+                if attempt:
+                    event={'phase':'preparation','preparation_stage':'targeted_schema_repair',
+                           'needs':needs,'cache_key':key,'attempt':attempt+1}
+                    self.last_trace.append(event)
+                event['input_messages']=deepcopy(messages)
+                generated=False
+                try:
+                    if stop<=time.monotonic():
+                        raise DataMateError('Hết thời gian sửa ánh xạ')
+                    options={'max_new_tokens':self.settings.schema_repair_max_new_tokens} if getattr(backend,'supports_token_budget',False) else {}
+                    event['model_call_attempted']=True
+                    event['model_call_started']=time.monotonic()
+                    response=backend.generate(messages,stop-time.monotonic(),**options)
+                    generated=True
+                    event['raw']=response
+                    if getattr(backend,'last_generation',None): event['generation']=deepcopy(backend.last_generation)
+                    proposal=parse_action(response)
+                    event['llm_action']=deepcopy(proposal)
+                    if proposal['action']!='prepare': raise DataMateError('Cần action prepare cho bản bổ sung')
+                    cached={'proposal':proposal}
+                    break
+                except BackendUnavailableError:
+                    raise
+                except Exception as exc:
+                    cached={'error':str(exc)}
+                    retry=generated and isinstance(exc,DataMateError) and attempt==0 and time.monotonic()<stop
+                    event['observation']={'error':str(exc),'retry':retry,'baseline_preserved':True}
+                    if not retry:
+                        break
+                    messages += [{'role':'assistant','content':'{"protocol_error":true}'},
+                                 {'role':'user','content':json_text({'error':str(exc),
+                                  'repair':'Trả một JSON prepare ngắn, đóng đủ ngoặc. Chỉ tables trong allowed_table_ids và policy trong allowed_policy_fields; không chép lại baseline.'})}]
+            if 'proposal' in cached:
+                self.cache._store(key,cached)
+            else:
+                self.failures[key]=cached
         else:
             event['cache_hit']=True
         rejected={};ready=catalog
@@ -213,4 +233,4 @@ class SchemaRepair:
             'baseline_preserved':True,'changed':ready.fingerprint!=catalog.fingerprint,
             'remaining_needs':repair_needs(action,ready.semantic),'validation_scope':'provenance_and_data_consistency; semantics_not_proven'}
         event['preparation_elapsed_seconds']=round(time.monotonic()-started,4)
-        return ready,[event]
+        return ready,self.last_trace

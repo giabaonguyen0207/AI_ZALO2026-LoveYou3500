@@ -16,6 +16,8 @@ from ..models.artifacts import sha256, verify_artifact
 from .contracts import RetrievalFatalError, RetrievalTimeoutError
 from .encoders import VietnameseEncoders, validate_vectors
 from . import index as disk_index
+from .correction import VietnameseCorrector
+from .hybrid import rank_candidates
 
 
 @dataclass(frozen=True)
@@ -110,6 +112,7 @@ class ContextRetriever:
         self.reranker_manifest = (verify_artifact(settings.reranker_dir, settings.reranker_key)
                                   if settings.mode == 'dense_rerank' else None)
         self.encoder = encoder or VietnameseEncoders(settings)
+        self.corrector = VietnameseCorrector(settings) if settings.correction_enabled else None
         self.cache_dir = ensure_outside_dataset(settings.index_dir or Path(cache_dir) / 'retrieval', split.root)
         self._source_hash = disk_index.fingerprint({
             p.name: sha256(p) for p in sorted(Path(__file__).parent.glob('*.py'))})
@@ -119,12 +122,28 @@ class ContextRetriever:
     def identity(self):
         return {'mode': self.settings.mode, 'settings': asdict(self.settings),
                 'embedding': self.embedding_manifest, 'reranker': self.reranker_manifest,
+                'correction': self.corrector.manifest if self.corrector else None,
                 'source_sha256': self._source_hash}
 
     def runtime_info(self):
         return {**self.identity(), **self._stats, 'closed': self._closed.is_set(),
                 'device': self.settings.device, 'dtype': getattr(self.encoder, 'dtype', None),
-                'cached_businesses': len(self.index)}
+                'cached_businesses': len(self.index),
+                'correction_calls':self.corrector.calls if self.corrector else 0,
+                'correction_cache_hits':self.corrector.cache_hits if self.corrector else 0}
+
+    def correct_question(self, text, remaining_seconds):
+        if not self.corrector:
+            return None, None
+        started = time.monotonic()
+        if not self.lock.acquire(timeout=max(0,remaining_seconds)):
+            return None, {'phase':'question_correction','status':'lock_timeout','model_call_attempted':False}
+        try:
+            self._check_closed()
+            hint, event = self.corrector.correct(text, max(0,remaining_seconds-(time.monotonic()-started)))
+            return hint, {**event,'lock_wait_seconds':time.monotonic()-started-event.get('seconds',0)}
+        finally:
+            self.lock.release()
 
     def _check(self, deadline):
         if self._closed.is_set():
@@ -210,6 +229,8 @@ class ContextRetriever:
         with self.lock:
             try:
                 self._check(deadline)
+                if self.corrector:
+                    self.corrector.load()
                 self.encoder.load()
                 for business_id in sorted(set(business_ids)):
                     self._check(deadline)
@@ -223,20 +244,26 @@ class ContextRetriever:
             finally:
                 self._stats['prepare_seconds'] += time.monotonic() - started
 
-    def retrieve(self, question, business_id, catalog, remaining_seconds):
+    def retrieve_variants(self, question, variant, business_id, catalog, remaining_seconds):
+        return self.retrieve(question,business_id,catalog,remaining_seconds,query_variant=variant)
+
+    def retrieve(self, question, business_id, catalog, remaining_seconds, *, query_variant=None):
         start = time.monotonic()
         deadline = start + max(0, remaining_seconds)
         self._check_closed()
         if not self.lock.acquire(timeout=max(0, remaining_seconds)):
             return [], {'mode': self.settings.mode, 'status': 'timeout', 'phase': 'lock'}
+        lock_wait = time.monotonic()-start
         try:
             self._check(deadline)
             chunks, vectors = self._index(business_id, catalog, deadline)
-            query = validate_vectors(self.encoder.encode([question],
-                remaining_seconds=deadline-time.monotonic()), expected_rows=1)[0]
+            queries = [question] + ([query_variant] if query_variant and query_variant != question else [])
+            query = validate_vectors(self.encoder.encode(queries,
+                remaining_seconds=deadline-time.monotonic()), expected_rows=len(queries))
             self._check(deadline)
-            scores = vectors @ query
-            candidates = sorted(range(len(chunks)), key=lambda i: (-float(scores[i]), chunks[i].metadata['chunk_id']))[:self.settings.candidate_k]
+            scores = vectors @ query[0] if len(queries)==1 else (vectors @ query.T).max(axis=1)
+            candidates = rank_candidates(chunks,queries,scores,hybrid=self.settings.hybrid_retrieval,
+                                         limit=self.settings.candidate_k)
             rerank_scores = {}
             if self.settings.mode == 'dense_rerank' and candidates:
                 values = self.encoder.score(question, [chunks[i].text for i in candidates],
@@ -250,6 +277,8 @@ class ContextRetriever:
                        'rerank_score': rerank_scores.get(i)} for i in candidates[:self.settings.context_k]]
             return chosen, {'mode': self.settings.mode, 'status': 'ok' if chosen else 'empty',
                             'candidate_count': len(candidates), 'seconds': time.monotonic()-start,
+                            'query_variants':queries,'hybrid_retrieval':self.settings.hybrid_retrieval,
+                            'lock_wait_seconds':lock_wait,
                             'index_fingerprint': catalog.fingerprint,
                             'selected_sources': [c['source'] for c in chosen]}
         except RetrievalFatalError:
@@ -273,6 +302,8 @@ class ContextRetriever:
         self._closed.set()  # Pending callers cannot reload while close waits.
         with self.lock:
             self.encoder.close()
+            if self.corrector:
+                self.corrector.close()
             self.index.clear()
 
 

@@ -24,6 +24,10 @@ class ModelSpec:
 
 
 MODELS = {
+    # Conservative bound until the pinned artifact is staged and its tensors counted.
+    # Hash verification in artifacts.py makes this bound specific to one checkpoint.
+    'vietnamese-error-correction': ModelSpec('vietnamese-error-correction', 'yammdd/vietnamese-error-correction',
+        '4c5a5531e1a0cc2967ac3bd255cf2799ee10d8c1', 400_000_000, '2025-12-26T00:00:00Z', license='mit'),
     "qwen35-9b": ModelSpec("qwen35-9b", "Qwen/Qwen3.5-9B", "c202236235762e1c871ad0ccb60c8ee5ba337b9a", 9_653_104_368, "2026-03-02T00:51:43Z"),
     "qwen35-upscaled14b-v2": ModelSpec("qwen35-upscaled14b-v2", "Pinkstackorg/Qwen-3.5-upscaled-14B-V2-noft", "f4fe3d2ad8f2e14799624cdbafa5d46219bc1fb2", 14_599_485_040, "2026-03-24T11:13:01Z"),
     "gemma4-12b": ModelSpec("gemma4-12b", "google/gemma-4-12B-it", "707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7", 11_959_730_224, "2026-07-20T16:42:08Z"),
@@ -65,6 +69,8 @@ def inventory_from_settings(settings) -> dict:
         extras.append(settings.rag.embedding_key)
     if settings.rag.mode == 'dense_rerank':
         extras.append(settings.rag.reranker_key)
+    if settings.rag.correction_enabled:
+        extras.append(settings.rag.correction_key)
     return inventory(settings.model_key, settings.assistant_key, extra_keys=extras)
 
 
@@ -77,6 +83,8 @@ def model_paths(settings) -> dict:
         result[settings.rag.embedding_key] = settings.rag.embedding_dir
     if settings.rag.mode == 'dense_rerank':
         result[settings.rag.reranker_key] = settings.rag.reranker_dir
+    if settings.rag.correction_enabled:
+        result[settings.rag.correction_key] = settings.rag.correction_dir
     return result
 
 
@@ -88,6 +96,8 @@ def relocate_models(settings, paths):
         settings.rag.embedding_dir = str(paths[settings.rag.embedding_key])
     if settings.rag.mode == 'dense_rerank':
         settings.rag.reranker_dir = str(paths[settings.rag.reranker_key])
+    if settings.rag.correction_enabled:
+        settings.rag.correction_dir = str(paths[settings.rag.correction_key])
 
 
 def inference_extras(settings) -> str:

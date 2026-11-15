@@ -1,0 +1,48 @@
+{
+  "backend": "vllm",
+  "split_root": "/data",
+  "cache_dir": "/work/datamate",
+  "result_dir": "/result",
+  "model_key": "qwen35-9b",
+  "model_dir": "/code/models/qwen35-9b",
+  "dtype": "float16",
+  "mode": "self_review",
+  "quantization": "none",
+  "max_steps": 6,
+  "max_new_tokens": 768,
+  "schema_mode": "code_first",
+  "adaptive_preparation": false,
+  "require_plan": true,
+  "auto_execute_plan": true,
+  "schema_repair_timeout_seconds": 20,
+  "schema_repair_max_new_tokens": 512,
+  "question_timeout_seconds": 90,
+  "wall_time_seconds": 21000,
+  "max_context_tokens": 16384,
+  "question_workers": 2,
+  "vllm": {
+    "tensor_parallel_size": 1,
+    "pipeline_parallel_size": 1,
+    "gpu_memory_utilization": 0.85,
+    "max_num_seqs": 2,
+    "max_num_batched_tokens": 2048,
+    "enable_prefix_caching": true,
+    "init_timeout_seconds": 1200,
+    "extra_engine_args": {
+      "language_model_only": true
+    },
+    "cache_prompt_prefix": true
+  },
+  "rag": {
+    "mode": "dense_rerank",
+    "device": "cuda:1",
+    "dtype": "float16",
+    "embedding_dir": "/code/models/vietnamese-embedding",
+    "reranker_dir": "/code/models/vietnamese-reranker",
+    "index_dir": "/work/datamate/retrieval",
+    "hybrid_retrieval": true,
+    "correction_enabled": true,
+    "correction_dir": "/code/models/vietnamese-error-correction"
+  },
+  "recovery_steps": 2
+}

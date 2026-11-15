@@ -2,6 +2,10 @@
 
 ## Nguồn và trạng thái hiện tại
 
+Cập nhật tiếp15/11: chủ dự án xác nhận giữ interface/library versions nhưng cho phép thay pipeline và yêu cầu tích hợp correction. Đã thêm public checkpoint yammdd correction (pinned revision/hash, conservative≤400M), hybrid retrieval, profile optimized worker2/prefix/bounded recovery; config cũ làm baseline. Tài liệu hiện tại ở `zlai/pipeline_tichhop_2026-11-15.md`. Chưa đo GPU/PA; không coi test CPU là chứng nhận model runtime. Yêu cầu này thay cách diễn giải trước đó rằng phải giữ mọi cấu hình inference.
+
+Cập nhật từ chủ dự án **15/11/2026**: public dùng Colab A100; solution Docker dùng 2×RTX5090, tải weights trước trên Vast.ai. Đội đã thử Docker qua cổng BTC và chưa gặp lỗi môi trường theo chủ dự án. Giữ interface nộp bài, cấu hình inference mặc định và dependency versions; có thể xem xét đổi model riêng sau, hiện chưa đổi. Chủ dự án chưa giữ image/digest/URL weights cũ và yêu cầu cả hướng dẫn đóng từ file hiện tại. Tool chuẩn bị build có tùy chọn khóa toàn bộ runtime freeze; Dockerfile competition và predict.sh giữ nguyên. Hướng dẫn ở `zlai/huogndan_vast_docker.md`. Đây là thông tin người dùng xác nhận, chưa kèm log/image digest mới trong workspace. Các cảnh báo tương thích bên dưới là lịch sử rà soát, không phải bằng chứng image đã thử hiện đang lỗi.
+
 Nguồn ban đầu là bản tổng hợp người dùng cung cấp ngày30/10/2026. **Cập nhật14/11:** đã đọc đủ10trang PDF chính thức `E:/Bảo Lập Trình AI/zac2026_DataMate_docker_guideline_final.pdf` và inspect các trang interface/hardware/log/build. Hash/bản trích nằm trong outputs/runs/Bảo/docker-release-20261114; [Docker guide dự án](docker.md) ghi các yêu cầu đã xác minh và phần còn chưa rõ.
 
 Quyết định dự án ngày 09/11/2026: code dùng chung modular monolith, hướng tích hợp Adapter + Strategy; Hải phụ trách vLLM, Thịnh phụ trách RAG. Mỗi người tự chọn benchmark, chạy baseline trước rồi so bản tích hợp trên cùng tập đã chọn. Không bắt buộc bộ 200 câu chung. Xem [kiến trúc](architecture.md) và [hai plan](plans/).

@@ -9,33 +9,33 @@ from .transforms import search_key
 
 
 ALIASES = {
-    "order_id": {"ma don hang", "ma hoa don", "order id", "ma bill", "don",'ma giao dich','so ct','so phieu','ma phieu','ma gd','so hoa don','orderid','invoice id'},
-    "order_date": {"ngay ban", "ngay", "ngay thang", "ngay dat hang", "ngay giao dich", "ngay mua", "ngay lap"},
-    "status": {"trang thai", "trang thai don", "trang thai don hang", "trang thai xu ly", "tinh trang don", "tinh trang", "status", "ket qua", "ghi chu tt",'state','order status'},
-    "product_id": {"ma hang", "ma hang hoa", "ma san pham", "ma sku", "ma hh",'ma sp','ma mon','id sp'},
+    "order_id": {"ma don hang", "ma hoa don", "order id", "ma bill", "don",'ma giao dich','so ct','so phieu','ma phieu','ma gd','so hoa don','orderid','invoice id','ma don','don so','so don','hd','so hd'},
+    "order_date": {"ngay ban", "ngay", "ngay thang", "ngay dat hang", "ngay giao dich", "ngay mua", "ngay lap", 'ngay hd', 'ngay hoa don'},
+    "status": {"trang thai", "trang thai don", "trang thai don hang", "trang thai xu ly", "tinh trang don", "tinh trang", "status", "ket qua", "ghi chu tt",'state','order status','trang thai giao'},
+    "product_id": {"ma hang", "ma hang hoa", "ma san pham", "ma sku", "ma hh",'ma sp','ma mon','id sp','ma h hoa'},
     "product_name": {"ten hang", "ten hang hoa", "ten san pham", "mat hang", "san pham", "hang", "hang hoa", "product", "mon",'chi tiet hang','ten sp'},
-    "customer_id": {"ma kh", "ma khach hang", "customer id", "ma khach mua",'ma kh mua','ma khach le si'},
-    "customer_name": {"khach hang", "ten khach hang", "ten khach", "ten kh", "khach", "kh", "tenkh",'khach hang ten','ben mua'},
+    "customer_id": {"ma kh", "ma khach hang", "customer id", "ma khach mua",'ma kh mua','ma khach le si','ma khach'},
+    "customer_name": {"khach hang", "ten khach hang", "ten khach", "ten kh", "khach", "kh", "tenkh",'khach hang ten','ben mua','khach hang mua'},
     "quantity": {"so luong", "sl ban", "so luong san pham", "so luong ban", "so luong hang", "sl", "s luong", "s l",'slg','sluong','sl nhap','so luong nhap'},
-    "base_quantity": {"so luong quy doi", "sl quy doi", "so luong le", "sl le", "sl co ban", "quy ra dv le", "sl quy ra le"},
-    "line_amount": {"thanh tien", "thanh tien d", "tien ban", "tri gia", "thanh tien", "tien", "amount", "tong"},
+    "base_quantity": {"so luong quy doi", "sl quy doi", "so luong le", "sl le", "sl co ban", "quy ra dv le", "sl quy ra le", 'sl dv co ban'},
+    "line_amount": {"thanh tien", "thanh tien d", "tien ban", "tri gia", "thanh tien", "tien", "amount", "tong", 'tt'},
     "header_revenue": {"tong tien hang", "tien hang", "tien hang truoc giam"},
     "order_total": {"tong sau giam gia", "phai thu", "tong tien", "tongtien", "tong thanh toan"},
-    "balance": {"con no", "du no", "chua tra", "con phai thu"},
+    "balance": {"con no", "du no", "chua tra", "con phai thu", 'cong no'},
     "paid": {"khach da tra", "da tra", "da thu", "thanh toan"},
-    "unit": {"don vi tinh", "don vi", "dvt", "dv tinh", "unit", "donvi", "d vi"},
+    "unit": {"don vi tinh", "don vi", "dvt", "dv tinh", "unit", "donvi", "d vi", 'dv'},
     "base_unit": {"don vi co ban", "don vi co so", "don vi goc", "dv nho", "dv goc"},
     "large_unit": {"don vi quy doi", "dv lon", "dv nhap"},
     "factor": {"ti le quy doi", "he so", "he so qd", "he so quy doi", "quy doi", "bang"},
     "stock": {"ton cuoi ky", "ton cuoi", "ton kho", "ton thuc"},
-    "price": {"don gia", "gia san pham", "gia ban", "gia ban le", "gia 1 dv", "gia le", "price",'gia','gia niem yet','gia nhap'},
+    "price": {"don gia", "gia san pham", "gia ban", "gia ban le", "gia 1 dv", "gia le", "price",'gia','gia niem yet','gia nhap','dg'},
     "cost": {"gia von", "gia von hang", "gia von luc ban", "gia von hien tai"},
     "line_no": {"stt", "tt dong"},
     "timestamp": {"thoi gian tao", "thoi gian lap", "gio tao don"}, "hour": {"gio"},
     "channel": {"kenh ban", "kenh ban hang", "nguon don", "loai ban"},
     "employee": {"nguoi ban", "ma nv ban"},
     "payment_method": {"phuong thuc thanh toan", "phuong thuc tt", "hinh thuc thanh toan", "phuong thuc", "pttt"},
-    "payment_date": {"thoi diem", "thoi gian thu", "ngay gio thu", "ngay thu"}, "payment_amount": {"so tien thu", "gia tri"},
+    "payment_date": {"thoi diem", "thoi gian thu", "ngay gio thu", "ngay thu", 'ngay tt'}, "payment_amount": {"so tien thu", "gia tri", 'tien thu'},
     "return_quantity": {"so luong tra", "so luong tra dvt co ban", "sl tra dvt co ban"},
     "cancel_reason": {"ly do huy", "nguyen nhan huy",'cancelreason','cancel reason','cancellation reason'},
     'purchase_date':{'ngay nhap','ngay nhap hang','ngay phieu nhap'},
@@ -61,6 +61,15 @@ def header_key(column):
     return search_key(separated)
 
 
+def documented_file_matches(pattern, filename):
+    # README templates such as Sales_<month>_<year>.xlsx describe a file family.
+    # Only explicit placeholders act as wildcards; no substring file matching.
+    parts = re.split(r'(<[^<>]+>)', pattern.casefold())
+    expression = ''.join('.+' if re.fullmatch(r'<[^<>]+>', part) else re.escape(part)
+                         for part in parts)
+    return re.fullmatch(expression, filename.casefold()) is not None
+
+
 def readme_descriptions(readme, table):
     result, active, active_level = {}, False, 0
     for line in readme.splitlines():
@@ -70,7 +79,7 @@ def readme_descriptions(readme, table):
             # Subheadings without a new file keep the parent file's scope.
             file_heading=bool(quoted and quoted[0].casefold().endswith(('.csv','.xlsx','.sqlite','.db')))
             if not active or level<=active_level or file_heading:
-                active = bool(quoted and quoted[0].casefold() == table["file"].casefold())
+                active = bool(quoted and documented_file_matches(quoted[0], table['file']))
                 if len(quoted) > 1:
                     active = active and quoted[1].casefold() == table.get("sheet", "").casefold()
                 active_level=level
@@ -97,6 +106,7 @@ def description_role(description):
         ('receipt_id','ma phieu thu'),
         ("purchase_id", "ma phieu nhap"), ("purchase_id", "ma don nhap"),
         ("line_no", "so thu tu dong"), ("timestamp", "thoi diem dat"),
+        ("order_id", "so thu tu don"), ("order_id", "so thu tu hoa don"),
         ("timestamp", "thoi diem tao don"), ("order_date", "ngay ban"),
         ("order_date", "ngay dat"), ("order_id", "ma don"),
         ("status", "trang thai don"), ("customer_id", "ma khach"),
@@ -115,6 +125,33 @@ def description_role(description):
     if "cot trong" in text or "khong co du lieu" in text:
         return "empty"
     return next((role for role, pattern in patterns if text.startswith(pattern)), None)
+
+
+def note_status_binding(table, readme, descriptions):
+    """A note column is a status source only when the current README says so."""
+    for column in table['columns']:
+        if header_key(column) not in {'ghi chu', 'note', 'notes'}:
+            continue
+        evidence = [descriptions.get(column, '')]
+        file_level = None
+        for line in readme.splitlines():
+            heading = re.match(r'^(#{1,4})\s', line)
+            if heading:
+                level = len(heading[1])
+                if file_level is not None and level <= file_level:
+                    file_level = None
+                quoted = re.findall(r'`([^`]+)`', line)
+                if quoted and quoted[0].casefold().endswith(('.csv', '.xlsx', '.sqlite', '.db')):
+                    file_level = level
+            # File-scoped descriptions came from readme_descriptions(). Other
+            # files' note definitions must not spill into this sales table.
+            if file_level is None and (search_key(column) or '') in (search_key(line) or ''):
+                evidence.append(line)
+        for line in evidence:
+            text = search_key(line) or ''
+            if any(phrase in text for phrase in ('trang thai don', 'don huy', 'don khach tra', 'don tra hang')):
+                return {'column': column, 'evidence': line}
+    return None
 
 
 def bind_table(table, readme):
@@ -186,7 +223,12 @@ def bind_table(table, readme):
         kind = "products"
     elif "customer_id" in roles and "customer_name" in roles and "order_id" not in roles:
         kind = "customers"
+    note_status = note_status_binding(table, readme, descriptions) if kind == 'sales' and 'status' not in roles and 'status' not in ambiguous else None
+    if note_status:
+        roles['status'] = note_status['column']
+        origins[note_status['column']] = 'README_note_status'
     return {"table": table["name"], "kind": kind, "roles": roles, "ambiguous": ambiguous, "origins": origins,
+            **({'status_from_notes': note_status} if note_status else {}),
             'unmapped':[c for c in table['columns'] if c not in roles.values()]}
 
 

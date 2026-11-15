@@ -78,6 +78,26 @@ SYSTEM += ('\nEnum measure: '+', '.join(MEASURES)+'\nEnum operation: '+', '.join
            +'\nVí dụ cấu trúc; chỉ dùng khi đúng câu hỏi và nguồn thực tế:\n'+'\n'.join(json_text(item,separators=(',',':')) for item in PLAN_EXAMPLES))
 
 
+def compact_sources(bindings):
+    """Share identical schema descriptions, without merging data or table names."""
+    sources, schemas = [], {}
+    for binding in bindings:
+        schema = {'kind': binding['kind'], 'roles': binding['roles'],
+                  'ambiguous': binding['ambiguous'],
+                  'attributes': {k: {a: v for a, v in item.items() if a in {'column', 'type'}}
+                                 for k, item in binding.get('attributes', {}).items()},
+                  'unmapped_columns': binding.get('unmapped', [])}
+        key = json_text(schema, sort_keys=True)
+        source = {'table': binding['table'], 'clean_table': binding['clean_table']}
+        if key in schemas:
+            source['same_schema_as'] = schemas[key]
+        else:
+            schemas[key] = binding['table']
+            source.update(schema)
+        sources.append(source)
+    return sources
+
+
 def initial_messages(question: Question, rulebook: str, readme: str, catalog: dict, contract=None, *, cache_prefix=False, retrieved_context=None) -> list[dict]:
     semantic = catalog.get('semantic', {})
     if semantic:
@@ -91,11 +111,9 @@ def initial_messages(question: Question, rulebook: str, readme: str, catalog: di
         facts=[]
         for table in semantic['tables']:
             facts.append({'name':table['name'],'same_columns_as':table['name'].removesuffix('_all')} if table['name'].endswith('_all') else table)
-        summary = {'facts': facts, 'sources': [
-            {'table': b['table'], 'kind': b['kind'], 'roles': b['roles'], 'clean_table': b['clean_table'],
-             'ambiguous': b['ambiguous'], 'attributes':{k:{a:v for a,v in item.items() if a in {'column','type'}} for k,item in b.get('attributes',{}).items()},
-             'unmapped_columns':b.get('unmapped',[])}
-            for b in semantic['bindings']], 'status_profiles': status_profiles, 'policy': semantic['policy'],
+        summary = {'facts': facts, 'sources': compact_sources(semantic['bindings']),
+            'source_schema_note': 'same_schema_as chỉ chia sẻ mô tả cột/roles; các bảng vẫn là nguồn riêng. Không cộng dm_* cùng raw/clean hoặc view cùng sheet con.',
+            'status_profiles': status_profiles, 'policy': semantic['policy'],
             'quality': semantic['quality'], 'coverage': semantic['coverage'], 'capabilities': semantic['capabilities'],
             'interpretation':semantic.get('interpretation'), 'domains':semantic.get('domains',{})}
         summary['calendar']=next(({'name':t['name'],'columns':t['columns']} for t in catalog['tables'] if t['name']=='calendar'),None)

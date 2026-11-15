@@ -12,6 +12,8 @@ from .registry import ModelSpec, get_model
 
 
 RAG_WEIGHT_HASHES = {
+    ('yammdd/vietnamese-error-correction', '4c5a5531e1a0cc2967ac3bd255cf2799ee10d8c1'):
+        '3b59107309d563b40f8d8a5914b977a3e0e35cacc268254f76860b9ea119534f',
     ('AITeamVN/Vietnamese_Embedding', 'dea33aa1ab339f38d66ae0a40e6c40e0a9249568'):
         '1f2debafdf03659e8273022a3e902b94deec73cd20c2b7262ab7e21630163f6d',
     ('AITeamVN/Vietnamese_Reranker', 'f536976248403314225d7fdfdbc87f0e9516a54e'):
@@ -66,13 +68,16 @@ def artifact_files(directory: Path) -> list[Path]:
 def seal_artifact(directory: str | Path, spec: ModelSpec, lineage: dict | None = None) -> dict:
     directory = Path(directory).resolve()
     count = parameter_count(directory)
-    if count != spec.parameters:
+    bounded = spec.key == 'vietnamese-error-correction'
+    if not (0 < count <= spec.parameters if bounded else count == spec.parameters):
         raise DataMateError(f"Số phần tử tensor {count:,} khác inventory {spec.parameters:,}; kiểm tra checkpoint trước khi dùng")
     files = {str(path.relative_to(directory)).replace("\\", "/"): {"sha256": sha256(path), "bytes": path.stat().st_size}
              for path in artifact_files(directory)}
     verify_checkpoint_weight_hash(directory, spec, digest=files.get('model.safetensors', {}).get('sha256'))
     manifest = {"format_version": 1, "source": spec.to_dict(), "tensor_parameters": count,
                 "files": files, "lineage": lineage}
+    if bounded:
+        manifest['parameter_upper_bound'] = spec.parameters
     (directory / "artifact_manifest.json").write_text(json_text(manifest, indent=2), encoding="utf-8")
     return manifest
 
@@ -83,7 +88,10 @@ def verify_artifact(directory: str | Path, key: str) -> dict:
     if not path.exists():
         raise DataMateError(f"Chưa có model đã chuẩn bị tại {directory}. Chạy datamate stage-model --model {key} --output ... trước.")
     manifest = json.loads(path.read_text(encoding="utf-8"))
-    if manifest.get("source") != spec.to_dict() or manifest.get("tensor_parameters") != spec.parameters:
+    count = manifest.get('tensor_parameters')
+    count_valid = (type(count) is int and 0 < count <= spec.parameters
+                   if key == 'vietnamese-error-correction' else count == spec.parameters)
+    if manifest.get("source") != spec.to_dict() or not count_valid:
         raise DataMateError("Manifest model không khớp registry/revision/số tham số")
     actual = {str(p.relative_to(directory)).replace("\\", "/") for p in artifact_files(directory)}
     if actual != set(manifest.get("files", {})):
@@ -97,6 +105,8 @@ def verify_artifact(directory: str | Path, key: str) -> dict:
         if hashes[relative] != meta["sha256"]:
             raise DataMateError(f"Hash model không khớp: {relative}")
     verify_checkpoint_weight_hash(directory, spec, digest=hashes.get('model.safetensors'))
+    if key == 'vietnamese-error-correction' and parameter_count(directory) != count:
+        raise DataMateError('Correction tensor count khác manifest')
     return manifest
 
 

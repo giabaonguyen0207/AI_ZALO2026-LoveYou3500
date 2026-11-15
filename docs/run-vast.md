@@ -1,5 +1,7 @@
 # Thuê GPU để kiểm Docker DataMate
 
+Hướng dẫn đầy đủ cho source sửa ngày15/11, public A100 và solution2×5090, tải weights/build/rehearsal/export giữ stack: [huogndan_vast_docker.md](../../huogndan_vast_docker.md). Chủ dự án xác nhận image cũ đã thử qua BTC nhưng chưa giữ digest; các ghi chú chưa chốt bên dưới là lịch sử14/11.
+
 Máy BTC theo PDF nhận14/11/2026: **2×RTX5090,32GB/GPU; RAM512GB; CUDA>=12.8; tối đa6giờ kể cả load**. Ưu tiên thuê đúng2×5090. A10080GB có thể kiểm chức năng đầy đủ nhưng không thay bài kiểm Blackwell/32GB mỗi card.
 
 ## Chọn máy

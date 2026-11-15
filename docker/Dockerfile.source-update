@@ -1,0 +1,8 @@
+# Optional overlay ON THE TEAM'S ALREADY-TESTED IMAGE. No dependency/model install.
+# Build on the GPU/Linux machine with BASE_IMAGE set to that exact image/digest.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+COPY src /code/src
+# Ensure the updated source is used even when the base installed a package wheel.
+ENV PYTHONPATH=/code/src:${PYTHONPATH:-}
+# Inherit the proven image's entrypoint, predict.sh, config, libraries and weights.

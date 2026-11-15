@@ -1,5 +1,7 @@
 # Docker nộp BTC — DataMate
 
+Cập nhật15/11 từ chủ dự án: đội đã thử image cũ qua BTC; bản source mới chưa chạy GPU/Docker tại máy local. Quy trình hiện tại giữ stack/interface, có cả đường đóng từ đầu bằng full runtime freeze: [hướng dẫn từng bước trong workspace](../../huogndan_vast_docker.md). Các dòng “chưa xác nhận GPU”/“base ứng viên” bên dưới ghi trạng thái lịch sử14/11 và chưa xác định được digest image đội đã thử; không suy ra image của đội đang lỗi.
+
 Đối chiếu **toàn bộ PDF chính thức** `zac2026_DataMate_docker_guideline_final.pdf` do Bảo cung cấp14/11/2026. Bản trích10trang và SHA256 lưu trong `outputs/runs/Bảo/docker-release-20261114/`. Đây là nguồn cập nhật thay các giả định của template cũ.
 
 ## Cấu hình và trạng thái

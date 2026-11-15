@@ -14,6 +14,7 @@ from ..execution_audit import record_executions
 from ..models.backends import ChatBackend
 from ..models.contracts import BackendUnavailableError
 from .prompts import initial_messages
+from .context import fit_conversation
 from .protocol import answer_from_query, parse_action, verify_legacy_answer
 from .tools import BusinessTools
 from .verification import question_contract, question_periods, verify_metric_request
@@ -70,6 +71,8 @@ class Agent:
         prompt_snapshot = []
         results, evidence, repeats = {}, {}, Counter()
         consecutive_parse_failures = 0
+        recovery_used = False
+        step_limit = self.settings.max_steps
         last_id, plan = None, None
         answer = Answer('abstain', reason='Hết ngân sách bước hoặc thời gian')
         try:
@@ -107,6 +110,7 @@ class Agent:
                 calls+=sum(bool(item.get('model_call_attempted') or 'raw' in item) for item in repair_trace)
                 changed=catalog.fingerprint!=before
                 if changed:
+                    event['catalog_changed']=True
                     tools=BusinessTools(catalog,self.split.rulebook,question.as_of_date,self.settings.sql_timeout_seconds,self.settings.max_result_rows,deadline)
                     results,evidence,last_id={},{},None
                 return changed
@@ -143,22 +147,40 @@ class Agent:
                                          'result_review_required':self.settings.mode=='self_review',
                                          'schema_mode':'llm' if adaptive else self.settings.schema_mode,
                                          'lexical_hints_are_advisory':True}
+            corrected_question = None
+            correct = getattr(self.retriever,'correct_question',None)
+            if model_path and callable(correct):
+                corrected_question, correction_trace = correct(question.question,
+                    min(deadline-time.monotonic(),self.settings.rag.correction_timeout_seconds))
+                if correction_trace:
+                    trace.append(correction_trace)
+                    calls += int(bool(correction_trace.get('model_call_attempted')))
+                if corrected_question:
+                    request_contract['question_normalization_hint'] = {
+                        'text':corrected_question,'advisory_only':True,
+                        'instruction':'Câu gốc request.question là căn cứ duy nhất cho số, tên, kỳ và điều kiện. Bản sửa chỉ gợi ý cách đọc; không dùng làm evidence mới.'}
             prompt_args = (question, self.split.rulebook, self.split.readme(question.business_id), catalog.summary(), request_contract)
             prefix = self.settings.backend == 'vllm' and self.settings.vllm.cache_prompt_prefix
             messages = initial_messages(*prompt_args, cache_prefix=prefix)
             baseline_messages_sha256 = hashlib.sha256(json_text(messages,sort_keys=True).encode()).hexdigest()
             selected = []
             if self.settings.rag.mode != 'none':
-                chunks, retrieval = self.retriever.retrieve(question.question, question.business_id,
-                    self.ingestor.catalog(question.business_id, normalize=False),
-                    min(deadline-time.monotonic(), self.settings.rag.timeout_seconds))
+                retrieval_args = (question.business_id,self.ingestor.catalog(question.business_id, normalize=False),
+                                  min(deadline-time.monotonic(), self.settings.rag.timeout_seconds))
+                variants = getattr(self.retriever,'retrieve_variants',None)
+                if corrected_question and callable(variants):
+                    chunks, retrieval = variants(question.question,corrected_question,*retrieval_args)
+                else:
+                    chunks, retrieval = self.retriever.retrieve(question.question,*retrieval_args)
                 messages, selected, packed = fit_context(chunks,
                     build_messages=lambda context: initial_messages(*prompt_args, cache_prefix=prefix, retrieved_context=context),
                     backend=self.backend, settings=self.settings)
                 trace.append({'phase':'retrieval', **retrieval, **packed, 'selected': [c['source'] for c in selected],
                               'baseline_messages_sha256':baseline_messages_sha256})
             prompt_snapshot=deepcopy(messages)
-            for step in range(self.settings.max_steps):
+            for step in range(self.settings.max_steps+self.settings.recovery_steps):
+                if step >= step_limit:
+                    break
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     break
@@ -168,6 +190,15 @@ class Agent:
                         build_messages=lambda context: initial_messages(*prompt_args, cache_prefix=prefix, retrieved_context=context) + history,
                         backend=self.backend, settings=self.settings)
                     trace.append({'phase': 'retrieval_context', 'step': step + 1, **packed})
+                messages, compacted = fit_conversation(messages, self.backend, self.settings,
+                    plan=plan, results=results, evidence=evidence, compact_result=self._feedback_for_model)
+                if compacted:
+                    trace.append({**compacted, 'step': step + 1})
+                if step == 0:
+                    prompt_snapshot = deepcopy(messages)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
                 calls += int(getattr(self.backend, 'counts_as_model', True))
                 try:
                     call_started = time.monotonic()
@@ -383,9 +414,7 @@ class Agent:
                             event.update(observation=feedback,accepted=True)
                             trace.append(event)
                             break
-                    if event.get('catalog_changed'):
-                        feedback['catalog_updates']=json.loads(initial_messages(question,'','',catalog.summary())[1]['content'])['catalog']
-                    feedback = {**feedback, 'remaining_steps': self.settings.max_steps - step - 1}
+                    feedback = {**feedback, 'remaining_steps': step_limit - step - 1}
                     event['observation'] = feedback
                 except BackendUnavailableError:
                     raise
@@ -396,10 +425,14 @@ class Agent:
                         messages.append({'role': 'assistant', 'content': '{"protocol_error":true}'})
                     if action and action['action'] in {'sql', 'metric', 'calculate'}:
                         last_id = None
-                    feedback = {'error': str(exc), 'error_kind': stage, 'remaining_steps': self.settings.max_steps - step - 1,
+                    feedback = {'error': str(exc), 'error_kind': stage, 'remaining_steps': step_limit - step - 1,
                                 'repair': self._repair(stage,action,plan),
                                 **({'expected_type':plan['type']} if plan and stage=='answer_projection' else {})}
                     event['observation'] = feedback
+                # Repair may succeed before calculation/validation fails. The
+                # next turn must still see the new catalog on that error path.
+                if event.get('catalog_changed'):
+                    feedback['catalog_updates']=json.loads(initial_messages(question,'','',catalog.summary())[1]['content'])['catalog']
                 trace.append(event)
                 if consecutive_parse_failures:
                     event['consecutive_parse_failures'] = consecutive_parse_failures
@@ -412,9 +445,18 @@ class Agent:
                     'rows': feedback.get('rows'), 'availability': feedback.get('availability')}, sort_keys=True).encode()).hexdigest()
                 repeats[signature] += 1
                 if repeats[signature] >= self.settings.max_repeated_actions:
-                    answer = Answer('abstain', reason='Lặp cùng action/kết quả không có tiến triển; dừng để tiết kiệm ngân sách')
-                    event['loop_stopped'] = True
-                    break
+                    if self.settings.recovery_steps and not recovery_used and time.monotonic()<deadline:
+                        recovery_used=True
+                        step_limit=self.settings.max_steps+self.settings.recovery_steps
+                        feedback={**feedback,'stalled_action':action,'remaining_steps':step_limit-step-1,
+                            'recovery':'Đã lặp cùng action/kết quả. Không lặp lại. Đọc schema/profile nguồn liên quan hoặc sửa plan/SQL theo lỗi và câu hỏi gốc; giữ đủ điều kiện. Không có căn cứ thì abstain.',
+                            'previous_error':feedback.get('error')}
+                        repeats.clear()
+                        event['bounded_recovery']=True
+                    else:
+                        answer = Answer('abstain', reason='Lặp cùng action/kết quả không có tiến triển; dừng để tiết kiệm ngân sách')
+                        event['loop_stopped'] = True
+                        break
                 event['model_observation'] = self._feedback_for_model(feedback)
                 messages.append({'role': 'user', 'content': json_text({'tool_result': event['model_observation']},separators=(',',':'))})
         except (BackendUnavailableError, RetrievalFatalError):
@@ -462,6 +504,8 @@ class Agent:
                     'Plan và từng filter cần evidence_id="Q" hoặc evidence trích nguyên văn. '
                     'Không bỏ điều kiện để qua kiểm tra; chưa đủ căn cứ thì abstain.')
         if stage == 'answer_projection':
+            if action and action.get('type') == 'unanswerable':
+                return 'Gọi action check theo câu hỏi/plan hiện tại để nhận evidence_id nếu missing. unsupported hoặc query rỗng không đủ; khi không chứng minh được thì abstain, không lặp final unanswerable.'
             return 'Giữ query_id thành công. Dùng đúng type và columns để chiếu cột cần lấy; nhiều kết quả theo câu hỏi dùng list có thứ tự. SQL khác plan thì dùng calculate hoặc sửa kế hoạch có căn cứ.'
         if stage in {'metric','calculate'}:
             return 'Kiểm tra đại lượng/kỳ và tham số. Nếu metric không giữ đủ điều kiện thì dùng calculate theo plan; nghiệp vụ chưa biểu diễn được dùng SQL trên nguồn đã kiểm tra, chưa chắc thì abstain.'

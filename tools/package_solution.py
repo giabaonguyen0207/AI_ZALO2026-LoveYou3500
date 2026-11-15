@@ -17,11 +17,24 @@ from tools.runtime_artifacts import verify_bundle, verify_wheels
 from tools.training_evidence import verify as verify_training_evidence
 
 
+def verify_training_link(evidence, key, source):
+    """Team-trained artifacts need lineage evidence; pinned public correction does not."""
+    expected = evidence.get('inference_artifacts', {}).get(key)
+    if expected is None and key == 'vietnamese-error-correction':
+        # This exact public checkpoint is independently pinned, bounded and
+        # weight-hash verified by verify_artifact; it was not trained by the team.
+        verify_artifact(source, key)
+        return
+    if expected != sha256(Path(source)/'artifact_manifest.json'):
+        raise ValueError('Training evidence is not linked to the selected inference model: ' + key)
+
+
 def image_readme(settings, specs, evidence, base_image, release):
     lines=['# DataMate submission', '',
         'Status: '+('Release context; GPU/driver rehearsal is still required.' if release else 'DEVELOPMENT ONLY — do not submit.'), '',
         '## Approach', '',
         'Modular Python agent with Adapter + Strategy. Vietnamese embedding/reranker retrieve rulebook, README and schema context for the current business. The local generator proposes plans/SQL; read-only tools execute and validate calculations, then project the required answer type. Time is resolved from as_of_date and the mounted split rulebook. Routing IDs do not decide answers.', '',
+        'When enabled, the pinned public Vietnamese correction checkpoint supplies an advisory query variant; the original question remains the source of evidence. It is used unmodified, not trained by the team. Its parameters count toward the inference cap (conservative 400M bound; actual staged tensor count is in its manifest). Hybrid retrieval fuses lexical and dense candidates before reranking.', '',
         '## Runtime', '',
         'All inference assets are local. Network must be disabled. Input /data is read-only; scratch/cache /work; output /result/submission.jsonl and one-line per-question records in /result/logs. Additional debug files are in /result/debug.', '',
         'Exact scoring command inside the container: `bash /code/predict.sh` (no arguments).', '',
@@ -106,8 +119,8 @@ def stage(root, config, output, wheelhouse, model_sources, *, base_image=None,
         if source == output or output.is_relative_to(source):
             raise ValueError('Build output must be outside the source checkpoint')
         manifests[key] = verify_artifact(source, key)
-        if release and evidence.get('inference_artifacts', {}).get(key) != sha256(source / 'artifact_manifest.json'):
-            raise ValueError('Training evidence is not linked to the selected inference model: ' + key)
+        if release:
+            verify_training_link(evidence,key,source)
     if wheelhouse == output or output.is_relative_to(wheelhouse):
         raise ValueError('Build output must be outside wheelhouse')
     output.mkdir(parents=True, exist_ok=True)

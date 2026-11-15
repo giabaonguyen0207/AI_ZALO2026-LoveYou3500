@@ -94,8 +94,23 @@ class RAGSettings:
     rerank_batch_size: int = 4
     index_dir: str | None = None
     max_cached_businesses: int = 2
+    hybrid_retrieval: bool = False
+    correction_enabled: bool = False
+    correction_key: str = 'vietnamese-error-correction'
+    correction_dir: str = 'models/vietnamese-error-correction'
+    correction_timeout_seconds: float = 4.0
+    correction_max_tokens: int = 256
 
     def validate(self):
+        if type(self.hybrid_retrieval) is not bool or type(self.correction_enabled) is not bool:
+            raise DataMateError('rag hybrid_retrieval/correction_enabled cần boolean')
+        if self.correction_enabled and (self.mode == 'none' or self.correction_key != 'vietnamese-error-correction'):
+            raise DataMateError('Correction cần RAG và checkpoint correction đã pin')
+        if (type(self.correction_timeout_seconds) not in (int,float)
+                or not math.isfinite(self.correction_timeout_seconds) or self.correction_timeout_seconds <= 0):
+            raise DataMateError('correction_timeout_seconds cần số hữu hạn dương')
+        if type(self.correction_max_tokens) is not int or not 32 <= self.correction_max_tokens <= 256:
+            raise DataMateError('correction_max_tokens trong [32,256]')
         if self.mode not in {'none', 'dense', 'dense_rerank'}:
             raise DataMateError('rag.mode khong hop le')
         if self.mode != 'none' and self.embedding_key != 'vietnamese-embedding':
@@ -157,6 +172,7 @@ class Settings:
     preparation_max_new_tokens: int = 2048
     seed: int = 42
     question_workers: int | None = None  # auto: vLLM min(4,max_num_seqs), others 1
+    recovery_steps: int = 0  # One bounded opportunity after a repeated action; zero preserves baseline.
     vllm: VLLMSettings = field(default_factory=VLLMSettings)
     rag: RAGSettings = field(default_factory=RAGSettings)
 
@@ -165,11 +181,13 @@ class Settings:
         return self.question_workers if self.question_workers is not None else min(4, self.vllm.max_num_seqs) if self.backend == 'vllm' else 1
 
     def validate(self) -> Settings:
+        if type(self.recovery_steps) is not int or not 0 <= self.recovery_steps <= 2:
+            raise DataMateError('recovery_steps trong [0,2]')
         if self.backend == 'torch':
             self.backend = 'transformers'
         for f in fields(Settings):
             default, value = getattr(Settings(), f.name), getattr(self, f.name)
-            if type(default) is int and (type(value) is not int or value < (0 if f.name == 'seed' else 1)):
+            if type(default) is int and (type(value) is not int or value < (0 if f.name in {'seed','recovery_steps'} else 1)):
                 raise DataMateError(f'{f.name} cần số nguyên '+('không âm' if f.name == 'seed' else 'dương'))
             if type(default) is float and (type(value) not in (int, float) or not math.isfinite(value) or value <= 0):
                 raise DataMateError(f'{f.name} cần số hữu hạn dương')
